@@ -5,19 +5,24 @@ set(CMAKE_BUILD_TYPE Debug)
 enable_testing()
 find_package (Threads)
 
+add_subdirectory(thirdparty)
+
 set(
 	MOTOR_SOURCES
 	src/arena.c
+	src/threads.c
 	src/xxhash.c
-	src/vulkan/device.c
-	src/vulkan/volk.c
-	src/vulkan/spirv_reflect.c
-	src/vulkan/vk_mem_alloc.cpp
+
+	src/vulkan/glfw_window.c
+	src/vulkan/vulkan_device.c
+	src/vulkan/internal/volk.c
+	src/vulkan/internal/spirv_reflect.c
+	src/vulkan/internal/vk_mem_alloc.cpp
 	)
 
 add_library(motor ${MOTOR_SOURCES})
-target_include_directories(motor PUBLIC src/)
-target_link_libraries(motor ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+target_include_directories(motor PUBLIC src/ PRIVATE ${glfw_INCLUDE_DIRS})
+target_link_libraries(motor ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} glfw)
 
 add_executable(simple examples/simple.c)
 target_link_libraries(simple PUBLIC motor)
@@ -25,3 +30,4 @@ target_link_libraries(simple PUBLIC motor)
 add_executable(arena_tests tests/arena_tests.c)
 target_link_libraries(arena_tests PUBLIC motor)
 add_test(area_tests arena_tests)
+
