@@ -1,6 +1,9 @@
 #ifndef MT_VULKAN_CONVERSIONS
 #define MT_VULKAN_CONVERSIONS
 
+#include "internal.h"
+#include "../../renderer.h"
+
 static MtFormat mt_format_from_vulkan(VkFormat format) {
   switch (format) {
   case VK_FORMAT_R8_UINT: return MT_FORMAT_R8_UINT;

@@ -4,13 +4,16 @@
 #include <stdbool.h>
 #include "arena.h"
 
-#define MT_DEFINE_HANDLE(object) typedef struct object##_T *object;
+typedef struct MtDevice MtDevice;
 
-MT_DEFINE_HANDLE(MtDevice);
-MT_DEFINE_HANDLE(MtWindow);
-MT_DEFINE_HANDLE(MtProgram);
-MT_DEFINE_HANDLE(MtImage);
-MT_DEFINE_HANDLE(MtBuffer);
+typedef struct MtDeviceVT {
+  void (*destroy)(MtDevice *);
+} MtDeviceVT;
+
+typedef struct MtIDevice {
+  MtDevice *inst;
+  MtDeviceVT *vt;
+} MtIDevice;
 
 typedef enum MtFormat {
   MT_FORMAT_UNDEFINED,
@@ -60,18 +63,5 @@ typedef union MtColor {
   };
   float values[4];
 } MtColor;
-
-typedef uint32_t MtDeviceFlags;
-typedef enum MtDeviceFlagBits {
-  MT_DEVICE_HEADLESS = 1,
-} MtDeviceFlagBits;
-
-typedef struct MtDeviceDescriptor {
-  MtDeviceFlags flags;
-  uint32_t num_threads;
-} MtDeviceDescriptor;
-
-MtDevice mt_device_create(MtArena *arena, MtDeviceDescriptor *descriptor);
-void mt_device_destroy(MtDevice device);
 
 #endif

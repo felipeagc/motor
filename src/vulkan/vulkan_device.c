@@ -1,12 +1,49 @@
-#include "../renderer.h"
+#include "vulkan_device.h"
 
-#include "../util.h"
-#include "device.h"
-#include "util.h"
-#include "conversions.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../util.h"
+#include "../arena.h"
+#include "internal/conversions.h"
+#include "internal/internal.h"
+#include "internal/vk_mem_alloc.h"
+
+typedef struct _MtVulkanDevice {
+  MtArena *arena;
+
+  MtVulkanDeviceFlags flags;
+  MtVulkanWindowSystem *window_system;
+
+  VkInstance instance;
+  VkDebugUtilsMessengerEXT debug_messenger;
+
+  VkPhysicalDevice physical_device;
+  VkDevice device;
+
+  MtQueueFamilyIndices indices;
+
+  VkQueue graphics_queue;
+  VkQueue transfer_queue;
+  VkQueue present_queue;
+  VkQueue compute_queue;
+
+  VmaAllocator gpu_allocator;
+
+  VkPhysicalDeviceProperties physical_device_properties;
+
+  VkFormat preferred_depth_format;
+
+  uint32_t num_threads;
+  VkCommandPool *graphics_cmd_pools;
+  VkCommandPool *compute_cmd_pools;
+} _MtVulkanDevice;
+
+static void _mt_vulkan_device_destroy(_MtVulkanDevice *dev);
+
+static MtDeviceVT _MT_VULKAN_DEVICE_VT = (MtDeviceVT){
+    .destroy = (void *)_mt_vulkan_device_destroy,
+};
 
 #if !defined(NDEBUG)
 // Debug mode
@@ -40,14 +77,15 @@ VkBool32 debug_callback(
   return VK_FALSE;
 }
 
-static bool are_indices_complete(MtDevice dev, MtQueueFamilyIndices *indices) {
+static bool
+are_indices_complete(_MtVulkanDevice *dev, MtQueueFamilyIndices *indices) {
   return indices->graphics != UINT32_MAX &&
          ((dev->flags & MT_DEVICE_HEADLESS) ||
           indices->present != UINT32_MAX) &&
          indices->transfer != UINT32_MAX && indices->compute != UINT32_MAX;
 }
 
-static bool check_validation_layer_support(MtDevice device) {
+static bool check_validation_layer_support(_MtVulkanDevice *device) {
   uint32_t layer_count;
   vkEnumerateInstanceLayerProperties(&layer_count, NULL);
 
@@ -77,9 +115,9 @@ static bool check_validation_layer_support(MtDevice device) {
   return true;
 }
 
-static void create_instance(MtDevice device) {
+static void create_instance(_MtVulkanDevice *dev) {
 #ifdef MT_ENABLE_VALIDATION
-  if (!check_validation_layer_support(device)) {
+  if (!check_validation_layer_support(dev)) {
     printf("Application wants to enable validation layers but does not support "
            "them\n");
     exit(1);
@@ -109,38 +147,41 @@ static void create_instance(MtDevice device) {
   uint32_t extension_count = 0;
   if (MT_LENGTH(INSTANCE_EXTENSIONS) > 0) {
     extension_count = MT_LENGTH(INSTANCE_EXTENSIONS);
-    extensions      = mt_alloc(device->arena, sizeof(char *) * extension_count);
+    extensions      = mt_alloc(dev->arena, sizeof(char *) * extension_count);
     memcpy(
         extensions,
         INSTANCE_EXTENSIONS,
         sizeof(char *) * MT_LENGTH(INSTANCE_EXTENSIONS));
   }
 
-  /* if (!headless) { */
-  /*   uint32_t glfw_extension_count; */
-  /*   const char **glfw_extensions = */
-  /*       glfwGetRequiredInstanceExtensions(&glfw_extension_count); */
+  if (!(dev->flags & MT_DEVICE_HEADLESS)) {
+    assert(dev->window_system);
+    uint32_t window_extension_count;
+    const char **window_extensions =
+        dev->window_system->get_vulkan_instance_extensions(
+            &window_extension_count);
 
-  /*   extensions = mem.realloc !( */
-  /*       char *)(extensions, extensions.length + glfw_extension_count); */
+    extension_count += window_extension_count;
+    extensions =
+        mt_realloc(dev->arena, extensions, sizeof(char *) * extension_count);
 
-  /*   memcpy( */
-  /*       &extensions[extensions.length - glfw_extension_count], */
-  /*       glfw_extensions, */
-  /*       glfw_extension_count * sizeof(char *)); */
-  /* } */
+    memcpy(
+        &extensions[extension_count - window_extension_count],
+        window_extensions,
+        window_extension_count * sizeof(char *));
+  }
 
   create_info.enabledExtensionCount   = extension_count;
   create_info.ppEnabledExtensionNames = extensions;
 
-  VK_CHECK(vkCreateInstance(&create_info, NULL, &device->instance));
+  VK_CHECK(vkCreateInstance(&create_info, NULL, &dev->instance));
 
-  volkLoadInstance(device->instance);
+  volkLoadInstance(dev->instance);
 
-  mt_free(device->arena, extensions);
+  mt_free(dev->arena, extensions);
 }
 
-static void create_debug_messenger(MtDevice dev) {
+static void create_debug_messenger(_MtVulkanDevice *dev) {
   VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   create_info.messageSeverity =
@@ -157,7 +198,7 @@ static void create_debug_messenger(MtDevice dev) {
 }
 
 MtQueueFamilyIndices
-find_queue_families(MtDevice dev, VkPhysicalDevice physical_device) {
+find_queue_families(_MtVulkanDevice *dev, VkPhysicalDevice physical_device) {
   MtQueueFamilyIndices indices;
   indices.graphics = UINT32_MAX;
   indices.present  = UINT32_MAX;
@@ -192,11 +233,11 @@ find_queue_families(MtDevice dev, VkPhysicalDevice physical_device) {
     }
 
     if (!dev->flags & MT_DEVICE_HEADLESS) {
-      /* if (queue_family->queueCount > 0 && */
-      /*     glfwGetPhysicalDevicePresentationSupport( */
-      /*         instance, physical_device, i)) { */
-      /*   indices.present = i; */
-      /* } */
+      if (queue_family->queueCount > 0 &&
+          dev->window_system->get_physical_device_presentation_support(
+              dev->instance, physical_device, i)) {
+        indices.present = i;
+      }
     }
 
     if (are_indices_complete(dev, &indices)) break;
@@ -207,7 +248,7 @@ find_queue_families(MtDevice dev, VkPhysicalDevice physical_device) {
 }
 
 bool check_device_extension_support(
-    MtDevice dev, VkPhysicalDevice physical_device) {
+    _MtVulkanDevice *dev, VkPhysicalDevice physical_device) {
   uint32_t extension_count;
   vkEnumerateDeviceExtensionProperties(
       physical_device, NULL, &extension_count, NULL);
@@ -238,7 +279,8 @@ bool check_device_extension_support(
   return found_all;
 }
 
-bool is_device_suitable(MtDevice dev, VkPhysicalDevice physical_device) {
+bool is_device_suitable(
+    _MtVulkanDevice *dev, VkPhysicalDevice physical_device) {
   MtQueueFamilyIndices indices = find_queue_families(dev, physical_device);
 
   bool extensions_supported =
@@ -247,7 +289,7 @@ bool is_device_suitable(MtDevice dev, VkPhysicalDevice physical_device) {
   return are_indices_complete(dev, &indices) && extensions_supported;
 }
 
-static void pick_physical_device(MtDevice dev) {
+static void pick_physical_device(_MtVulkanDevice *dev) {
   uint32_t device_count = 0;
   vkEnumeratePhysicalDevices(dev->instance, &device_count, NULL);
 
@@ -279,7 +321,7 @@ static void pick_physical_device(MtDevice dev) {
   mt_free(dev->arena, devices);
 }
 
-static void create_device(MtDevice dev) {
+static void create_device(_MtVulkanDevice *dev) {
   dev->indices = find_queue_families(dev, dev->physical_device);
 
   float queue_priority                          = 1.0f;
@@ -360,7 +402,7 @@ static void create_device(MtDevice dev) {
   vkGetDeviceQueue(dev->device, dev->indices.compute, 0, &dev->compute_queue);
 }
 
-static void create_allocator(MtDevice dev) {
+static void create_allocator(_MtVulkanDevice *dev) {
   VmaAllocatorCreateInfo allocator_info = {0};
   allocator_info.physicalDevice         = dev->physical_device;
   allocator_info.device                 = dev->device;
@@ -392,7 +434,7 @@ static void create_allocator(MtDevice dev) {
 }
 
 static VkFormat find_supported_format(
-    MtDevice dev,
+    _MtVulkanDevice *dev,
     VkFormat *candidates,
     uint32_t candidate_count,
     VkImageTiling tiling,
@@ -416,7 +458,7 @@ static VkFormat find_supported_format(
   return VK_FORMAT_UNDEFINED;
 }
 
-static void find_supported_depth_format(MtDevice dev) {
+static void find_supported_depth_format(_MtVulkanDevice *dev) {
   VkFormat candidates[3] = {
       VK_FORMAT_D24_UNORM_S8_UINT,
       VK_FORMAT_D32_SFLOAT_S8_UINT,
@@ -431,7 +473,7 @@ static void find_supported_depth_format(MtDevice dev) {
       VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-static void create_command_pools(MtDevice dev) {
+static void create_command_pools(_MtVulkanDevice *dev) {
   VkCommandPoolCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -459,17 +501,20 @@ static void create_command_pools(MtDevice dev) {
   }
 }
 
-MtDevice mt_device_create(MtArena *arena, MtDeviceDescriptor *descriptor) {
-  MtDevice dev = mt_calloc(arena, sizeof(struct MtDevice_T));
-  dev->flags   = descriptor->flags;
-  dev->arena   = arena;
+void mt_vulkan_device_init(
+    MtIDevice *interface,
+    MtVulkanDeviceDescriptor *descriptor,
+    MtArena *arena) {
+  _MtVulkanDevice *dev = mt_calloc(arena, sizeof(_MtVulkanDevice));
+  dev->flags           = descriptor->flags;
+  dev->arena           = arena;
+
+  dev->window_system = descriptor->window_system;
 
   dev->num_threads = descriptor->num_threads;
   if (dev->num_threads == 0) {
     dev->num_threads = 1;
   }
-
-  VK_CHECK(volkInitialize());
 
   create_instance(dev);
 
@@ -485,10 +530,11 @@ MtDevice mt_device_create(MtArena *arena, MtDeviceDescriptor *descriptor) {
 
   create_command_pools(dev);
 
-  return dev;
+  interface->inst = (MtDevice *)dev;
+  interface->vt   = &_MT_VULKAN_DEVICE_VT;
 }
 
-void mt_device_destroy(MtDevice dev) {
+static void _mt_vulkan_device_destroy(_MtVulkanDevice *dev) {
   MtArena *arena = dev->arena;
   vkDeviceWaitIdle(dev->device);
 
