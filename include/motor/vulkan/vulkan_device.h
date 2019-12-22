@@ -7,7 +7,7 @@
 typedef struct MtIDevice MtIDevice;
 
 typedef struct MtArena MtArena;
-typedef struct MtVulkanWindowSystem MtVulkanWindowSystem;
+typedef struct MtIWindowSystem MtIWindowSystem;
 
 typedef struct MtQueueFamilyIndices {
   uint32_t graphics;
@@ -24,7 +24,7 @@ typedef enum MtVulkanDeviceFlagBits {
 typedef struct MtVulkanDeviceDescriptor {
   MtVulkanDeviceFlags flags;
   uint32_t num_threads;
-  MtVulkanWindowSystem *window_system;
+  MtIWindowSystem *window_system;
 } MtVulkanDeviceDescriptor;
 
 void mt_vulkan_device_init(

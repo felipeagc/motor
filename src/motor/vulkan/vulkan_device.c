@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "../../../include/motor/util.h"
 #include "../../../include/motor/arena.h"
+#include "../../../include/motor/window.h"
 #include "conversions.h"
 #include "internal.h"
 #include "vk_mem_alloc.h"
@@ -509,7 +511,7 @@ void mt_vulkan_device_init(
   dev->flags           = descriptor->flags;
   dev->arena           = arena;
 
-  dev->window_system = descriptor->window_system;
+  dev->window_system = (MtVulkanWindowSystem *)descriptor->window_system->inst;
 
   dev->num_threads = descriptor->num_threads;
   if (dev->num_threads == 0) {

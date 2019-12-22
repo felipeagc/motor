@@ -5,11 +5,9 @@
 
 typedef struct MtArena MtArena;
 typedef struct MtIWindow MtIWindow;
-typedef struct MtVulkanWindowSystem MtVulkanWindowSystem;
+typedef struct MtIWindowSystem MtIWindowSystem;
 
-MtVulkanWindowSystem *mt_glfw_vulkan_init();
-
-void mt_glfw_vulkan_destroy();
+void mt_glfw_vulkan_init(MtIWindowSystem *system);
 
 void mt_glfw_vulkan_window_init(
     MtIWindow *window,
