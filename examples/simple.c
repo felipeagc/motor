@@ -1,9 +1,9 @@
-#include "arena.h"
-#include "renderer.h"
-#include "threads.h"
-#include "window.h"
-#include "vulkan/vulkan_device.h"
-#include "vulkan/glfw_window.h"
+#include <motor/arena.h>
+#include <motor/renderer.h>
+#include <motor/threads.h>
+#include <motor/window.h>
+#include <motor/vulkan/vulkan_device.h>
+#include <motor/vulkan/glfw_window.h>
 
 int main(int argc, char *argv[]) {
   MtArena arena;

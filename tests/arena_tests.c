@@ -1,11 +1,30 @@
-#define MT_TEST
-#include "arena.c"
-#include "util.h"
+#include "../include/motor/arena.h"
+#include "../include/motor/util.h"
 #include <assert.h>
 #include <stdio.h>
 
 typedef MT_ALIGNAS(16) struct Vec4 { float v[4]; } Vec4;
 typedef MT_ALIGNAS(16) struct Mat4 { float v[16]; } Mat4;
+
+#define MT_ARENA_ALIGNMENT 16
+#define MT_ARENA_HEADER_ADDR(header)                                           \
+  (((uint8_t *)header) + sizeof(MtAllocHeader))
+
+typedef MT_ALIGNAS(MT_ARENA_ALIGNMENT) struct MtAllocHeader {
+  uint32_t size;
+  uint32_t used;
+  uint32_t _pad1;
+  uint32_t _pad2;
+  struct MtAllocHeader *prev;
+  struct MtAllocHeader *next;
+} MtAllocHeader;
+
+struct MtArenaBlock {
+  uint8_t *storage;
+  MtAllocHeader *first_header;
+  MtArenaBlock *next;
+  MtArenaBlock *prev;
+};
 
 uint32_t header_count(MtArenaBlock *block) {
   uint32_t headers = 0;
@@ -162,11 +181,13 @@ void test_alloc_free() {
   mt_arena_init(&arena, 160);
 
   {
-    void *alloc1 = mt_alloc(&arena, arena.base_block_size - sizeof(MtAllocHeader));
+    void *alloc1 =
+        mt_alloc(&arena, arena.base_block_size - sizeof(MtAllocHeader));
     assert(alloc1 != NULL);
     mt_free(&arena, alloc1);
 
-    void *alloc2 = mt_alloc(&arena, arena.base_block_size - sizeof(MtAllocHeader));
+    void *alloc2 =
+        mt_alloc(&arena, arena.base_block_size - sizeof(MtAllocHeader));
     assert(alloc2 != NULL);
 
     assert(alloc1 == alloc2);
@@ -190,8 +211,8 @@ void test_alloc_realloc_grow() {
     assert(alloc2 == alloc1);
     assert(block_count(&arena) == 1);
 
-    uint32_t *alloc3 =
-        mt_realloc(&arena, alloc2, arena.base_block_size - sizeof(MtAllocHeader));
+    uint32_t *alloc3 = mt_realloc(
+        &arena, alloc2, arena.base_block_size - sizeof(MtAllocHeader));
     assert(alloc3 != NULL);
     assert(alloc3 == alloc2);
     assert(block_count(&arena) == 1);

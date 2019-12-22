@@ -1,9 +1,9 @@
-#include "glfw_window.h"
+#include "../../../include/motor/vulkan/glfw_window.h"
 
-#include "../renderer.h"
-#include "../window.h"
-#include "internal/internal.h"
+#include "internal.h"
 #include <GLFW/glfw3.h>
+#include "../../../include/motor/renderer.h"
+#include "../../../include/motor/window.h"
 
 static const char **_mt_glfw_get_instance_extensions(uint32_t *count) {
   return glfwGetRequiredInstanceExtensions(count);

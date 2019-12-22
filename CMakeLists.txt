@@ -9,19 +9,19 @@ add_subdirectory(thirdparty)
 
 set(
 	MOTOR_SOURCES
-	src/arena.c
-	src/threads.c
-	src/xxhash.c
+	src/motor/arena.c
+	src/motor/threads.c
+	src/motor/xxhash.c
 
-	src/vulkan/glfw_window.c
-	src/vulkan/vulkan_device.c
-	src/vulkan/internal/volk.c
-	src/vulkan/internal/spirv_reflect.c
-	src/vulkan/internal/vk_mem_alloc.cpp
+	src/motor/vulkan/glfw_window.c
+	src/motor/vulkan/vulkan_device.c
+	src/motor/vulkan/volk.c
+	src/motor/vulkan/spirv_reflect.c
+	src/motor/vulkan/vk_mem_alloc.cpp
 	)
 
 add_library(motor ${MOTOR_SOURCES})
-target_include_directories(motor PUBLIC src/ PRIVATE ${glfw_INCLUDE_DIRS})
+target_include_directories(motor PUBLIC include/ PRIVATE ${glfw_INCLUDE_DIRS})
 target_link_libraries(motor ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} glfw)
 
 add_executable(simple examples/simple.c)
