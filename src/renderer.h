@@ -8,6 +8,7 @@
 
 MT_DEFINE_HANDLE(MtDevice);
 MT_DEFINE_HANDLE(MtWindow);
+MT_DEFINE_HANDLE(MtProgram);
 MT_DEFINE_HANDLE(MtImage);
 MT_DEFINE_HANDLE(MtBuffer);
 
@@ -60,11 +61,17 @@ typedef union MtColor {
   float values[4];
 } MtColor;
 
-typedef enum MtDeviceFlags {
+typedef uint32_t MtDeviceFlags;
+typedef enum MtDeviceFlagBits {
   MT_DEVICE_HEADLESS = 1,
-} MtDeviceFlags;
+} MtDeviceFlagBits;
 
-MtDevice mt_device_create(MtArena *arena, MtDeviceFlags flags);
+typedef struct MtDeviceDescriptor {
+  MtDeviceFlags flags;
+  uint32_t num_threads;
+} MtDeviceDescriptor;
+
+MtDevice mt_device_create(MtArena *arena, MtDeviceDescriptor *descriptor);
 void mt_device_destroy(MtDevice device);
 
 #endif

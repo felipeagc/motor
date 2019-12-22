@@ -227,6 +227,8 @@ void *mt_realloc(MtArena *arena, void *ptr, uint32_t size) {
 }
 
 void mt_free(MtArena *arena, void *ptr) {
+  if (!ptr) return;
+
   MtAllocHeader *header =
       (MtAllocHeader *)(((uint8_t *)ptr) - sizeof(MtAllocHeader));
   assert(MT_ARENA_HEADER_ADDR(header) == ptr);

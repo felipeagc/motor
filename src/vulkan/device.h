@@ -35,6 +35,10 @@ struct MtDevice_T {
   VkPhysicalDeviceProperties physical_device_properties;
 
   VkFormat preferred_depth_format;
+
+  uint32_t num_threads;
+  VkCommandPool *graphics_cmd_pools;
+  VkCommandPool *compute_cmd_pools;
 };
 
 #endif
