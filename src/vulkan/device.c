@@ -13,7 +13,7 @@
 #define MT_ENABLE_VALIDATION
 #endif
 
-#if !defined(MT_ENABLE_VALIDATION)
+#ifdef MT_ENABLE_VALIDATION
 static const char *VALIDATION_LAYERS[1] = {
     "VK_LAYER_KHRONOS_validation",
 };
@@ -140,7 +140,7 @@ static void create_instance(MtDevice device) {
   mt_free(device->arena, extensions);
 }
 
-static void create_debug_messenger(MtDevice device) {
+static void create_debug_messenger(MtDevice dev) {
   VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   create_info.messageSeverity =
@@ -153,7 +153,7 @@ static void create_debug_messenger(MtDevice device) {
   create_info.pfnUserCallback = &debug_callback;
 
   VK_CHECK(vkCreateDebugUtilsMessengerEXT(
-      device->instance, &create_info, NULL, &device->debug_messenger));
+      dev->instance, &create_info, NULL, &dev->debug_messenger));
 }
 
 MtQueueFamilyIndices
@@ -431,10 +431,43 @@ static void find_supported_depth_format(MtDevice dev) {
       VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-MtDevice mt_device_create(MtArena *arena, MtDeviceFlags flags) {
+static void create_command_pools(MtDevice dev) {
+  VkCommandPoolCreateInfo create_info = {0};
+  create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+  dev->graphics_cmd_pools =
+      mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
+
+  for (uint32_t i = 0; i < dev->num_threads; i++) {
+    create_info.queueFamilyIndex = dev->indices.graphics;
+    VK_CHECK(vkCreateCommandPool(
+        dev->device, &create_info, NULL, &dev->graphics_cmd_pools[i]));
+  }
+
+  dev->compute_cmd_pools = dev->graphics_cmd_pools;
+
+  if (dev->indices.graphics != dev->indices.compute) {
+    dev->compute_cmd_pools =
+        mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
+
+    for (uint32_t i = 0; i < dev->num_threads; i++) {
+      create_info.queueFamilyIndex = dev->indices.compute;
+      VK_CHECK(vkCreateCommandPool(
+          dev->device, &create_info, NULL, &dev->compute_cmd_pools[i]));
+    }
+  }
+}
+
+MtDevice mt_device_create(MtArena *arena, MtDeviceDescriptor *descriptor) {
   MtDevice dev = mt_calloc(arena, sizeof(struct MtDevice_T));
-  dev->flags   = flags;
+  dev->flags   = descriptor->flags;
   dev->arena   = arena;
+
+  dev->num_threads = descriptor->num_threads;
+  if (dev->num_threads == 0) {
+    dev->num_threads = 1;
+  }
 
   VK_CHECK(volkInitialize());
 
@@ -450,12 +483,28 @@ MtDevice mt_device_create(MtArena *arena, MtDeviceFlags flags) {
 
   find_supported_depth_format(dev);
 
+  create_command_pools(dev);
+
   return dev;
 }
 
 void mt_device_destroy(MtDevice dev) {
   MtArena *arena = dev->arena;
   vkDeviceWaitIdle(dev->device);
+
+  if (dev->graphics_cmd_pools != dev->compute_cmd_pools) {
+    for (uint32_t i = 0; i < dev->num_threads; i++) {
+      vkDestroyCommandPool(dev->device, dev->compute_cmd_pools[i], NULL);
+    }
+    mt_free(dev->arena, dev->compute_cmd_pools);
+    dev->compute_cmd_pools = NULL;
+  }
+
+  for (uint32_t i = 0; i < dev->num_threads; i++) {
+    vkDestroyCommandPool(dev->device, dev->graphics_cmd_pools[i], NULL);
+  }
+  mt_free(dev->arena, dev->graphics_cmd_pools);
+  dev->graphics_cmd_pools = NULL;
 
   vmaDestroyAllocator(dev->gpu_allocator);
 
