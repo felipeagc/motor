@@ -1,7 +1,6 @@
-#include "arena.h"
+#include "../../include/motor/arena.h"
 
-#include "util.h"
-
+#include "../../include/motor/util.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>

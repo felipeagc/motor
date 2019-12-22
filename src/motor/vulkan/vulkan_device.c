@@ -1,13 +1,13 @@
-#include "vulkan_device.h"
+#include "../../../include/motor/vulkan/vulkan_device.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../util.h"
-#include "../arena.h"
-#include "internal/conversions.h"
-#include "internal/internal.h"
-#include "internal/vk_mem_alloc.h"
+#include "../../../include/motor/util.h"
+#include "../../../include/motor/arena.h"
+#include "conversions.h"
+#include "internal.h"
+#include "vk_mem_alloc.h"
 
 typedef struct _MtVulkanDevice {
   MtArena *arena;

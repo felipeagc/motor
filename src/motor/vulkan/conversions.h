@@ -2,7 +2,7 @@
 #define MT_VULKAN_CONVERSIONS
 
 #include "internal.h"
-#include "../../renderer.h"
+#include "../../../include/motor/renderer.h"
 
 static MtFormat mt_format_from_vulkan(VkFormat format) {
   switch (format) {
