@@ -4,6 +4,7 @@
 #include <motor/window.h>
 #include <motor/vulkan/vulkan_device.h>
 #include <motor/vulkan/glfw_window.h>
+#include <stdio.h>
 
 int main(int argc, char *argv[]) {
   MtArena arena;
@@ -23,6 +24,15 @@ int main(int argc, char *argv[]) {
 
   while (!window.vt->should_close(window.inst)) {
     window_system.vt->poll_events();
+
+    MtEvent event;
+    while (window.vt->next_event(window.inst, &event)) {
+      switch (event.type) {
+      case MT_EVENT_WINDOW_CLOSED: {
+        printf("Closed\n");
+      } break;
+      }
+    }
   }
 
   window.vt->destroy(window.inst);
