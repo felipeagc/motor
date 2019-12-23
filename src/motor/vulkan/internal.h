@@ -62,6 +62,7 @@ typedef struct MtRenderPass {
   VkRenderPass renderpass;
   VkExtent2D extent;
   VkFramebuffer current_framebuffer;
+  uint64_t hash;
 } MtRenderPass;
 
 typedef struct MtCmdBuffer {

@@ -6,6 +6,7 @@
 #include "internal.h"
 #include <GLFW/glfw3.h>
 #include "vk_mem_alloc.h"
+#include "hashing.h"
 #include "../../../include/motor/renderer.h"
 #include "../../../include/motor/window.h"
 #include "../../../include/motor/util.h"
@@ -520,6 +521,8 @@ static void create_renderpass(MtWindow *window) {
       &renderpass_create_info,
       NULL,
       &window->render_pass.renderpass));
+
+  window->render_pass.hash = vulkan_hash_render_pass(&renderpass_create_info);
 }
 
 static void create_framebuffers(MtWindow *window) {
