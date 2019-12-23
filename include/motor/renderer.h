@@ -10,10 +10,20 @@ typedef enum MtQueueType {
   MT_QUEUE_TRANSFER,
 } MtQueueType;
 
+typedef struct MtRenderPass MtRenderPass;
+
 typedef struct MtCmdBuffer MtCmdBuffer;
 
 typedef struct MtCmdBufferVT {
-  void (*begin_renderpass)(MtCmdBuffer *);
+  void (*begin)(MtCmdBuffer *);
+  void (*end)(MtCmdBuffer *);
+
+  void (*begin_render_pass)(MtCmdBuffer *, MtRenderPass *);
+  void (*end_render_pass)(MtCmdBuffer *);
+
+  void (*set_viewport)(MtCmdBuffer *, float x, float y, float w, float h);
+  void (*set_scissor)(
+      MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
 } MtCmdBufferVT;
 
 typedef struct MtICmdBuffer {
@@ -27,7 +37,7 @@ typedef struct MtDeviceVT {
   void (*allocate_cmd_buffers)(
       MtDevice *, MtQueueType, uint32_t, MtICmdBuffer *);
   void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtICmdBuffer *);
-  void (*submit_cmd)(MtDevice *, MtICmdBuffer *);
+  void (*submit)(MtDevice *, MtICmdBuffer *);
   void (*destroy)(MtDevice *);
 } MtDeviceVT;
 
