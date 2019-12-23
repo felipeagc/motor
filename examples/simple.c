@@ -33,6 +33,10 @@ int main(int argc, char *argv[]) {
       } break;
       }
     }
+
+    window.vt->begin_frame(window.inst);
+
+    window.vt->end_frame(window.inst);
   }
 
   window.vt->destroy(window.inst);

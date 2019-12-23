@@ -55,6 +55,13 @@ typedef struct VulkanDevice {
   uint32_t num_threads;
   VkCommandPool *graphics_cmd_pools;
   VkCommandPool *compute_cmd_pools;
+  VkCommandPool *transfer_cmd_pools;
 } VulkanDevice;
+
+typedef struct VulkanCmdBuffer {
+  VulkanDevice *dev;
+  VkCommandBuffer cmd_buffer;
+  uint32_t queue_type;
+} VulkanCmdBuffer;
 
 #endif

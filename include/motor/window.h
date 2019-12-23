@@ -22,6 +22,8 @@ typedef struct MtIWindowSystem {
 typedef struct MtWindowVT {
   bool (*should_close)(MtWindow *);
   bool (*next_event)(MtWindow *, MtEvent *);
+  void (*begin_frame)(MtWindow *);
+  void (*end_frame)(MtWindow *);
   void (*destroy)(MtWindow *);
 } MtWindowVT;
 

@@ -11,12 +11,6 @@
 #include "internal.h"
 #include "vk_mem_alloc.h"
 
-static void vulkan_device_destroy(VulkanDevice *dev);
-
-static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
-    .destroy = (void *)vulkan_device_destroy,
-};
-
 #if !defined(NDEBUG)
 // Debug mode
 #define MT_ENABLE_VALIDATION
@@ -38,7 +32,8 @@ static const char *DEVICE_EXTENSIONS[1] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 
-VkBool32 debug_callback(
+// Setup {{{
+static VkBool32 debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
     VkDebugUtilsMessageTypeFlagsEXT message_type,
     const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
@@ -169,7 +164,7 @@ static void create_debug_messenger(VulkanDevice *dev) {
       dev->instance, &create_info, NULL, &dev->debug_messenger));
 }
 
-QueueFamilyIndices
+static QueueFamilyIndices
 find_queue_families(VulkanDevice *dev, VkPhysicalDevice physical_device) {
   QueueFamilyIndices indices;
   indices.graphics = UINT32_MAX;
@@ -219,7 +214,7 @@ find_queue_families(VulkanDevice *dev, VkPhysicalDevice physical_device) {
   return indices;
 }
 
-bool check_device_extension_support(
+static bool check_device_extension_support(
     VulkanDevice *dev, VkPhysicalDevice physical_device) {
   uint32_t extension_count;
   vkEnumerateDeviceExtensionProperties(
@@ -251,7 +246,8 @@ bool check_device_extension_support(
   return found_all;
 }
 
-bool is_device_suitable(VulkanDevice *dev, VkPhysicalDevice physical_device) {
+static bool
+is_device_suitable(VulkanDevice *dev, VkPhysicalDevice physical_device) {
   QueueFamilyIndices indices = find_queue_families(dev, physical_device);
 
   bool extensions_supported =
@@ -470,7 +466,150 @@ static void create_command_pools(VulkanDevice *dev) {
           dev->device, &create_info, NULL, &dev->compute_cmd_pools[i]));
     }
   }
+
+  dev->transfer_cmd_pools = dev->graphics_cmd_pools;
+  if (dev->indices.graphics != dev->indices.transfer) {
+    dev->transfer_cmd_pools =
+        mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
+
+    for (uint32_t i = 0; i < dev->num_threads; i++) {
+      create_info.queueFamilyIndex = dev->indices.transfer;
+      VK_CHECK(vkCreateCommandPool(
+          dev->device, &create_info, NULL, &dev->transfer_cmd_pools[i]));
+    }
+  }
 }
+// }}}
+
+static MtCmdBufferVT g_cmd_buffer_vt = (MtCmdBufferVT){};
+
+static void allocate_cmd_buffers(
+    VulkanDevice *dev,
+    MtQueueType queue_type,
+    uint32_t count,
+    MtICmdBuffer *cmd_buffers) {
+  VkCommandPool pool = VK_NULL_HANDLE;
+
+  switch (queue_type) {
+  case MT_QUEUE_GRAPHICS: {
+    pool = dev->graphics_cmd_pools[0];
+  } break;
+  case MT_QUEUE_COMPUTE: {
+    pool = dev->compute_cmd_pools[0];
+  } break;
+  case MT_QUEUE_TRANSFER: {
+    pool = dev->transfer_cmd_pools[0];
+  } break;
+  }
+
+  assert(pool);
+
+  VkCommandBuffer *command_buffers =
+      mt_alloc(dev->arena, sizeof(VkCommandBuffer) * count);
+
+  VkCommandBufferAllocateInfo alloc_info = {
+      .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+      .commandPool        = pool,
+      .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+      .commandBufferCount = count,
+  };
+
+  VK_CHECK(vkAllocateCommandBuffers(dev->device, &alloc_info, command_buffers));
+
+  for (uint32_t i = 0; i < count; i++) {
+    cmd_buffers[i].vt   = &g_cmd_buffer_vt;
+    cmd_buffers[i].inst = mt_calloc(dev->arena, sizeof(VulkanCmdBuffer));
+
+    VulkanCmdBuffer *inst = (VulkanCmdBuffer *)cmd_buffers[i].inst;
+
+    inst->dev        = dev;
+    inst->cmd_buffer = command_buffers[i];
+    inst->queue_type = queue_type;
+  }
+
+  mt_free(dev->arena, command_buffers);
+}
+
+static void free_cmd_buffers(
+    VulkanDevice *dev,
+    MtQueueType queue_type,
+    uint32_t count,
+    MtICmdBuffer *cmd_buffers) {
+  VkCommandPool pool = VK_NULL_HANDLE;
+
+  switch (queue_type) {
+  case MT_QUEUE_GRAPHICS: {
+    pool = dev->graphics_cmd_pools[0];
+  } break;
+  case MT_QUEUE_COMPUTE: {
+    pool = dev->compute_cmd_pools[0];
+  } break;
+  case MT_QUEUE_TRANSFER: {
+    pool = dev->transfer_cmd_pools[0];
+  } break;
+  }
+
+  assert(pool);
+
+  VkCommandBuffer *command_buffers =
+      mt_alloc(dev->arena, sizeof(VkCommandBuffer) * count);
+
+  for (uint32_t i = 0; i < count; i++) {
+    VulkanCmdBuffer *inst = (VulkanCmdBuffer *)cmd_buffers[i].inst;
+    command_buffers[i]    = inst->cmd_buffer;
+  }
+
+  vkFreeCommandBuffers(dev->device, pool, count, command_buffers);
+
+  for (uint32_t i = 0; i < count; i++) {
+    mt_free(dev->arena, cmd_buffers[i].inst);
+  }
+
+  mt_free(dev->arena, command_buffers);
+}
+
+static void submit_cmd(VulkanDevice *dev, MtICmdBuffer *cmd_buffer) {
+  VulkanCmdBuffer *vk_cmd_buffer = (VulkanCmdBuffer *)cmd_buffer->inst;
+
+  VkQueue queue = VK_NULL_HANDLE;
+
+  switch (vk_cmd_buffer->queue_type) {
+  case MT_QUEUE_GRAPHICS: {
+    queue = dev->graphics_queue;
+  } break;
+  case MT_QUEUE_COMPUTE: {
+    queue = dev->compute_queue;
+  } break;
+  case MT_QUEUE_TRANSFER: {
+    queue = dev->transfer_queue;
+  } break;
+  default: assert(0);
+  }
+
+  assert(queue);
+
+  VkSubmitInfo submit_info = {
+      .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .waitSemaphoreCount   = 0,
+      .pWaitSemaphores      = NULL,
+      .pWaitDstStageMask    = NULL,
+      .commandBufferCount   = 1,
+      .pCommandBuffers      = &vk_cmd_buffer->cmd_buffer,
+      .signalSemaphoreCount = 0,
+      .pSignalSemaphores    = NULL,
+  };
+
+  VK_CHECK(vkQueueSubmit(dev->graphics_queue, 1, &submit_info, VK_NULL_HANDLE));
+}
+
+static void vulkan_device_destroy(VulkanDevice *dev);
+
+static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
+    .allocate_cmd_buffers = (void *)allocate_cmd_buffers,
+    .free_cmd_buffers     = (void *)free_cmd_buffers,
+    .submit_cmd           = (void *)submit_cmd,
+    .destroy              = (void *)vulkan_device_destroy,
+};
 
 void mt_vulkan_device_init(
     MtIDevice *interface,
@@ -515,6 +654,14 @@ static void vulkan_device_destroy(VulkanDevice *dev) {
     }
     mt_free(dev->arena, dev->compute_cmd_pools);
     dev->compute_cmd_pools = NULL;
+  }
+
+  if (dev->graphics_cmd_pools != dev->transfer_cmd_pools) {
+    for (uint32_t i = 0; i < dev->num_threads; i++) {
+      vkDestroyCommandPool(dev->device, dev->transfer_cmd_pools[i], NULL);
+    }
+    mt_free(dev->arena, dev->transfer_cmd_pools);
+    dev->transfer_cmd_pools = NULL;
   }
 
   for (uint32_t i = 0; i < dev->num_threads; i++) {
