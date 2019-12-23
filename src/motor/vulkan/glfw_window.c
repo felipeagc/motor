@@ -1,12 +1,16 @@
 #include "../../../include/motor/vulkan/glfw_window.h"
 
-#include "internal.h"
-#include <GLFW/glfw3.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "internal.h"
+#include <GLFW/glfw3.h>
+#include "vk_mem_alloc.h"
 #include "../../../include/motor/renderer.h"
 #include "../../../include/motor/window.h"
+#include "../../../include/motor/util.h"
+
+#define clamp(v, a, b) ((((v > b) ? b : v) < a) ? a : v)
 
 enum { FRAMES_IN_FLIGHT = 2 };
 
@@ -16,6 +20,8 @@ enum { FRAMES_IN_FLIGHT = 2 };
 
 typedef struct GlfwVulkanWindow {
   MtIDevice dev;
+  MtArena *arena;
+
   GLFWwindow *window;
   VkSurfaceKHR surface;
   VkSwapchainKHR swapchain;
@@ -23,6 +29,21 @@ typedef struct GlfwVulkanWindow {
   VkSemaphore image_available_semaphores[FRAMES_IN_FLIGHT];
   VkSemaphore render_finished_semaphores[FRAMES_IN_FLIGHT];
   VkFence in_flight_fences[FRAMES_IN_FLIGHT];
+
+  uint32_t swapchain_image_count;
+
+  VkFormat swapchain_image_format;
+  VkImage *swapchain_images;
+  VkImageView *swapchain_image_views;
+
+  VkImage depth_image;
+  VmaAllocation depth_image_allocation;
+  VkImageView depth_image_view;
+
+  VkFramebuffer *swapchain_framebuffers;
+
+  VkRenderPass renderpass;
+  VkExtent2D extent;
 } GlfwVulkanWindow;
 
 /*
@@ -101,57 +122,16 @@ static MtWindowSystemVT g_glfw_window_system_vt = (MtWindowSystemVT){
 };
 
 /*
- * Window VT
- */
-
-static bool next_event(GlfwVulkanWindow *window, MtEvent *event) {
-  memset(event, 0, sizeof(MtEvent));
-
-  if (g_event_queue.head != g_event_queue.tail) {
-    *event             = g_event_queue.events[g_event_queue.tail];
-    g_event_queue.tail = (g_event_queue.tail + 1) % EVENT_QUEUE_CAPACITY;
-  }
-
-  /* switch (event->type) { */
-  /* case MT_EVENT_FRAMEBUFFER_RESIZED: { */
-  /*   update_size(window); */
-  /*   break; */
-  /* } */
-  /* default: break; */
-  /* } */
-
-  return event->type != MT_EVENT_NONE;
-}
-
-static bool should_close(GlfwVulkanWindow *window) {
-  glfwWindowShouldClose(window->window);
-}
-
-static void window_destroy(GlfwVulkanWindow *window) {
-  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
-
-  for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
-    vkDestroySemaphore(
-        dev->device, window->image_available_semaphores[i], NULL);
-    vkDestroySemaphore(
-        dev->device, window->render_finished_semaphores[i], NULL);
-    vkDestroyFence(dev->device, window->in_flight_fences[i], NULL);
-  }
-
-  vkDestroySurfaceKHR(dev->instance, window->surface, NULL);
-
-  glfwDestroyWindow(window->window);
-}
-
-static MtWindowVT g_glfw_window_vt = (MtWindowVT){
-    .should_close = (void *)should_close,
-    .next_event   = (void *)next_event,
-    .destroy      = (void *)window_destroy,
-};
-
-/*
  * Setup functions
  */
+
+typedef struct SwapchainSupport {
+  VkSurfaceCapabilitiesKHR capabilities;
+  VkSurfaceFormatKHR *formats;
+  uint32_t format_count;
+  VkPresentModeKHR *present_modes;
+  uint32_t present_mode_count;
+} SwapchainSupport;
 
 static void create_semaphores(GlfwVulkanWindow *window) {
   VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
@@ -186,6 +166,491 @@ static void create_fences(GlfwVulkanWindow *window) {
   }
 }
 
+static SwapchainSupport query_swapchain_support(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  SwapchainSupport details = {0};
+
+  // Capabilities
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+      dev->physical_device, window->surface, &details.capabilities);
+
+  // Formats
+  vkGetPhysicalDeviceSurfaceFormatsKHR(
+      dev->physical_device, window->surface, &details.format_count, NULL);
+  if (details.format_count != 0) {
+    details.formats = mt_alloc(
+        window->arena, sizeof(VkSurfaceFormatKHR) * details.format_count);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(
+        dev->physical_device,
+        window->surface,
+        &details.format_count,
+        details.formats);
+  }
+
+  // Present modes
+  vkGetPhysicalDeviceSurfacePresentModesKHR(
+      dev->physical_device, window->surface, &details.present_mode_count, NULL);
+  if (details.present_mode_count != 0) {
+    details.present_modes = mt_alloc(
+        window->arena, sizeof(VkPresentModeKHR) * details.present_mode_count);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(
+        dev->physical_device,
+        window->surface,
+        &details.present_mode_count,
+        details.present_modes);
+  }
+
+  return details;
+}
+
+static VkSurfaceFormatKHR
+choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t count) {
+  if (count == 1 && formats[0].format == VK_FORMAT_UNDEFINED) {
+    VkSurfaceFormatKHR fmt = {
+      format : VK_FORMAT_B8G8R8A8_UNORM,
+      colorSpace : formats[0].colorSpace,
+    };
+
+    return fmt;
+  }
+
+  for (uint32_t i = 0; i < count; i++) {
+    VkSurfaceFormatKHR format = formats[i];
+    if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
+        format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+      return format;
+    }
+  }
+
+  return formats[0];
+}
+
+static VkPresentModeKHR
+choose_swapchain_present_mode(VkPresentModeKHR *present_modes, uint32_t count) {
+  for (uint32_t i = 0; i < count; i++) {
+    VkPresentModeKHR mode = present_modes[i];
+    if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+      return mode;
+    }
+  }
+
+  for (uint32_t i = 0; i < count; i++) {
+    VkPresentModeKHR mode = present_modes[i];
+    if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+      return mode;
+    }
+  }
+
+  for (uint32_t i = 0; i < count; i++) {
+    VkPresentModeKHR mode = present_modes[i];
+    if (mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
+      return mode;
+    }
+  }
+
+  return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+static VkExtent2D choose_swapchain_extent(
+    GlfwVulkanWindow *window, VkSurfaceCapabilitiesKHR capabilities) {
+  if (capabilities.currentExtent.width != UINT32_MAX) {
+    return capabilities.currentExtent;
+  } else {
+    int width, height;
+    glfwGetFramebufferSize(window->window, &width, &height);
+    VkExtent2D actual_extent = {(uint32_t)width, (uint32_t)height};
+
+    actual_extent.width = clamp(
+        actual_extent.width,
+        capabilities.minImageExtent.width,
+        capabilities.maxImageExtent.width);
+
+    actual_extent.width = clamp(
+        actual_extent.width,
+        capabilities.minImageExtent.width,
+        capabilities.maxImageExtent.width);
+
+    return actual_extent;
+  }
+}
+
+static void create_swapchain(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  SwapchainSupport swapchain_support = query_swapchain_support(window);
+
+  if (swapchain_support.format_count == 0 ||
+      swapchain_support.present_mode_count == 0) {
+    printf("Physical device does not support swapchain creation\n");
+    exit(1);
+  }
+
+  VkSurfaceFormatKHR surface_format = choose_swapchain_surface_format(
+      swapchain_support.formats, swapchain_support.format_count);
+  VkPresentModeKHR present_mode = choose_swapchain_present_mode(
+      swapchain_support.present_modes, swapchain_support.present_mode_count);
+  VkExtent2D extent =
+      choose_swapchain_extent(window, swapchain_support.capabilities);
+
+  uint32_t image_count = swapchain_support.capabilities.minImageCount + 1;
+
+  if (swapchain_support.capabilities.maxImageCount > 0 &&
+      image_count > swapchain_support.capabilities.maxImageCount) {
+    image_count = swapchain_support.capabilities.maxImageCount;
+  }
+
+  VkImageUsageFlags image_usage =
+      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+  if (!(swapchain_support.capabilities.supportedUsageFlags &
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
+    printf("Physical device does not support VK_IMAGE_USAGE_TRANSFER_DST_BIT "
+           "in swapchains\n");
+    exit(1);
+  }
+
+  VkSwapchainCreateInfoKHR create_info = {
+      .sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+      .surface          = window->surface,
+      .minImageCount    = image_count,
+      .imageFormat      = surface_format.format,
+      .imageColorSpace  = surface_format.colorSpace,
+      .imageExtent      = extent,
+      .imageArrayLayers = 1,
+      .imageUsage       = image_usage,
+  };
+
+  uint32_t queue_family_indices[2] = {dev->indices.graphics,
+                                      dev->indices.present};
+
+  if (dev->indices.graphics != dev->indices.present) {
+    create_info.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
+    create_info.queueFamilyIndexCount = 2;
+    create_info.pQueueFamilyIndices   = queue_family_indices;
+  } else {
+    create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
+    create_info.queueFamilyIndexCount = 0;
+    create_info.pQueueFamilyIndices   = NULL;
+  }
+
+  create_info.preTransform   = swapchain_support.capabilities.currentTransform;
+  create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+  create_info.presentMode = present_mode;
+  create_info.clipped     = VK_TRUE;
+
+  VkSwapchainKHR old_swapchain = window->swapchain;
+  create_info.oldSwapchain     = old_swapchain;
+
+  VK_CHECK(vkCreateSwapchainKHR(
+      dev->device, &create_info, NULL, &window->swapchain));
+
+  if (old_swapchain) {
+    vkDestroySwapchainKHR(dev->device, old_swapchain, NULL);
+  }
+
+  vkGetSwapchainImagesKHR(dev->device, window->swapchain, &image_count, NULL);
+  window->swapchain_images = mt_realloc(
+      window->arena, window->swapchain_images, sizeof(VkImage) * image_count);
+  vkGetSwapchainImagesKHR(
+      dev->device, window->swapchain, &image_count, window->swapchain_images);
+
+  window->swapchain_image_format = surface_format.format;
+  window->extent                 = extent;
+
+  mt_free(window->arena, swapchain_support.formats);
+  mt_free(window->arena, swapchain_support.present_modes);
+}
+
+static void create_swapchain_image_views(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  window->swapchain_image_views = mt_realloc(
+      window->arena,
+      window->swapchain_image_views,
+      sizeof(VkImageView) * window->swapchain_image_count);
+
+  for (size_t i = 0; i < window->swapchain_image_count; i++) {
+    VkImageViewCreateInfo create_info = {
+        .sType                       = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image                       = window->swapchain_images[i],
+        .viewType                    = VK_IMAGE_VIEW_TYPE_2D,
+        .format                      = window->swapchain_image_format,
+        .components.r                = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.g                = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.b                = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.a                = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .subresourceRange.baseMipLevel   = 0,
+        .subresourceRange.levelCount     = 1,
+        .subresourceRange.baseArrayLayer = 0,
+        .subresourceRange.layerCount     = 1,
+    };
+
+    VK_CHECK(vkCreateImageView(
+        dev->device, &create_info, NULL, &window->swapchain_image_views[i]));
+  }
+}
+
+static void create_depth_images(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  VkImageCreateInfo image_create_info = {
+      .sType     = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+      .imageType = VK_IMAGE_TYPE_2D,
+      .format    = dev->preferred_depth_format,
+      .extent =
+          {
+              .width  = window->extent.width,
+              .height = window->extent.height,
+              .depth  = 1,
+          },
+      .mipLevels     = 1,
+      .arrayLayers   = 1,
+      .samples       = VK_SAMPLE_COUNT_1_BIT,
+      .tiling        = VK_IMAGE_TILING_OPTIMAL,
+      .usage         = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+      .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+  };
+
+  VmaAllocationCreateInfo image_alloc_create_info = {0};
+  image_alloc_create_info.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+
+  VK_CHECK(vmaCreateImage(
+      dev->gpu_allocator,
+      &image_create_info,
+      &image_alloc_create_info,
+      &window->depth_image,
+      &window->depth_image_allocation,
+      NULL));
+
+  VkImageViewCreateInfo create_info = {
+      .sType        = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      .image        = window->depth_image,
+      .viewType     = VK_IMAGE_VIEW_TYPE_2D,
+      .format       = dev->preferred_depth_format,
+      .components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .components.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+      .subresourceRange.aspectMask =
+          VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+      .subresourceRange.baseMipLevel   = 0,
+      .subresourceRange.levelCount     = 1,
+      .subresourceRange.baseArrayLayer = 0,
+      .subresourceRange.layerCount     = 1,
+  };
+
+  VK_CHECK(vkCreateImageView(
+      dev->device, &create_info, NULL, &window->depth_image_view));
+}
+
+static void create_renderpass(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  VkAttachmentDescription color_attachment = {
+      .format         = window->swapchain_image_format,
+      .samples        = VK_SAMPLE_COUNT_1_BIT,
+      .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+      .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
+      .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+      .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+      .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+      .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+  };
+
+  VkAttachmentReference color_attachment_ref = {
+      .attachment = 0,
+      .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+  };
+
+  VkAttachmentDescription depth_attachment = {
+      .format         = dev->preferred_depth_format,
+      .samples        = VK_SAMPLE_COUNT_1_BIT,
+      .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+      .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
+      .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+      .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+      .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+      .finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+  };
+
+  VkAttachmentReference depth_attachment_ref = {
+      .attachment = 1,
+      .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+  };
+
+  VkSubpassDescription subpass = {
+      .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
+      .colorAttachmentCount    = 1,
+      .pColorAttachments       = &color_attachment_ref,
+      .pDepthStencilAttachment = &depth_attachment_ref,
+  };
+
+  VkSubpassDependency dependency = {
+      .srcSubpass    = VK_SUBPASS_EXTERNAL,
+      .dstSubpass    = 0,
+      .srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .srcAccessMask = 0,
+      .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
+                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+  };
+
+  VkAttachmentDescription attachments[2] = {color_attachment, depth_attachment};
+
+  VkRenderPassCreateInfo renderpass_create_info = {
+      .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+      .attachmentCount = MT_LENGTH(attachments),
+      .pAttachments    = attachments,
+      .subpassCount    = 1,
+      .pSubpasses      = &subpass,
+      .dependencyCount = 1,
+      .pDependencies   = &dependency,
+  };
+
+  VK_CHECK(vkCreateRenderPass(
+      dev->device, &renderpass_create_info, NULL, &window->renderpass));
+}
+
+static void create_framebuffers(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  window->swapchain_framebuffers = mt_realloc(
+      window->arena,
+      window->swapchain_framebuffers,
+      sizeof(VkFramebuffer) * window->swapchain_image_count);
+
+  for (size_t i = 0; i < window->swapchain_image_count; i++) {
+    VkImageView attachments[2] = {window->swapchain_image_views[i],
+                                  window->depth_image_view};
+
+    VkFramebufferCreateInfo create_info;
+    create_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    create_info.renderPass      = window->renderpass;
+    create_info.attachmentCount = MT_LENGTH(attachments);
+    create_info.pAttachments    = attachments;
+    create_info.width           = window->extent.width;
+    create_info.height          = window->extent.height;
+    create_info.layers          = 1;
+
+    VK_CHECK(vkCreateFramebuffer(
+        dev->device, &create_info, NULL, &window->swapchain_framebuffers[i]));
+  }
+}
+
+static void create_resizables(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  int width, height;
+  while (width == 0 || height == 0) {
+    glfwGetFramebufferSize(window->window, &width, &height);
+    glfwWaitEvents();
+  }
+
+  VK_CHECK(vkDeviceWaitIdle(dev->device));
+
+  create_swapchain(window);
+  create_swapchain_image_views(window);
+  create_depth_images(window);
+  create_renderpass(window);
+  create_framebuffers(window);
+}
+
+static void destroy_resizables(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  VK_CHECK(vkDeviceWaitIdle(dev->device));
+
+  for (uint32_t i = 0; i < window->swapchain_image_count; i++) {
+    VkFramebuffer *framebuffer = &window->swapchain_framebuffers[i];
+    if (framebuffer) {
+      vkDestroyFramebuffer(dev->device, *framebuffer, NULL);
+      *framebuffer = VK_NULL_HANDLE;
+    }
+  }
+
+  if (window->renderpass) {
+    vkDestroyRenderPass(dev->device, window->renderpass, NULL);
+    window->renderpass = VK_NULL_HANDLE;
+  }
+
+  for (uint32_t i = 0; i < window->swapchain_image_count; i++) {
+    VkImageView *image_view = &window->swapchain_image_views[i];
+    if (image_view) {
+      vkDestroyImageView(dev->device, *image_view, NULL);
+      *image_view = VK_NULL_HANDLE;
+    }
+  }
+
+  if (window->depth_image) {
+    vmaDestroyImage(
+        dev->gpu_allocator,
+        window->depth_image,
+        window->depth_image_allocation);
+    vkDestroyImageView(dev->device, window->depth_image_view, NULL);
+  }
+
+  if (window->swapchain) {
+    vkDestroySwapchainKHR(dev->device, window->swapchain, NULL);
+    window->swapchain = VK_NULL_HANDLE;
+  }
+}
+
+/*
+ * Window VT
+ */
+
+static bool next_event(GlfwVulkanWindow *window, MtEvent *event) {
+  memset(event, 0, sizeof(MtEvent));
+
+  if (g_event_queue.head != g_event_queue.tail) {
+    *event             = g_event_queue.events[g_event_queue.tail];
+    g_event_queue.tail = (g_event_queue.tail + 1) % EVENT_QUEUE_CAPACITY;
+  }
+
+  /* switch (event->type) { */
+  /* case MT_EVENT_FRAMEBUFFER_RESIZED: { */
+  /*   update_size(window); */
+  /*   break; */
+  /* } */
+  /* default: break; */
+  /* } */
+
+  return event->type != MT_EVENT_NONE;
+}
+
+static bool should_close(GlfwVulkanWindow *window) {
+  glfwWindowShouldClose(window->window);
+}
+
+static void window_destroy(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  VK_CHECK(vkDeviceWaitIdle(dev->device));
+
+  destroy_resizables(window);
+
+  for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
+    vkDestroySemaphore(
+        dev->device, window->image_available_semaphores[i], NULL);
+    vkDestroySemaphore(
+        dev->device, window->render_finished_semaphores[i], NULL);
+    vkDestroyFence(dev->device, window->in_flight_fences[i], NULL);
+  }
+
+  vkDestroySurfaceKHR(dev->instance, window->surface, NULL);
+
+  glfwDestroyWindow(window->window);
+}
+
+static MtWindowVT g_glfw_window_vt = (MtWindowVT){
+    .should_close = (void *)should_close,
+    .next_event   = (void *)next_event,
+    .destroy      = (void *)window_destroy,
+};
+
 /*
  * Public functions
  */
@@ -195,6 +660,11 @@ void mt_glfw_vulkan_init(MtIWindowSystem *system) {
 
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+  if (!glfwVulkanSupported()) {
+    printf("Vulkan is not supported\n");
+    exit(1);
+  }
 
   system->inst = (MtWindowSystem *)&g_glfw_window_system;
   system->vt   = &g_glfw_window_system_vt;
@@ -207,9 +677,10 @@ void mt_glfw_vulkan_window_init(
     uint32_t height,
     const char *title,
     MtArena *arena) {
-  GlfwVulkanWindow *window = mt_alloc(arena, sizeof(GlfwVulkanWindow));
+  GlfwVulkanWindow *window = mt_calloc(arena, sizeof(GlfwVulkanWindow));
   window->window = glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
   window->dev    = *idev;
+  window->arena  = arena;
   VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
 
   interface->vt   = &g_glfw_window_vt;
@@ -251,6 +722,8 @@ void mt_glfw_vulkan_window_init(
 
   create_semaphores(window);
   create_fences(window);
+
+  create_resizables(window);
 }
 
 static MtEvent *new_event() {
