@@ -31,6 +31,9 @@ typedef struct GlfwVulkanWindow {
   VkFence in_flight_fences[FRAMES_IN_FLIGHT];
 
   uint32_t swapchain_image_count;
+  uint32_t current_frame;
+  uint32_t current_image_index;
+  bool framebuffer_resized;
 
   VkFormat swapchain_image_format;
   VkImage *swapchain_images;
@@ -44,6 +47,8 @@ typedef struct GlfwVulkanWindow {
 
   VkRenderPass renderpass;
   VkExtent2D extent;
+
+  MtICmdBuffer cmd_buffers[FRAMES_IN_FLIGHT];
 } GlfwVulkanWindow;
 
 /*
@@ -598,9 +603,29 @@ static void destroy_resizables(GlfwVulkanWindow *window) {
   }
 }
 
+static void allocate_cmd_buffers(GlfwVulkanWindow *window) {
+  window->dev.vt->allocate_cmd_buffers(
+      window->dev.inst,
+      MT_QUEUE_GRAPHICS,
+      FRAMES_IN_FLIGHT,
+      window->cmd_buffers);
+}
+
+static void free_cmd_buffers(GlfwVulkanWindow *window) {
+  window->dev.vt->free_cmd_buffers(
+      window->dev.inst,
+      MT_QUEUE_GRAPHICS,
+      FRAMES_IN_FLIGHT,
+      window->cmd_buffers);
+}
+
 /*
  * Window VT
  */
+
+static bool should_close(GlfwVulkanWindow *window) {
+  glfwWindowShouldClose(window->window);
+}
 
 static bool next_event(GlfwVulkanWindow *window, MtEvent *event) {
   memset(event, 0, sizeof(MtEvent));
@@ -621,8 +646,88 @@ static bool next_event(GlfwVulkanWindow *window, MtEvent *event) {
   return event->type != MT_EVENT_NONE;
 }
 
-static bool should_close(GlfwVulkanWindow *window) {
-  glfwWindowShouldClose(window->window);
+static void begin_frame(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  vkWaitForFences(
+      dev->device,
+      1,
+      &window->in_flight_fences[window->current_frame],
+      VK_TRUE,
+      UINT64_MAX);
+
+  VkResult res = vkAcquireNextImageKHR(
+      dev->device,
+      window->swapchain,
+      UINT64_MAX,
+      window->image_available_semaphores[window->current_frame],
+      VK_NULL_HANDLE,
+      &window->current_image_index);
+
+  if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+    destroy_resizables(window);
+    create_resizables(window);
+    return begin_frame(window);
+  } else {
+    VK_CHECK(res);
+  }
+}
+
+static void end_frame(GlfwVulkanWindow *window) {
+  VulkanDevice *dev = (VulkanDevice *)window->dev.inst;
+
+  VkSubmitInfo submit_info = {0};
+  submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+  VkSemaphore wait_semaphores[1] = {
+      window->image_available_semaphores[window->current_frame]};
+  VkSemaphore signal_semaphores[1] = {
+      window->render_finished_semaphores[window->current_frame]};
+
+  submit_info.waitSemaphoreCount = MT_LENGTH(wait_semaphores);
+  submit_info.pWaitSemaphores    = wait_semaphores;
+
+  VkPipelineStageFlags wait_stage =
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  submit_info.pWaitDstStageMask = &wait_stage;
+
+  VulkanCmdBuffer *cmd_buffer_inst =
+      (VulkanCmdBuffer *)window->cmd_buffers[window->current_frame].inst;
+
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers    = &cmd_buffer_inst->cmd_buffer;
+
+  submit_info.signalSemaphoreCount = MT_LENGTH(signal_semaphores);
+  submit_info.pSignalSemaphores    = signal_semaphores;
+
+  vkResetFences(
+      dev->device, 1, &window->in_flight_fences[window->current_frame]);
+  VK_CHECK(vkQueueSubmit(
+      dev->graphics_queue,
+      1,
+      &submit_info,
+      window->in_flight_fences[window->current_frame]));
+
+  VkPresentInfoKHR present_info = {
+      .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+      .waitSemaphoreCount = MT_LENGTH(signal_semaphores),
+      .pWaitSemaphores    = signal_semaphores,
+      .swapchainCount     = 1,
+      .pSwapchains        = &window->swapchain,
+      .pImageIndices      = &window->current_image_index,
+  };
+
+  VkResult res = vkQueuePresentKHR(dev->present_queue, &present_info);
+  if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR ||
+      window->framebuffer_resized) {
+    window->framebuffer_resized = false;
+    destroy_resizables(window);
+    create_resizables(window);
+  } else {
+    VK_CHECK(res);
+  }
+
+  window->current_frame = (window->current_frame + 1) % FRAMES_IN_FLIGHT;
 }
 
 static void window_destroy(GlfwVulkanWindow *window) {
@@ -648,6 +753,8 @@ static void window_destroy(GlfwVulkanWindow *window) {
 static MtWindowVT g_glfw_window_vt = (MtWindowVT){
     .should_close = (void *)should_close,
     .next_event   = (void *)next_event,
+    .begin_frame  = (void *)begin_frame,
+    .end_frame    = (void *)end_frame,
     .destroy      = (void *)window_destroy,
 };
 
@@ -724,6 +831,8 @@ void mt_glfw_vulkan_window_init(
   create_fences(window);
 
   create_resizables(window);
+
+  allocate_cmd_buffers(window);
 }
 
 static MtEvent *new_event() {

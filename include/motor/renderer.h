@@ -4,9 +4,30 @@
 #include <stdbool.h>
 #include "arena.h"
 
+typedef enum MtQueueType {
+  MT_QUEUE_GRAPHICS,
+  MT_QUEUE_COMPUTE,
+  MT_QUEUE_TRANSFER,
+} MtQueueType;
+
+typedef struct MtCmdBuffer MtCmdBuffer;
+
+typedef struct MtCmdBufferVT {
+  void (*begin_renderpass)(MtCmdBuffer *);
+} MtCmdBufferVT;
+
+typedef struct MtICmdBuffer {
+  MtCmdBuffer *inst;
+  MtCmdBufferVT *vt;
+} MtICmdBuffer;
+
 typedef struct MtDevice MtDevice;
 
 typedef struct MtDeviceVT {
+  void (*allocate_cmd_buffers)(
+      MtDevice *, MtQueueType, uint32_t, MtICmdBuffer *);
+  void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtICmdBuffer *);
+  void (*submit_cmd)(MtDevice *, MtICmdBuffer *);
   void (*destroy)(MtDevice *);
 } MtDeviceVT;
 
