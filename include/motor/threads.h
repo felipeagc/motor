@@ -2,14 +2,14 @@
 #define MT_THREADS_H
 
 #if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__)
-#define _MT_THREADS_WIN32
+#define MT_THREADS_WIN32
 #else
-#define _MT_THREADS_POSIX
+#define MT_THREADS_POSIX
 #endif
 
-#if defined(_MT_THREADS_POSIX)
+#if defined(MT_THREADS_POSIX)
 #include <pthread.h>
-#elif defined(_MT_THREADS_WIN32)
+#elif defined(MT_THREADS_WIN32)
 #include <windows.h>
 #endif
 
@@ -28,9 +28,9 @@
 
 #define MT_THREAD_LOCAL _Thread_local
 
-#if defined(_MT_THREADS_POSIX)
+#if defined(MT_THREADS_POSIX)
 typedef pthread_t MtThread;
-#elif defined(_MT_THREADS_WIN32)
+#elif defined(MT_THREADS_WIN32)
 typedef HANDLE MtThread;
 #endif
 

@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
       &arena);
 
   MtIWindow window;
-  mt_glfw_vulkan_window_init(&window, 800, 600, "Hello", &arena);
+  mt_glfw_vulkan_window_init(&window, &device, 800, 600, "Hello", &arena);
 
   while (!window.vt->should_close(window.inst)) {
     window_system.vt->poll_events();
