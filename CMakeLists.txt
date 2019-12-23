@@ -15,6 +15,7 @@ set(
 
 	src/motor/vulkan/glfw_window.c
 	src/motor/vulkan/vulkan_device.c
+	src/motor/vulkan/hashing.c
 	src/motor/vulkan/volk.c
 	src/motor/vulkan/spirv_reflect.c
 	src/motor/vulkan/vk_mem_alloc.cpp
