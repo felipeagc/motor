@@ -4,17 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct MtIDevice MtIDevice;
-
 typedef struct MtArena MtArena;
+typedef struct MtIDevice MtIDevice;
 typedef struct MtIWindowSystem MtIWindowSystem;
-
-typedef struct MtQueueFamilyIndices {
-  uint32_t graphics;
-  uint32_t present;
-  uint32_t transfer;
-  uint32_t compute;
-} MtQueueFamilyIndices;
 
 typedef uint32_t MtVulkanDeviceFlags;
 typedef enum MtVulkanDeviceFlagBits {
