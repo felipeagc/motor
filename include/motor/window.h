@@ -7,6 +7,9 @@
 typedef struct MtWindow MtWindow;
 typedef struct MtWindowSystem MtWindowSystem;
 
+typedef struct MtRenderPass MtRenderPass;
+typedef struct MtICmdBuffer MtICmdBuffer;
+
 typedef struct MtEvent MtEvent;
 
 typedef struct MtWindowSystemVT {
@@ -22,8 +25,11 @@ typedef struct MtIWindowSystem {
 typedef struct MtWindowVT {
   bool (*should_close)(MtWindow *);
   bool (*next_event)(MtWindow *, MtEvent *);
-  void (*begin_frame)(MtWindow *);
+
+  MtICmdBuffer (*begin_frame)(MtWindow *);
   void (*end_frame)(MtWindow *);
+  MtRenderPass *(*get_render_pass)(MtWindow *);
+
   void (*destroy)(MtWindow *);
 } MtWindowVT;
 

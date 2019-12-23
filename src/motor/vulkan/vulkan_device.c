@@ -44,15 +44,14 @@ static VkBool32 debug_callback(
   return VK_FALSE;
 }
 
-static bool
-are_indices_complete(VulkanDevice *dev, QueueFamilyIndices *indices) {
+static bool are_indices_complete(MtDevice *dev, QueueFamilyIndices *indices) {
   return indices->graphics != UINT32_MAX &&
          ((dev->flags & MT_DEVICE_HEADLESS) ||
           indices->present != UINT32_MAX) &&
          indices->transfer != UINT32_MAX && indices->compute != UINT32_MAX;
 }
 
-static bool check_validation_layer_support(VulkanDevice *device) {
+static bool check_validation_layer_support(MtDevice *device) {
   uint32_t layer_count;
   vkEnumerateInstanceLayerProperties(&layer_count, NULL);
 
@@ -82,7 +81,7 @@ static bool check_validation_layer_support(VulkanDevice *device) {
   return true;
 }
 
-static void create_instance(VulkanDevice *dev) {
+static void create_instance(MtDevice *dev) {
 #ifdef MT_ENABLE_VALIDATION
   if (!check_validation_layer_support(dev)) {
     printf("Application wants to enable validation layers but does not support "
@@ -148,7 +147,7 @@ static void create_instance(VulkanDevice *dev) {
   mt_free(dev->arena, extensions);
 }
 
-static void create_debug_messenger(VulkanDevice *dev) {
+static void create_debug_messenger(MtDevice *dev) {
   VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
   create_info.messageSeverity =
@@ -165,7 +164,7 @@ static void create_debug_messenger(VulkanDevice *dev) {
 }
 
 static QueueFamilyIndices
-find_queue_families(VulkanDevice *dev, VkPhysicalDevice physical_device) {
+find_queue_families(MtDevice *dev, VkPhysicalDevice physical_device) {
   QueueFamilyIndices indices;
   indices.graphics = UINT32_MAX;
   indices.present  = UINT32_MAX;
@@ -215,7 +214,7 @@ find_queue_families(VulkanDevice *dev, VkPhysicalDevice physical_device) {
 }
 
 static bool check_device_extension_support(
-    VulkanDevice *dev, VkPhysicalDevice physical_device) {
+    MtDevice *dev, VkPhysicalDevice physical_device) {
   uint32_t extension_count;
   vkEnumerateDeviceExtensionProperties(
       physical_device, NULL, &extension_count, NULL);
@@ -247,7 +246,7 @@ static bool check_device_extension_support(
 }
 
 static bool
-is_device_suitable(VulkanDevice *dev, VkPhysicalDevice physical_device) {
+is_device_suitable(MtDevice *dev, VkPhysicalDevice physical_device) {
   QueueFamilyIndices indices = find_queue_families(dev, physical_device);
 
   bool extensions_supported =
@@ -256,7 +255,7 @@ is_device_suitable(VulkanDevice *dev, VkPhysicalDevice physical_device) {
   return are_indices_complete(dev, &indices) && extensions_supported;
 }
 
-static void pick_physical_device(VulkanDevice *dev) {
+static void pick_physical_device(MtDevice *dev) {
   uint32_t device_count = 0;
   vkEnumeratePhysicalDevices(dev->instance, &device_count, NULL);
 
@@ -288,7 +287,7 @@ static void pick_physical_device(VulkanDevice *dev) {
   mt_free(dev->arena, devices);
 }
 
-static void create_device(VulkanDevice *dev) {
+static void create_device(MtDevice *dev) {
   dev->indices = find_queue_families(dev, dev->physical_device);
 
   float queue_priority                          = 1.0f;
@@ -369,7 +368,7 @@ static void create_device(VulkanDevice *dev) {
   vkGetDeviceQueue(dev->device, dev->indices.compute, 0, &dev->compute_queue);
 }
 
-static void create_allocator(VulkanDevice *dev) {
+static void create_allocator(MtDevice *dev) {
   VmaAllocatorCreateInfo allocator_info = {0};
   allocator_info.physicalDevice         = dev->physical_device;
   allocator_info.device                 = dev->device;
@@ -401,7 +400,7 @@ static void create_allocator(VulkanDevice *dev) {
 }
 
 static VkFormat find_supported_format(
-    VulkanDevice *dev,
+    MtDevice *dev,
     VkFormat *candidates,
     uint32_t candidate_count,
     VkImageTiling tiling,
@@ -425,7 +424,7 @@ static VkFormat find_supported_format(
   return VK_FORMAT_UNDEFINED;
 }
 
-static void find_supported_depth_format(VulkanDevice *dev) {
+static void find_supported_depth_format(MtDevice *dev) {
   VkFormat candidates[3] = {
       VK_FORMAT_D24_UNORM_S8_UINT,
       VK_FORMAT_D32_SFLOAT_S8_UINT,
@@ -440,7 +439,7 @@ static void find_supported_depth_format(VulkanDevice *dev) {
       VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-static void create_command_pools(VulkanDevice *dev) {
+static void create_command_pools(MtDevice *dev) {
   VkCommandPoolCreateInfo create_info = {0};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -481,10 +480,94 @@ static void create_command_pools(VulkanDevice *dev) {
 }
 // }}}
 
-static MtCmdBufferVT g_cmd_buffer_vt = (MtCmdBufferVT){};
+static void set_viewport(
+    MtCmdBuffer *cmd_buffer, float x, float y, float width, float height) {
+  VkViewport viewport = {
+      .width    = width,
+      .height   = height,
+      .x        = x,
+      .y        = y,
+      .minDepth = 0.0f,
+      .maxDepth = 1.0f,
+  };
+  vkCmdSetViewport(cmd_buffer->cmd_buffer, 0, 1, &viewport);
+}
+
+static void set_scissor(
+    MtCmdBuffer *cmd_buffer,
+    int32_t x,
+    int32_t y,
+    uint32_t width,
+    uint32_t height) {
+  VkRect2D scissor = {
+      .offset = {x, y},
+      .extent = {width, height},
+  };
+
+  vkCmdSetScissor(cmd_buffer->cmd_buffer, 0, 1, &scissor);
+}
+
+static void
+begin_render_pass(MtCmdBuffer *cmd_buffer, MtRenderPass *render_pass) {
+  cmd_buffer->current_renderpass = *render_pass;
+
+  VkClearValue clear_values[2] = {0};
+  clear_values[0].color        = (VkClearColorValue){0.0f, 0.0f, 0.0f, 1.0f};
+  clear_values[1].depthStencil.depth   = 1.0f;
+  clear_values[1].depthStencil.stencil = 0;
+
+  VkRenderPassBeginInfo render_pass_info = {
+      .sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+      .renderPass        = render_pass->renderpass,
+      .framebuffer       = render_pass->current_framebuffer,
+      .renderArea.offset = (VkOffset2D){0, 0},
+      .renderArea.extent = render_pass->extent,
+      .clearValueCount   = MT_LENGTH(clear_values),
+      .pClearValues      = clear_values,
+  };
+
+  vkCmdBeginRenderPass(
+      cmd_buffer->cmd_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+
+  set_viewport(
+      cmd_buffer,
+      0.0f,
+      0.0f,
+      (float)render_pass->extent.width,
+      (float)render_pass->extent.height);
+  set_scissor(
+      cmd_buffer, 0, 0, render_pass->extent.width, render_pass->extent.height);
+}
+
+static void end_render_pass(MtCmdBuffer *cmd_buffer) {
+  vkCmdEndRenderPass(cmd_buffer->cmd_buffer);
+}
+
+static void begin_cmd_buffer(MtCmdBuffer *cmd_buffer) {
+  VkCommandBufferBeginInfo begin_info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
+  };
+  VK_CHECK(vkBeginCommandBuffer(cmd_buffer->cmd_buffer, &begin_info));
+}
+
+static void end_cmd_buffer(MtCmdBuffer *cmd_buffer) {
+  VK_CHECK(vkEndCommandBuffer(cmd_buffer->cmd_buffer));
+}
+
+static MtCmdBufferVT g_cmd_buffer_vt = (MtCmdBufferVT){
+    .begin = begin_cmd_buffer,
+    .end   = end_cmd_buffer,
+
+    .begin_render_pass = begin_render_pass,
+    .end_render_pass   = end_render_pass,
+
+    .set_viewport = set_viewport,
+    .set_scissor  = set_scissor,
+};
 
 static void allocate_cmd_buffers(
-    VulkanDevice *dev,
+    MtDevice *dev,
     MtQueueType queue_type,
     uint32_t count,
     MtICmdBuffer *cmd_buffers) {
@@ -518,9 +601,9 @@ static void allocate_cmd_buffers(
 
   for (uint32_t i = 0; i < count; i++) {
     cmd_buffers[i].vt   = &g_cmd_buffer_vt;
-    cmd_buffers[i].inst = mt_calloc(dev->arena, sizeof(VulkanCmdBuffer));
+    cmd_buffers[i].inst = mt_calloc(dev->arena, sizeof(MtCmdBuffer));
 
-    VulkanCmdBuffer *inst = (VulkanCmdBuffer *)cmd_buffers[i].inst;
+    MtCmdBuffer *inst = (MtCmdBuffer *)cmd_buffers[i].inst;
 
     inst->dev        = dev;
     inst->cmd_buffer = command_buffers[i];
@@ -531,7 +614,7 @@ static void allocate_cmd_buffers(
 }
 
 static void free_cmd_buffers(
-    VulkanDevice *dev,
+    MtDevice *dev,
     MtQueueType queue_type,
     uint32_t count,
     MtICmdBuffer *cmd_buffers) {
@@ -555,8 +638,8 @@ static void free_cmd_buffers(
       mt_alloc(dev->arena, sizeof(VkCommandBuffer) * count);
 
   for (uint32_t i = 0; i < count; i++) {
-    VulkanCmdBuffer *inst = (VulkanCmdBuffer *)cmd_buffers[i].inst;
-    command_buffers[i]    = inst->cmd_buffer;
+    MtCmdBuffer *inst  = (MtCmdBuffer *)cmd_buffers[i].inst;
+    command_buffers[i] = inst->cmd_buffer;
   }
 
   vkFreeCommandBuffers(dev->device, pool, count, command_buffers);
@@ -568,8 +651,8 @@ static void free_cmd_buffers(
   mt_free(dev->arena, command_buffers);
 }
 
-static void submit_cmd(VulkanDevice *dev, MtICmdBuffer *cmd_buffer) {
-  VulkanCmdBuffer *vk_cmd_buffer = (VulkanCmdBuffer *)cmd_buffer->inst;
+static void submit(MtDevice *dev, MtICmdBuffer *cmd_buffer) {
+  MtCmdBuffer *vk_cmd_buffer = cmd_buffer->inst;
 
   VkQueue queue = VK_NULL_HANDLE;
 
@@ -599,27 +682,27 @@ static void submit_cmd(VulkanDevice *dev, MtICmdBuffer *cmd_buffer) {
       .pSignalSemaphores    = NULL,
   };
 
-  VK_CHECK(vkQueueSubmit(dev->graphics_queue, 1, &submit_info, VK_NULL_HANDLE));
+  VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE));
 }
 
-static void vulkan_device_destroy(VulkanDevice *dev);
+static void vulkan_device_destroy(MtDevice *dev);
 
 static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
-    .allocate_cmd_buffers = (void *)allocate_cmd_buffers,
-    .free_cmd_buffers     = (void *)free_cmd_buffers,
-    .submit_cmd           = (void *)submit_cmd,
-    .destroy              = (void *)vulkan_device_destroy,
+    .allocate_cmd_buffers = allocate_cmd_buffers,
+    .free_cmd_buffers     = free_cmd_buffers,
+    .submit               = submit,
+    .destroy              = vulkan_device_destroy,
 };
 
 void mt_vulkan_device_init(
     MtIDevice *interface,
     MtVulkanDeviceDescriptor *descriptor,
     MtArena *arena) {
-  VulkanDevice *dev = mt_calloc(arena, sizeof(VulkanDevice));
-  dev->flags        = descriptor->flags;
-  dev->arena        = arena;
+  MtDevice *dev = mt_calloc(arena, sizeof(MtDevice));
+  dev->flags    = descriptor->flags;
+  dev->arena    = arena;
 
-  dev->window_system = (VulkanWindowSystem *)descriptor->window_system->inst;
+  dev->window_system = descriptor->window_system->inst;
 
   dev->num_threads = descriptor->num_threads;
   if (dev->num_threads == 0) {
@@ -644,7 +727,7 @@ void mt_vulkan_device_init(
   interface->vt   = &g_vulkan_device_vt;
 }
 
-static void vulkan_device_destroy(VulkanDevice *dev) {
+static void vulkan_device_destroy(MtDevice *dev) {
   MtArena *arena = dev->arena;
   vkDeviceWaitIdle(dev->device);
 

@@ -34,7 +34,15 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    window.vt->begin_frame(window.inst);
+    MtICmdBuffer cb = window.vt->begin_frame(window.inst);
+
+    cb.vt->begin(cb.inst);
+
+    cb.vt->begin_render_pass(cb.inst, window.vt->get_render_pass(window.inst));
+
+    cb.vt->end_render_pass(cb.inst);
+
+    cb.vt->end(cb.inst);
 
     window.vt->end_frame(window.inst);
   }

@@ -21,17 +21,17 @@ typedef struct QueueFamilyIndices {
   uint32_t compute;
 } QueueFamilyIndices;
 
-typedef struct VulkanWindowSystem {
+typedef struct MtWindowSystem {
   const char **(*get_vulkan_instance_extensions)(uint32_t *count);
   int32_t (*get_physical_device_presentation_support)(
       VkInstance instance, VkPhysicalDevice device, uint32_t queuefamily);
-} VulkanWindowSystem;
+} MtWindowSystem;
 
-typedef struct VulkanDevice {
+typedef struct MtDevice {
   MtArena *arena;
 
   MtVulkanDeviceFlags flags;
-  VulkanWindowSystem *window_system;
+  MtWindowSystem *window_system;
 
   VkInstance instance;
   VkDebugUtilsMessengerEXT debug_messenger;
@@ -56,12 +56,19 @@ typedef struct VulkanDevice {
   VkCommandPool *graphics_cmd_pools;
   VkCommandPool *compute_cmd_pools;
   VkCommandPool *transfer_cmd_pools;
-} VulkanDevice;
+} MtDevice;
 
-typedef struct VulkanCmdBuffer {
-  VulkanDevice *dev;
+typedef struct MtRenderPass {
+  VkRenderPass renderpass;
+  VkExtent2D extent;
+  VkFramebuffer current_framebuffer;
+} MtRenderPass;
+
+typedef struct MtCmdBuffer {
+  MtDevice *dev;
   VkCommandBuffer cmd_buffer;
+  MtRenderPass current_renderpass;
   uint32_t queue_type;
-} VulkanCmdBuffer;
+} MtCmdBuffer;
 
 #endif
