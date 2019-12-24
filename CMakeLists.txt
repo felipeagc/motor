@@ -11,6 +11,7 @@ set(
 	MOTOR_SOURCES
 	src/motor/arena.c
 	src/motor/threads.c
+	src/motor/hashmap.c
 	src/motor/xxhash.c
 
 	src/motor/vulkan/glfw_window.c
@@ -31,4 +32,8 @@ target_link_libraries(simple PUBLIC motor)
 add_executable(arena_tests tests/arena_tests.c)
 target_link_libraries(arena_tests PUBLIC motor)
 add_test(area_tests arena_tests)
+
+add_executable(hash_tests tests/hash_tests.c)
+target_link_libraries(hash_tests PUBLIC motor)
+add_test(hash_tests hash_tests)
 
