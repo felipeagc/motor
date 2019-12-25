@@ -11,6 +11,8 @@
 #include "internal.h"
 #include "vk_mem_alloc.h"
 
+#include "pipeline.c"
+
 #if !defined(NDEBUG)
 // Debug mode
 #define MT_ENABLE_VALIDATION
@@ -480,6 +482,7 @@ static void create_command_pools(MtDevice *dev) {
 }
 // }}}
 
+// Command buffer commands {{{
 static void set_viewport(
     MtCmdBuffer *cmd_buffer, float x, float y, float width, float height) {
   VkViewport viewport = {
@@ -505,6 +508,30 @@ static void set_scissor(
   };
 
   vkCmdSetScissor(cmd_buffer->cmd_buffer, 0, 1, &scissor);
+}
+
+static void bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline) {
+  switch (pipeline->bind_point) {
+  case VK_PIPELINE_BIND_POINT_GRAPHICS: {
+    cb->bound_pipeline =
+        request_graphics_pipeline(cb->dev, pipeline, &cb->current_renderpass);
+
+    vkCmdBindPipeline(
+        cb->cmd_buffer,
+        cb->bound_pipeline->bind_point,
+        cb->bound_pipeline->pipeline);
+  } break;
+
+  case VK_PIPELINE_BIND_POINT_COMPUTE: {
+    // TODO
+    /* bound_pipeline = dev.request_compute_pipeline(program); */
+
+    /* vkCmdBindPipeline( */
+    /*     cmd_buffer, */
+    /*     bound_pipeline.bind_point, */
+    /*     bound_pipeline.pipeline); */
+  } break;
+  }
 }
 
 static void
@@ -554,6 +581,7 @@ static void begin_cmd_buffer(MtCmdBuffer *cmd_buffer) {
 static void end_cmd_buffer(MtCmdBuffer *cmd_buffer) {
   VK_CHECK(vkEndCommandBuffer(cmd_buffer->cmd_buffer));
 }
+// }}}
 
 static MtCmdBufferVT g_cmd_buffer_vt = (MtCmdBufferVT){
     .begin = begin_cmd_buffer,
@@ -564,8 +592,11 @@ static MtCmdBufferVT g_cmd_buffer_vt = (MtCmdBufferVT){
 
     .set_viewport = set_viewport,
     .set_scissor  = set_scissor,
+
+    .bind_pipeline = bind_pipeline,
 };
 
+// Device functions {{{
 static void allocate_cmd_buffers(
     MtDevice *dev,
     MtQueueType queue_type,
@@ -685,51 +716,56 @@ static void submit(MtDevice *dev, MtICmdBuffer *cmd_buffer) {
   VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE));
 }
 
-static void vulkan_device_destroy(MtDevice *dev);
+static MtPipeline *create_graphics_pipeline(
+    MtDevice *dev,
+    uint8_t *vertex_code,
+    size_t vertex_code_size,
+    uint8_t *fragment_code,
+    size_t fragment_code_size,
+    MtGraphicsPipelineDescriptor *descriptor) {
+  MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
 
-static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
-    .allocate_cmd_buffers = allocate_cmd_buffers,
-    .free_cmd_buffers     = free_cmd_buffers,
-    .submit               = submit,
-    .destroy              = vulkan_device_destroy,
-};
+  pipeline_init_graphics(
+      dev,
+      pipeline,
+      vertex_code,
+      vertex_code_size,
+      fragment_code,
+      fragment_code_size,
+      descriptor);
 
-void mt_vulkan_device_init(
-    MtIDevice *interface,
-    MtVulkanDeviceDescriptor *descriptor,
-    MtArena *arena) {
-  MtDevice *dev = mt_calloc(arena, sizeof(MtDevice));
-  dev->flags    = descriptor->flags;
-  dev->arena    = arena;
-
-  dev->window_system = descriptor->window_system->inst;
-
-  dev->num_threads = descriptor->num_threads;
-  if (dev->num_threads == 0) {
-    dev->num_threads = 1;
-  }
-
-  create_instance(dev);
-
-#ifdef MT_ENABLE_VALIDATION
-  create_debug_messenger(dev);
-#endif
-
-  pick_physical_device(dev);
-  create_device(dev);
-  create_allocator(dev);
-
-  find_supported_depth_format(dev);
-
-  create_command_pools(dev);
-
-  interface->inst = (MtDevice *)dev;
-  interface->vt   = &g_vulkan_device_vt;
+  return pipeline;
 }
 
-static void vulkan_device_destroy(MtDevice *dev) {
+static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
+  pipeline_destroy(dev, pipeline);
+  mt_free(dev->arena, pipeline);
+}
+
+static void device_destroy(MtDevice *dev) {
   MtArena *arena = dev->arena;
   vkDeviceWaitIdle(dev->device);
+
+  for (uint32_t i = 0; i < dev->pipeline_map.size; i++) {
+    if (dev->pipeline_map.keys[i] != MT_HASH_UNUSED) {
+      PipelineBundle *bundle = (PipelineBundle *)dev->pipeline_map.values[i];
+      vkDestroyPipeline(dev->device, bundle->pipeline, NULL);
+      mt_free(dev->arena, bundle);
+    }
+  }
+
+  for (uint32_t i = 0; i < dev->pipeline_layout_map.size; i++) {
+    if (dev->pipeline_layout_map.keys[i] != MT_HASH_UNUSED) {
+      PipelineLayout *layout =
+          (PipelineLayout *)dev->pipeline_layout_map.values[i];
+      vkDestroyPipelineLayout(dev->device, layout->layout, NULL);
+      mt_free(dev->arena, layout);
+    }
+  }
+
+  mt_hash_destroy(&dev->pipeline_map);
+  mt_hash_destroy(&dev->pipeline_layout_map);
+  mt_hash_destroy(&dev->descriptor_set_allocators);
 
   if (dev->graphics_cmd_pools != dev->compute_cmd_pools) {
     for (uint32_t i = 0; i < dev->num_threads; i++) {
@@ -764,4 +800,54 @@ static void vulkan_device_destroy(MtDevice *dev) {
   vkDestroyInstance(dev->instance, NULL);
 
   mt_free(arena, dev);
+}
+// }}}
+
+static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
+    .allocate_cmd_buffers = allocate_cmd_buffers,
+    .free_cmd_buffers     = free_cmd_buffers,
+
+    .submit = submit,
+
+    .create_graphics_pipeline = create_graphics_pipeline,
+    .destroy_pipeline         = destroy_pipeline,
+
+    .destroy = device_destroy,
+};
+
+void mt_vulkan_device_init(
+    MtIDevice *interface,
+    MtVulkanDeviceDescriptor *descriptor,
+    MtArena *arena) {
+  MtDevice *dev = mt_calloc(arena, sizeof(MtDevice));
+  dev->flags    = descriptor->flags;
+  dev->arena    = arena;
+
+  dev->window_system = descriptor->window_system->inst;
+
+  dev->num_threads = descriptor->num_threads;
+  if (dev->num_threads == 0) {
+    dev->num_threads = 1;
+  }
+
+  create_instance(dev);
+
+#ifdef MT_ENABLE_VALIDATION
+  create_debug_messenger(dev);
+#endif
+
+  pick_physical_device(dev);
+  create_device(dev);
+  create_allocator(dev);
+
+  find_supported_depth_format(dev);
+
+  create_command_pools(dev);
+
+  mt_hash_init(&dev->descriptor_set_allocators, 51, dev->arena);
+  mt_hash_init(&dev->pipeline_layout_map, 51, dev->arena);
+  mt_hash_init(&dev->pipeline_map, 51, dev->arena);
+
+  interface->inst = dev;
+  interface->vt   = &g_vulkan_device_vt;
 }

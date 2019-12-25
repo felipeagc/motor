@@ -10,10 +10,9 @@
 #include "../../../include/motor/renderer.h"
 #include "../../../include/motor/window.h"
 #include "../../../include/motor/util.h"
+#include "../../../include/motor/arena.h"
 
 #define clamp(v, a, b) ((((v > b) ? b : v) < a) ? a : v)
-
-enum { FRAMES_IN_FLIGHT = 2 };
 
 /*
  * Window
