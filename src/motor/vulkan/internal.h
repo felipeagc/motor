@@ -4,7 +4,12 @@
 #include <assert.h>
 #include <stdint.h>
 #include "volk.h"
+#include "../../../include/motor/array.h"
+#include "../../../include/motor/hashmap.h"
+#include "../../../include/motor/renderer.h"
 #include "../../../include/motor/vulkan/vulkan_device.h"
+
+enum { FRAMES_IN_FLIGHT = 2 };
 
 #define VK_CHECK(exp)                                                          \
   do {                                                                         \
@@ -56,6 +61,10 @@ typedef struct MtDevice {
   VkCommandPool *graphics_cmd_pools;
   VkCommandPool *compute_cmd_pools;
   VkCommandPool *transfer_cmd_pools;
+
+  MtHashMap descriptor_set_allocators;
+  MtHashMap pipeline_layout_map;
+  MtHashMap pipeline_map;
 } MtDevice;
 
 typedef struct MtRenderPass {
@@ -65,9 +74,53 @@ typedef struct MtRenderPass {
   uint64_t hash;
 } MtRenderPass;
 
+typedef struct SetInfo {
+  uint32_t index;
+  /*array*/ VkDescriptorSetLayoutBinding *bindings;
+} SetInfo;
+
+typedef struct Shader {
+  VkShaderModule mod;
+  VkShaderStageFlagBits stage;
+
+  /*array*/ VkPushConstantRange *push_constants;
+  /*array*/ SetInfo *sets;
+} Shader;
+
+typedef union Descriptor {
+  VkDescriptorImageInfo image;
+  VkDescriptorBufferInfo buffer;
+} Descriptor;
+
+typedef struct PipelineLayout {
+  VkPipelineLayout layout;
+  /* DSAllocator *set_allocator; */
+  VkPipelineBindPoint bind_point;
+
+  /*array*/ VkDescriptorUpdateTemplate *update_templates;
+  /*array*/ VkDescriptorSetLayout *set_layouts;
+
+  /*array*/ SetInfo *sets;
+  /*array*/ VkPushConstantRange *push_constants;
+} PipelineLayout;
+
+typedef struct PipelineBundle {
+  VkPipeline pipeline;
+  PipelineLayout *layout;
+  VkPipelineBindPoint bind_point;
+} PipelineBundle;
+
+typedef struct MtPipeline {
+  VkPipelineBindPoint bind_point;
+  MtGraphicsPipelineDescriptor descriptor;
+  /*array*/ Shader *shaders;
+  uint64_t hash;
+} MtPipeline;
+
 typedef struct MtCmdBuffer {
   MtDevice *dev;
   VkCommandBuffer cmd_buffer;
+  PipelineBundle *bound_pipeline;
   MtRenderPass current_renderpass;
   uint32_t queue_type;
 } MtCmdBuffer;

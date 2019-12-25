@@ -3,8 +3,6 @@
 #include <string.h>
 #include "../../include/motor/arena.h"
 
-static const uint64_t HASH_UNUSED = UINT64_MAX;
-
 static void hash_grow(MtHashMap *map) {
   uint32_t old_size     = map->size;
   uint64_t *old_keys    = map->keys;
@@ -16,7 +14,7 @@ static void hash_grow(MtHashMap *map) {
   memset(map->keys, 0xff, sizeof(*map->keys) * map->size);
 
   for (uint32_t i = 0; i < old_size; i++) {
-    if (old_keys[i] != HASH_UNUSED) {
+    if (old_keys[i] != MT_HASH_UNUSED) {
       mt_hash_set(map, old_keys[i], old_values[i]);
     }
   }
@@ -24,9 +22,6 @@ static void hash_grow(MtHashMap *map) {
   mt_free(map->arena, old_keys);
   mt_free(map->arena, old_values);
 }
-
-// TODO
-// - resize the table when it's filled up
 
 void mt_hash_init(MtHashMap *map, uint32_t size, MtArena *arena) {
   memset(map, 0, sizeof(*map));
@@ -47,7 +42,7 @@ void mt_hash_clear(MtHashMap *map) {
 uintptr_t mt_hash_set(MtHashMap *map, uint64_t key, uintptr_t value) {
   uint32_t i     = key % map->size;
   uint32_t iters = 0;
-  while (map->keys[i] != key && map->keys[i] != HASH_UNUSED &&
+  while (map->keys[i] != key && map->keys[i] != MT_HASH_UNUSED &&
          iters < map->size) {
     i = (i + 1) % map->size;
     iters++;
@@ -67,7 +62,7 @@ uintptr_t mt_hash_set(MtHashMap *map, uint64_t key, uintptr_t value) {
 void mt_hash_remove(MtHashMap *map, uint64_t key) {
   uint32_t i     = key % map->size;
   uint32_t iters = 0;
-  while (map->keys[i] != key && map->keys[i] != HASH_UNUSED &&
+  while (map->keys[i] != key && map->keys[i] != MT_HASH_UNUSED &&
          iters < map->size) {
     i = (i + 1) % map->size;
     iters++;
@@ -77,7 +72,7 @@ void mt_hash_remove(MtHashMap *map, uint64_t key) {
     return;
   }
 
-  map->keys[i] = HASH_UNUSED;
+  map->keys[i] = MT_HASH_UNUSED;
 
   return;
 }
@@ -85,7 +80,7 @@ void mt_hash_remove(MtHashMap *map, uint64_t key) {
 uintptr_t mt_hash_get(MtHashMap *map, uint64_t key) {
   uint32_t i     = key % map->size;
   uint32_t iters = 0;
-  while (map->keys[i] != key && map->keys[i] != HASH_UNUSED &&
+  while (map->keys[i] != key && map->keys[i] != MT_HASH_UNUSED &&
          iters < map->size) {
     i = (i + 1) % map->size;
     iters++;
@@ -94,7 +89,7 @@ uintptr_t mt_hash_get(MtHashMap *map, uint64_t key) {
     return MT_HASH_NOT_FOUND;
   }
 
-  return map->keys[i] == HASH_UNUSED ? MT_HASH_NOT_FOUND : map->values[i];
+  return map->keys[i] == MT_HASH_UNUSED ? MT_HASH_NOT_FOUND : map->values[i];
 }
 
 void mt_hash_destroy(MtHashMap *map) {
