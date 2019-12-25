@@ -42,7 +42,7 @@ void test2(MtArena *arena) {
 
   Struct s = {.a = 123};
   int i;
-  assert((i = mt_array_push(arena, data, s)) == 0);
+  assert((i = (mt_array_push(arena, data, s) - data)) == 0);
   assert(mt_hash_set(&h, s.a, i) != MT_HASH_NOT_FOUND);
 
   assert(mt_hash_set(&h, 1, 321) == 321);

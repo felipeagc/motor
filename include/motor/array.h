@@ -28,11 +28,14 @@ void *mt_array_grow(MtArena *arena, void *a, uint32_t item_size, uint32_t cap);
 #define mt_array_push(arena, a, item)                                          \
   (mt_array_full(a) ? a          = mt_array_grow(arena, a, sizeof(*a), 0) : 0, \
    a[mt_array_header(a)->size++] = (item),                                     \
-   mt_array_header(a)->size - 1)
+   &(a)[mt_array_header(a)->size - 1])
 
 #define mt_array_reserve(arena, a, capacity)                                   \
   (mt_array_full(a) ? a = mt_array_grow(arena, a, sizeof(*a), capacity) : 0)
 
 #define mt_array_free(arena, a) ((a) ? mt_free(arena, mt_array_header(a)) : 0)
+
+#define mt_array_foreach(item, a)                                              \
+  for (item = (a); item != (a) + mt_array_size(a); ++item)
 
 #endif
