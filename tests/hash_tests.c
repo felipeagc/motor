@@ -36,18 +36,18 @@ void test2(MtArena *arena) {
   } Struct;
 
   Struct *data = NULL;
-  mt_array_reserve(data, 123);
+  mt_array_reserve(arena, data, 123);
   assert(mt_array_size(data) == 0);
   assert(mt_array_capacity(data) == 123);
 
   Struct s = {.a = 123};
   int i;
-  assert((i = mt_array_push(data, s)) == 0);
+  assert((i = mt_array_push(arena, data, s)) == 0);
   assert(mt_hash_set(&h, s.a, i) != MT_HASH_NOT_FOUND);
 
   assert(mt_hash_set(&h, 1, 321) == 321);
 
-  mt_array_free(data);
+  mt_array_free(arena, data);
 
   mt_hash_destroy(&h);
 }
