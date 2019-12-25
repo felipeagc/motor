@@ -10,13 +10,13 @@ void test1(MtArena *arena) {
 
   assert(mt_hash_set(&h, 0, 123) == 123);
   assert(mt_hash_set(&h, 1, 321) == 321);
-  assert(mt_hash_set(&h, 2, 456) == MT_HASH_NOT_FOUND);
-  assert(mt_hash_set(&h, 3, 90) == MT_HASH_NOT_FOUND);
+  assert(mt_hash_set(&h, 2, 456) == 456);
+  assert(mt_hash_set(&h, 3, 90) == 90);
 
   assert(mt_hash_get(&h, 0) == 123);
   assert(mt_hash_get(&h, 1) == 321);
-  assert(mt_hash_get(&h, 2) == MT_HASH_NOT_FOUND);
-  assert(mt_hash_get(&h, 3) == MT_HASH_NOT_FOUND);
+  assert(mt_hash_get(&h, 2) == 456);
+  assert(mt_hash_get(&h, 3) == 90);
 
   mt_hash_remove(&h, 0);
   assert(mt_hash_get(&h, 0) == MT_HASH_NOT_FOUND);

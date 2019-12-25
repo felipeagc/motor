@@ -5,6 +5,26 @@
 
 static const uint64_t HASH_UNUSED = UINT64_MAX;
 
+static void hash_grow(MtHashMap *map) {
+  uint32_t old_size     = map->size;
+  uint64_t *old_keys    = map->keys;
+  uintptr_t *old_values = map->values;
+
+  map->size   = old_size * 2;
+  map->keys   = mt_alloc(map->arena, sizeof(*map->keys) * map->size);
+  map->values = mt_alloc(map->arena, sizeof(*map->values) * map->size);
+  memset(map->keys, 0xff, sizeof(*map->keys) * map->size);
+
+  for (uint32_t i = 0; i < old_size; i++) {
+    if (old_keys[i] != HASH_UNUSED) {
+      mt_hash_set(map, old_keys[i], old_values[i]);
+    }
+  }
+
+  mt_free(map->arena, old_keys);
+  mt_free(map->arena, old_values);
+}
+
 // TODO
 // - resize the table when it's filled up
 
@@ -24,7 +44,7 @@ void mt_hash_clear(MtHashMap *map) {
   memset(map->keys, 0xff, sizeof(*map->keys) * map->size);
 }
 
-uint32_t mt_hash_set(MtHashMap *map, uint64_t key, uint32_t value) {
+uintptr_t mt_hash_set(MtHashMap *map, uint64_t key, uintptr_t value) {
   uint32_t i     = key % map->size;
   uint32_t iters = 0;
   while (map->keys[i] != key && map->keys[i] != HASH_UNUSED &&
@@ -34,7 +54,8 @@ uint32_t mt_hash_set(MtHashMap *map, uint64_t key, uint32_t value) {
   }
 
   if (iters >= map->size) {
-    return MT_HASH_NOT_FOUND;
+    hash_grow(map);
+    return mt_hash_set(map, key, value);
   }
 
   map->keys[i]   = key;
@@ -61,7 +82,7 @@ void mt_hash_remove(MtHashMap *map, uint64_t key) {
   return;
 }
 
-uint32_t mt_hash_get(MtHashMap *map, uint64_t key) {
+uintptr_t mt_hash_get(MtHashMap *map, uint64_t key) {
   uint32_t i     = key % map->size;
   uint32_t iters = 0;
   while (map->keys[i] != key && map->keys[i] != HASH_UNUSED &&
