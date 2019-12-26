@@ -1,5 +1,4 @@
-#ifndef MT_THREADS_H
-#define MT_THREADS_H
+#pragma once
 
 #if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__)
 #define MT_THREADS_WIN32
@@ -47,5 +46,3 @@ int mt_thread_equal(MtThread thread1, MtThread thread2);
 void mt_thread_exit(int res);
 
 int mt_thread_join(MtThread thread, int *res);
-
-#endif

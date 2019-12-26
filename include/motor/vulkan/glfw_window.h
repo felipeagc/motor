@@ -1,5 +1,4 @@
-#ifndef MT_GLFW_WINDOW_H
-#define MT_GLFW_WINDOW_H
+#pragma once
 
 #include <stdint.h>
 
@@ -17,5 +16,3 @@ void mt_glfw_vulkan_window_init(
     uint32_t height,
     const char *title,
     MtArena *arena);
-
-#endif
