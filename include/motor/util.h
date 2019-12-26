@@ -1,5 +1,4 @@
-#ifndef MOTOR_UTIL_H
-#define MOTOR_UTIL_H
+#pragma once
 
 #if defined(_MSC_VER)
 #define MT_ALIGNAS(x) __declspec(align(x))
@@ -10,5 +9,3 @@
 #endif
 
 #define MT_LENGTH(array) (sizeof(array) / sizeof((array)[0]))
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef MT_HASHMAP
-#define MT_HASHMAP
+#pragma once
 
 #include <inttypes.h>
 
@@ -9,10 +8,10 @@
 typedef struct MtArena MtArena;
 
 typedef struct MtHashMap {
-  MtArena *arena;
-  uint64_t *keys;
-  uint64_t *values;
-  uintptr_t size;
+    MtArena *arena;
+    uint64_t *keys;
+    uint64_t *values;
+    uintptr_t size;
 } MtHashMap;
 
 void mt_hash_init(MtHashMap *map, uint32_t size, MtArena *arena);
@@ -26,5 +25,3 @@ void mt_hash_remove(MtHashMap *map, uint64_t key);
 uintptr_t mt_hash_get(MtHashMap *map, uint64_t key);
 
 void mt_hash_destroy(MtHashMap *map);
-
-#endif
