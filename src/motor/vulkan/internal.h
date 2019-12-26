@@ -19,6 +19,7 @@ enum { FRAMES_IN_FLIGHT = 2 };
   } while (0)
 
 VK_DEFINE_HANDLE(VmaAllocator)
+VK_DEFINE_HANDLE(VmaAllocation)
 
 typedef struct QueueFamilyIndices {
   uint32_t graphics;
@@ -32,6 +33,23 @@ typedef struct MtWindowSystem {
   int32_t (*get_physical_device_presentation_support)(
       VkInstance instance, VkPhysicalDevice device, uint32_t queuefamily);
 } MtWindowSystem;
+
+typedef struct BufferAllocatorPage {
+  MtBuffer *buffer;
+  MtDynamicBitset in_use;
+  size_t part_size;
+  struct BufferAllocatorPage *next;
+  void *mapping;
+  uint32_t last_index;
+} BufferAllocatorPage;
+
+typedef struct BufferAllocator {
+  MtDevice *dev;
+  uint32_t current_frame;
+  size_t page_size;
+  BufferAllocatorPage base_pages[FRAMES_IN_FLIGHT];
+  MtBufferUsage usage;
+} BufferAllocator;
 
 typedef struct MtDevice {
   MtArena *arena;
@@ -66,6 +84,10 @@ typedef struct MtDevice {
   MtHashMap descriptor_set_allocators;
   MtHashMap pipeline_layout_map;
   MtHashMap pipeline_map;
+
+  BufferAllocator ubo_allocator;
+  BufferAllocator vbo_allocator;
+  BufferAllocator ibo_allocator;
 } MtDevice;
 
 typedef struct MtRenderPass {
@@ -145,7 +167,7 @@ typedef struct PipelineBundle {
 
 typedef struct MtPipeline {
   VkPipelineBindPoint bind_point;
-  MtGraphicsPipelineDescriptor descriptor;
+  MtGraphicsPipelineCreateInfo create_info;
   /*array*/ Shader *shaders;
   uint64_t hash;
 } MtPipeline;
@@ -157,5 +179,13 @@ typedef struct MtCmdBuffer {
   MtRenderPass current_renderpass;
   uint32_t queue_type;
 } MtCmdBuffer;
+
+typedef struct MtBuffer {
+  VkBuffer buffer;
+  VmaAllocation allocation;
+  size_t size;
+  MtBufferUsage usage;
+  MtBufferMemory memory;
+} MtBuffer;
 
 #endif

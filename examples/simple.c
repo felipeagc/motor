@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
   MtIDevice dev;
   mt_vulkan_device_init(
       &dev,
-      &(MtVulkanDeviceDescriptor){.window_system = &window_system},
+      &(MtVulkanDeviceCreateInfo){.window_system = &window_system},
       &arena);
 
   MtIWindow window;
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
       vertex_code_size,
       fragment_code,
       fragment_code_size,
-      &(MtGraphicsPipelineDescriptor){
+      &(MtGraphicsPipelineCreateInfo){
           .blending    = false,
           .depth_test  = false,
           .depth_write = false,
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
           .cull_mode   = MT_CULL_MODE_NONE,
           .front_face  = MT_FRONT_FACE_COUNTER_CLOCKWISE,
           .line_width  = 1.0f,
-          .vertex_descriptor =
+          .vertex_info =
               {
                   .attributes      = NULL,
                   .attribute_count = 0,

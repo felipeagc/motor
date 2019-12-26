@@ -13,13 +13,13 @@ typedef enum MtVulkanDeviceFlagBits {
   MT_DEVICE_HEADLESS = 1,
 } MtVulkanDeviceFlagBits;
 
-typedef struct MtVulkanDeviceDescriptor {
+typedef struct MtVulkanDeviceCreateInfo {
   MtVulkanDeviceFlags flags;
   uint32_t num_threads;
   MtIWindowSystem *window_system;
-} MtVulkanDeviceDescriptor;
+} MtVulkanDeviceCreateInfo;
 
 void mt_vulkan_device_init(
-    MtIDevice *device, MtVulkanDeviceDescriptor *descriptor, MtArena *arena);
+    MtIDevice *device, MtVulkanDeviceCreateInfo *descriptor, MtArena *arena);
 
 #endif
