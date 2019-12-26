@@ -12,10 +12,12 @@ typedef enum MtQueueType {
 
 typedef struct MtRenderPass MtRenderPass;
 typedef struct MtPipeline MtPipeline;
+typedef struct MtBuffer MtBuffer;
 
 typedef struct MtCmdBuffer MtCmdBuffer;
 
-typedef struct MtGraphicsPipelineDescriptor MtGraphicsPipelineDescriptor;
+typedef struct MtBufferCreateInfo MtBufferCreateInfo;
+typedef struct MtGraphicsPipelineCreateInfo MtGraphicsPipelineCreateInfo;
 
 typedef struct MtCmdBufferVT {
   void (*begin)(MtCmdBuffer *);
@@ -45,6 +47,12 @@ typedef struct MtDeviceVT {
       MtDevice *, MtQueueType, uint32_t, MtICmdBuffer *);
   void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtICmdBuffer *);
 
+  MtBuffer *(*create_buffer)(MtDevice *, MtBufferCreateInfo *);
+  void (*destroy_buffer)(MtDevice *, MtBuffer *);
+
+  void *(*map_buffer)(MtDevice *, MtBuffer *);
+  void (*unmap_buffer)(MtDevice *, MtBuffer *);
+
   void (*submit)(MtDevice *, MtICmdBuffer *);
 
   MtPipeline *(*create_graphics_pipeline)(
@@ -53,7 +61,7 @@ typedef struct MtDeviceVT {
       size_t vertex_code_size,
       uint8_t *fragment_code,
       size_t fragment_code_size,
-      MtGraphicsPipelineDescriptor *);
+      MtGraphicsPipelineCreateInfo *);
   void (*destroy_pipeline)(MtDevice *, MtPipeline *);
 
   void (*destroy)(MtDevice *);
@@ -111,14 +119,14 @@ typedef struct MtVertexAttribute {
   uint32_t offset;
 } MtVertexAttribute;
 
-typedef struct MtVertexDescriptor {
+typedef struct MtVertexInfo {
   MtVertexAttribute *attributes;
   uint32_t attribute_count;
 
   uint32_t stride;
-} MtVertexDescriptor;
+} MtVertexInfo;
 
-typedef struct MtGraphicsPipelineDescriptor {
+typedef struct MtGraphicsPipelineCreateInfo {
   bool blending;
   bool depth_test;
   bool depth_write;
@@ -126,8 +134,8 @@ typedef struct MtGraphicsPipelineDescriptor {
   MtCullMode cull_mode;
   MtFrontFace front_face;
   float line_width;
-  MtVertexDescriptor vertex_descriptor;
-} MtGraphicsPipelineDescriptor;
+  MtVertexInfo vertex_info;
+} MtGraphicsPipelineCreateInfo;
 
 typedef union MtColor {
   struct {
@@ -135,5 +143,24 @@ typedef union MtColor {
   };
   float values[4];
 } MtColor;
+
+typedef enum MtBufferUsage {
+  MT_BUFFER_USAGE_VERTEX,
+  MT_BUFFER_USAGE_INDEX,
+  MT_BUFFER_USAGE_UNIFORM,
+  MT_BUFFER_USAGE_STORAGE,
+  MT_BUFFER_USAGE_TRANSFER,
+} MtBufferUsage;
+
+typedef enum MtBufferMemory {
+  MT_BUFFER_MEMORY_HOST,
+  MT_BUFFER_MEMORY_DEVICE,
+} MtBufferMemory;
+
+typedef struct MtBufferCreateInfo {
+  MtBufferUsage usage;
+  MtBufferMemory memory;
+  size_t size;
+} MtBufferCreateInfo;
 
 #endif

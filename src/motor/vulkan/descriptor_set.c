@@ -5,7 +5,7 @@
 enum { MAX_SET_AGE = 8 }; // age in frames
 
 // Page {{{
-static void page_begin_frame(DSAllocatorPage *page) {
+static void ds_page_begin_frame(DSAllocatorPage *page) {
   page->last_index = 0;
   for (uint32_t i = 0; i < mt_array_size(page->set_ages); i++) {
     if (mt_bitset_get(&page->in_use, i)) {
@@ -18,8 +18,8 @@ static void page_begin_frame(DSAllocatorPage *page) {
   }
 }
 
-static void
-page_init(DSAllocatorPage *page, DSAllocator *allocator, uint32_t set_index) {
+static void ds_page_init(
+    DSAllocatorPage *page, DSAllocator *allocator, uint32_t set_index) {
   memset(page, 0, sizeof(*page));
   page->set_index = set_index;
 
@@ -61,13 +61,13 @@ page_init(DSAllocatorPage *page, DSAllocator *allocator, uint32_t set_index) {
   VK_CHECK(vkAllocateDescriptorSets(
       allocator->dev->device, &alloc_info, page->sets));
 
-  page_begin_frame(page);
+  ds_page_begin_frame(page);
 
   mt_array_free(allocator->dev->arena, set_layouts);
 }
 
-static void page_destroy(DSAllocatorPage *page, DSAllocator *allocator) {
-  if (page->next) page_destroy(page->next, allocator);
+static void ds_page_destroy(DSAllocatorPage *page, DSAllocator *allocator) {
+  if (page->next) ds_page_destroy(page->next, allocator);
 
   mt_free(allocator->dev->arena, page->next);
   mt_array_free(allocator->dev->arena, page->sets);
@@ -79,7 +79,7 @@ static void page_destroy(DSAllocatorPage *page, DSAllocator *allocator) {
   vkDestroyDescriptorPool(allocator->dev->device, page->pool, NULL);
 }
 
-static VkDescriptorSet page_find(
+static VkDescriptorSet ds_page_find(
     DSAllocatorPage *page, DSAllocator *allocator, Descriptor *descriptors) {
   XXH64_state_t state = {0};
   XXH64_update(
@@ -95,7 +95,7 @@ static VkDescriptorSet page_find(
   return VK_NULL_HANDLE;
 }
 
-static VkDescriptorSet page_allocate(
+static VkDescriptorSet ds_page_allocate(
     DSAllocatorPage *page, DSAllocator *allocator, Descriptor *descriptors) {
   for (uint32_t i = page->last_index; i < mt_array_size(page->sets); i++) {
     VkDescriptorSet set = page->sets[i];
@@ -142,7 +142,7 @@ static void ds_allocator_begin_frame(DSAllocator *allocator) {
 
     DSAllocatorPage *page = &frame->base_pages[i];
     while (page) {
-      page_begin_frame(page);
+      ds_page_begin_frame(page);
       page = page->next;
     }
   }
@@ -217,7 +217,7 @@ static void ds_allocator_init(
 
     DSAllocatorPage *page;
     for (uint32_t i = 0; i < mt_array_size(frame->base_pages); i++) {
-      page_init(&frame->base_pages[i], allocator, i);
+      ds_page_init(&frame->base_pages[i], allocator, i);
     }
 
     mt_array_pushn(
@@ -233,7 +233,7 @@ static void ds_allocator_destroy(DSAllocator *allocator, MtDevice *dev) {
        frame++) {
 
     for (uint32_t i = 0; i < mt_array_size(frame->base_pages); i++) {
-      page_destroy(&frame->base_pages[i], allocator);
+      ds_page_destroy(&frame->base_pages[i], allocator);
     }
 
     mt_array_free(dev->arena, frame->base_pages);
@@ -254,7 +254,7 @@ static VkDescriptorSet ds_allocator_allocate(
 
   DSAllocatorPage *page = frame->last_pages[set];
   while (page) {
-    VkDescriptorSet descriptor_set = page_find(page, allocator, descriptors);
+    VkDescriptorSet descriptor_set = ds_page_find(page, allocator, descriptors);
     if (descriptor_set) return descriptor_set;
     page = page->next;
   }
@@ -262,7 +262,7 @@ static VkDescriptorSet ds_allocator_allocate(
   page = frame->last_pages[set];
   while (page) {
     VkDescriptorSet descriptor_set =
-        page_allocate(page, allocator, descriptors);
+        ds_page_allocate(page, allocator, descriptors);
     if (descriptor_set) return descriptor_set;
     if (!page->next) break;
     page = page->next;
@@ -271,11 +271,11 @@ static VkDescriptorSet ds_allocator_allocate(
   // Could not allocate, so now we create a new page
   assert(!page->next);
   page->next = mt_alloc(allocator->dev->arena, sizeof(DSAllocatorPage));
-  page_init(page->next, allocator, set);
+  ds_page_init(page->next, allocator, set);
   page                   = page->next;
   frame->last_pages[set] = page;
 
-  return page_allocate(page, allocator, descriptors);
+  return ds_page_allocate(page, allocator, descriptors);
 }
 // }}}
 

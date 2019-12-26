@@ -13,6 +13,7 @@ set(
 	src/motor/threads.c
 	src/motor/array.c
 	src/motor/hashmap.c
+	src/motor/bitset.c
 	src/motor/xxhash.c
 
 	src/motor/vulkan/glfw_window.c

@@ -11,6 +11,8 @@
 #include "internal.h"
 #include "vk_mem_alloc.h"
 
+#include "buffer.c"
+#include "buffer_allocator.c"
 #include "descriptor_set.c"
 #include "pipeline.c"
 
@@ -733,7 +735,7 @@ static MtPipeline *create_graphics_pipeline(
     size_t vertex_code_size,
     uint8_t *fragment_code,
     size_t fragment_code_size,
-    MtGraphicsPipelineDescriptor *descriptor) {
+    MtGraphicsPipelineCreateInfo *create_info) {
   MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
 
   pipeline_init_graphics(
@@ -743,7 +745,7 @@ static MtPipeline *create_graphics_pipeline(
       vertex_code_size,
       fragment_code,
       fragment_code_size,
-      descriptor);
+      create_info);
 
   return pipeline;
 }
@@ -756,6 +758,10 @@ static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
 static void device_destroy(MtDevice *dev) {
   MtArena *arena = dev->arena;
   vkDeviceWaitIdle(dev->device);
+
+  buffer_allocator_destroy(&dev->ubo_allocator);
+  buffer_allocator_destroy(&dev->vbo_allocator);
+  buffer_allocator_destroy(&dev->ibo_allocator);
 
   for (uint32_t i = 0; i < dev->pipeline_map.size; i++) {
     if (dev->pipeline_map.keys[i] != MT_HASH_UNUSED) {
@@ -820,6 +826,12 @@ static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
     .allocate_cmd_buffers = allocate_cmd_buffers,
     .free_cmd_buffers     = free_cmd_buffers,
 
+    .create_buffer  = create_buffer,
+    .destroy_buffer = destroy_buffer,
+
+    .map_buffer   = map_buffer,
+    .unmap_buffer = unmap_buffer,
+
     .submit = submit,
 
     .create_graphics_pipeline = create_graphics_pipeline,
@@ -830,15 +842,15 @@ static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
 
 void mt_vulkan_device_init(
     MtIDevice *interface,
-    MtVulkanDeviceDescriptor *descriptor,
+    MtVulkanDeviceCreateInfo *create_info,
     MtArena *arena) {
   MtDevice *dev = mt_calloc(arena, sizeof(MtDevice));
-  dev->flags    = descriptor->flags;
+  dev->flags    = create_info->flags;
   dev->arena    = arena;
 
-  dev->window_system = descriptor->window_system->inst;
+  dev->window_system = create_info->window_system->inst;
 
-  dev->num_threads = descriptor->num_threads;
+  dev->num_threads = create_info->num_threads;
   if (dev->num_threads == 0) {
     dev->num_threads = 1;
   }
@@ -860,6 +872,10 @@ void mt_vulkan_device_init(
   mt_hash_init(&dev->descriptor_set_allocators, 51, dev->arena);
   mt_hash_init(&dev->pipeline_layout_map, 51, dev->arena);
   mt_hash_init(&dev->pipeline_map, 51, dev->arena);
+
+  buffer_allocator_init(&dev->ubo_allocator, dev, 1 << 15, MT_BUFFER_USAGE_UNIFORM);
+  buffer_allocator_init(&dev->vbo_allocator, dev, 1 << 15, MT_BUFFER_USAGE_VERTEX);
+  buffer_allocator_init(&dev->ibo_allocator, dev, 1 << 15, MT_BUFFER_USAGE_INDEX);
 
   interface->inst = dev;
   interface->vt   = &g_vulkan_device_vt;
