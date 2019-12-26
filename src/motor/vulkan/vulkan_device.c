@@ -11,6 +11,7 @@
 #include "internal.h"
 #include "vk_mem_alloc.h"
 
+#include "descriptor_set.c"
 #include "pipeline.c"
 
 #if !defined(NDEBUG)
@@ -597,6 +598,16 @@ static MtCmdBufferVT g_cmd_buffer_vt = (MtCmdBufferVT){
 };
 
 // Device functions {{{
+static void begin_frame(MtDevice *dev) {
+  for (uint32_t i = 0; i < dev->descriptor_set_allocators.size; i++) {
+    if (dev->descriptor_set_allocators.keys[i] != MT_HASH_UNUSED) {
+      DSAllocator *allocator =
+          (DSAllocator *)dev->descriptor_set_allocators.values[i];
+      ds_allocator_begin_frame(allocator);
+    }
+  }
+}
+
 static void allocate_cmd_buffers(
     MtDevice *dev,
     MtQueueType queue_type,
@@ -804,6 +815,8 @@ static void device_destroy(MtDevice *dev) {
 // }}}
 
 static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
+    .begin_frame = begin_frame,
+
     .allocate_cmd_buffers = allocate_cmd_buffers,
     .free_cmd_buffers     = free_cmd_buffers,
 
