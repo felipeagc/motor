@@ -72,6 +72,8 @@ int main(int argc, char *argv[]) {
       });
 
   while (!window.vt->should_close(window.inst)) {
+    dev.vt->begin_frame(dev.inst);
+
     window_system.vt->poll_events();
 
     MtEvent event;

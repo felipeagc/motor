@@ -279,7 +279,7 @@ static void pipeline_layout_init(
     mt_array_free(dev->arena, entries);
   }
 
-  /* set_allocator = dev.request_descriptor_set_allocator(this); */
+  l->set_allocator = request_descriptor_set_allocator(dev, l);
 }
 
 static void pipeline_layout_destroy(PipelineLayout *l, MtDevice *dev) {

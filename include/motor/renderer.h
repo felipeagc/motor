@@ -39,6 +39,8 @@ typedef struct MtICmdBuffer {
 typedef struct MtDevice MtDevice;
 
 typedef struct MtDeviceVT {
+  void (*begin_frame)(MtDevice *);
+
   void (*allocate_cmd_buffers)(
       MtDevice *, MtQueueType, uint32_t, MtICmdBuffer *);
   void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtICmdBuffer *);

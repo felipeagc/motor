@@ -7,6 +7,7 @@
 #include "../../../include/motor/array.h"
 #include "../../../include/motor/hashmap.h"
 #include "../../../include/motor/renderer.h"
+#include "../../../include/motor/bitset.h"
 #include "../../../include/motor/vulkan/vulkan_device.h"
 
 enum { FRAMES_IN_FLIGHT = 2 };
@@ -92,9 +93,41 @@ typedef union Descriptor {
   VkDescriptorBufferInfo buffer;
 } Descriptor;
 
+enum { SETS_PER_PAGE = 32 };
+
+typedef struct DSAllocatorPage {
+  struct DSAllocatorPage *next;
+  VkDescriptorPool pool;
+
+  MtHashMap hashmap;
+  /* array */ VkDescriptorSet *sets;
+  /* array */ uint64_t *hashes;
+  /* array */ uint32_t *set_ages;
+  MT_BITSET(SETS_PER_PAGE) in_use;
+
+  uint32_t set_index;
+  uint32_t last_index;
+} DSAllocatorPage;
+
+typedef struct DSAllocatorFrame {
+  /* array */ DSAllocatorPage *base_pages; // [set_index]
+  /* array */ DSAllocatorPage **last_pages;
+} DSAllocatorFrame;
+
+typedef struct DSAllocator {
+  MtDevice *dev;
+  uint32_t current_frame;
+
+  DSAllocatorFrame frames[FRAMES_IN_FLIGHT];
+
+  VkDescriptorSetLayout *set_layouts;           // not owned by this
+  VkDescriptorUpdateTemplate *update_templates; // not owned by this
+  VkDescriptorPoolSize **pool_sizes;            // [pool_size][set]
+} DSAllocator;
+
 typedef struct PipelineLayout {
   VkPipelineLayout layout;
-  /* DSAllocator *set_allocator; */
+  DSAllocator *set_allocator;
   VkPipelineBindPoint bind_point;
 
   /*array*/ VkDescriptorUpdateTemplate *update_templates;
