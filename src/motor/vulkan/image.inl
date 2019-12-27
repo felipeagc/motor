@@ -27,6 +27,8 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
     image->layer_count = ci->layer_count;
     image->format      = format_to_vulkan(ci->format);
 
+    assert(image->format != VK_FORMAT_UNDEFINED);
+
     switch (ci->sample_count) {
     case 1: image->sample_count = VK_SAMPLE_COUNT_1_BIT; break;
     case 2: image->sample_count = VK_SAMPLE_COUNT_2_BIT; break;
@@ -48,7 +50,7 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
         VkImageCreateInfo image_create_info = {
             .sType     = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .imageType = VK_IMAGE_TYPE_2D,
-            .format    = format_to_vulkan(image->format),
+            .format    = image->format,
             .extent =
                 {
                     .width  = image->width,
@@ -101,7 +103,7 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
             .sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .image    = image->image,
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format   = format_to_vulkan(image->format),
+            .format   = image->format,
             .components =
                 {
                     .r = VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -126,6 +128,8 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
         VK_CHECK(vkCreateImageView(
             dev->device, &image_view_create_info, NULL, &image->image_view));
     }
+
+    return image;
 }
 
 static void destroy_image(MtDevice *dev, MtImage *image) {

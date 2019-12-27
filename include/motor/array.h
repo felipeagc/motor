@@ -35,6 +35,11 @@ void *mt_array_grow(MtArena *arena, void *a, uint32_t item_size, uint32_t cap);
 #define mt_array_pushn(arena, a, count)                                        \
     (mt_array_reserve(arena, a, count), mt_array_header(a)->size = count)
 
+#define mt_array_pushn_zeroed(arena, a, count)                                 \
+    (mt_array_reserve(arena, a, count),                                        \
+     mt_array_header(a)->size = count,                                         \
+     memset(a, 0, sizeof(*a) * mt_array_size(a)))
+
 #define mt_array_free(arena, a) ((a) ? mt_free(arena, mt_array_header(a)) : 0)
 
 #define mt_array_foreach(item, a)                                              \
