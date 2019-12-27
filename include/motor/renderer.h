@@ -42,6 +42,8 @@ typedef struct MtRenderer {
         uint8_t *fragment_code,
         size_t fragment_code_size,
         MtGraphicsPipelineCreateInfo *);
+    MtPipeline *(*create_compute_pipeline)(
+        MtDevice *, uint8_t *code, size_t code_size);
     void (*destroy_pipeline)(MtDevice *, MtPipeline *);
 
     void (*begin_cmd_buffer)(MtCmdBuffer *);

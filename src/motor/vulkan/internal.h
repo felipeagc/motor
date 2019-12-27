@@ -158,11 +158,11 @@ typedef struct PipelineLayout {
     /*array*/ VkPushConstantRange *push_constants;
 } PipelineLayout;
 
-typedef struct PipelineBundle {
+typedef struct PipelineInstance {
     VkPipeline pipeline;
     PipelineLayout *layout;
     VkPipelineBindPoint bind_point;
-} PipelineBundle;
+} PipelineInstance;
 
 typedef struct MtPipeline {
     VkPipelineBindPoint bind_point;
@@ -177,7 +177,7 @@ enum { MAX_DESCRIPTOR_SETS = 8 };
 typedef struct MtCmdBuffer {
     MtDevice *dev;
     VkCommandBuffer cmd_buffer;
-    PipelineBundle *bound_pipeline;
+    PipelineInstance *bound_pipeline;
     MtRenderPass current_renderpass;
     uint32_t queue_type;
     Descriptor bound_descriptors[MAX_DESCRIPTOR_BINDINGS][MAX_DESCRIPTOR_SETS];

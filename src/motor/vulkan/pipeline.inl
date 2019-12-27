@@ -343,6 +343,19 @@ static void pipeline_init_graphics(
     pipeline->hash = (uint64_t)XXH64_digest(&state);
 }
 
+static void pipeline_init_compute(
+    MtDevice *dev, MtPipeline *pipeline, uint8_t *code, size_t code_size) {
+    memset(pipeline, 0, sizeof(*pipeline));
+
+    mt_array_pushn(dev->arena, pipeline->shaders, 1);
+
+    shader_init(dev, &pipeline->shaders[0], code, code_size);
+
+    XXH64_state_t state = {0};
+    XXH64_update(&state, code, code_size);
+    pipeline->hash = (uint64_t)XXH64_digest(&state);
+}
+
 static void pipeline_destroy(MtDevice *dev, MtPipeline *pipeline) {
     shader_destroy(dev, &pipeline->shaders[0]);
     shader_destroy(dev, &pipeline->shaders[1]);
@@ -371,13 +384,13 @@ request_pipeline_layout(MtDevice *dev, MtPipeline *pipeline) {
         &dev->pipeline_layout_map, hash, (uintptr_t)layout);
 }
 
-static void create_graphics(
+static void create_graphics_pipeline_instance(
     MtDevice *dev,
-    PipelineBundle *bundle,
+    PipelineInstance *instance,
     MtRenderPass *render_pass,
     MtPipeline *pipeline) {
-    bundle->bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    bundle->layout     = request_pipeline_layout(dev, pipeline);
+    instance->bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    instance->layout     = request_pipeline_layout(dev, pipeline);
 
     MtGraphicsPipelineCreateInfo *options = &pipeline->create_info;
 
@@ -547,7 +560,7 @@ static void create_graphics(
         .pDepthStencilState  = &depth_stencil,
         .pColorBlendState    = &color_blending,
         .pDynamicState       = &dynamic_state,
-        .layout              = bundle->layout->layout,
+        .layout              = instance->layout->layout,
         .renderPass          = render_pass->renderpass,
         .subpass             = 0,
         .basePipelineHandle  = VK_NULL_HANDLE,
@@ -560,13 +573,42 @@ static void create_graphics(
         1,
         &pipeline_info,
         NULL,
-        &bundle->pipeline));
+        &instance->pipeline));
 
     mt_array_free(dev->arena, attributes);
     mt_array_free(dev->arena, stages);
 }
 
-static PipelineBundle *request_graphics_pipeline(
+static void create_compute_pipeline_instance(
+    MtDevice *dev, PipelineInstance *instance, MtPipeline *pipeline) {
+    instance->bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
+    instance->layout     = request_pipeline_layout(dev, pipeline);
+
+    VkPipelineShaderStageCreateInfo shader_stage = {
+        .stage               = VK_SHADER_STAGE_COMPUTE_BIT,
+        .module              = pipeline->shaders[0].mod,
+        .pName               = "main",
+        .pSpecializationInfo = NULL,
+    };
+
+    VkComputePipelineCreateInfo create_info = {
+        .sType              = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .stage              = shader_stage,
+        .layout             = instance->layout->layout,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex  = 0,
+    };
+
+    VK_CHECK(vkCreateComputePipelines(
+        dev->device,
+        VK_NULL_HANDLE,
+        1,
+        &create_info,
+        NULL,
+        &instance->pipeline));
+}
+
+static PipelineInstance *request_graphics_pipeline_instance(
     MtDevice *dev, MtPipeline *pipeline, MtRenderPass *render_pass) {
     XXH64_state_t state = {0};
     XXH64_update(&state, &pipeline->hash, sizeof(pipeline->hash));
@@ -574,12 +616,25 @@ static PipelineBundle *request_graphics_pipeline(
     uint64_t hash = (uint64_t)XXH64_digest(&state);
 
     uintptr_t addr = mt_hash_get(&dev->pipeline_map, hash);
-    if (addr != MT_HASH_NOT_FOUND) return (PipelineBundle *)addr;
+    if (addr != MT_HASH_NOT_FOUND) return (PipelineInstance *)addr;
 
-    PipelineBundle *bundle = mt_alloc(dev->arena, sizeof(PipelineBundle));
+    PipelineInstance *instance = mt_alloc(dev->arena, sizeof(PipelineInstance));
 
-    create_graphics(dev, bundle, render_pass, pipeline);
+    create_graphics_pipeline_instance(dev, instance, render_pass, pipeline);
 
-    return (PipelineBundle *)mt_hash_set(
-        &dev->pipeline_map, hash, (uintptr_t)bundle);
+    return (PipelineInstance *)mt_hash_set(
+        &dev->pipeline_map, hash, (uintptr_t)instance);
+}
+
+static PipelineInstance *
+request_compute_pipeline_instance(MtDevice *dev, MtPipeline *pipeline) {
+    uintptr_t addr = mt_hash_get(&dev->pipeline_map, pipeline->hash);
+    if (addr != MT_HASH_NOT_FOUND) return (PipelineInstance *)addr;
+
+    PipelineInstance *instance = mt_alloc(dev->arena, sizeof(PipelineInstance));
+
+    create_compute_pipeline_instance(dev, instance, pipeline);
+
+    return (PipelineInstance *)mt_hash_set(
+        &dev->pipeline_map, pipeline->hash, (uintptr_t)instance);
 }

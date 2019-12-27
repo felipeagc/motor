@@ -640,6 +640,15 @@ static MtPipeline *create_graphics_pipeline(
     return pipeline;
 }
 
+static MtPipeline *
+create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
+    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
+
+    pipeline_init_compute(dev, pipeline, code, code_size);
+
+    return pipeline;
+}
+
 static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
     pipeline_destroy(dev, pipeline);
     mt_free(dev->arena, pipeline);
@@ -655,10 +664,10 @@ static void device_destroy(MtDevice *dev) {
 
     for (uint32_t i = 0; i < dev->pipeline_map.size; i++) {
         if (dev->pipeline_map.keys[i] != MT_HASH_UNUSED) {
-            PipelineBundle *bundle =
-                (PipelineBundle *)dev->pipeline_map.values[i];
-            vkDestroyPipeline(dev->device, bundle->pipeline, NULL);
-            mt_free(dev->arena, bundle);
+            PipelineInstance *instance =
+                (PipelineInstance *)dev->pipeline_map.values[i];
+            vkDestroyPipeline(dev->device, instance->pipeline, NULL);
+            mt_free(dev->arena, instance);
         }
     }
 
@@ -733,6 +742,7 @@ static MtRenderer g_vulkan_renderer = (MtRenderer){
     .submit = submit,
 
     .create_graphics_pipeline = create_graphics_pipeline,
+    .create_compute_pipeline  = create_compute_pipeline,
     .destroy_pipeline         = destroy_pipeline,
 
     .device_begin_frame = begin_frame,
