@@ -151,6 +151,50 @@ static void bind_descriptor_set(MtCmdBuffer *cb, uint32_t set) {
 }
 
 static void
-draw(MtCmdBuffer *cmd_buffer, uint32_t vertex_count, uint32_t instance_count) {
-    vkCmdDraw(cmd_buffer->cmd_buffer, vertex_count, instance_count, 0, 0);
+bind_vertex_buffer(MtCmdBuffer *cb, MtBuffer *buffer, size_t offset) {
+    vkCmdBindVertexBuffers(cb->cmd_buffer, 0, 1, &buffer->buffer, &offset);
+}
+
+static void bind_index_buffer(
+    MtCmdBuffer *cb, MtBuffer *buffer, MtIndexType index_type, size_t offset) {
+    vkCmdBindIndexBuffer(
+        cb->cmd_buffer,
+        buffer->buffer,
+        offset,
+        index_type_to_vulkan(index_type));
+}
+
+static void bind_vertex_data(MtCmdBuffer *cb, void *data, size_t size) {
+    MtBuffer *buffer = NULL;
+    size_t offset    = 0;
+    void *memory     = buffer_allocator_allocate(
+        &cb->dev->vbo_allocator, size, &buffer, &offset);
+    assert(memory);
+    memcpy(memory, data, size);
+
+    assert(buffer);
+    bind_vertex_buffer(cb, buffer, offset);
+}
+
+static void bind_index_data(
+    MtCmdBuffer *cb, void *data, size_t size, MtIndexType index_type) {
+    MtBuffer *buffer = NULL;
+    size_t offset    = 0;
+    void *memory     = buffer_allocator_allocate(
+        &cb->dev->ibo_allocator, size, &buffer, &offset);
+    assert(memory);
+    memcpy(memory, data, size);
+
+    assert(buffer);
+    bind_index_buffer(cb, buffer, index_type, offset);
+}
+
+static void
+draw(MtCmdBuffer *cb, uint32_t vertex_count, uint32_t instance_count) {
+    vkCmdDraw(cb->cmd_buffer, vertex_count, instance_count, 0, 0);
+}
+
+static void
+draw_indexed(MtCmdBuffer *cb, uint32_t index_count, uint32_t instance_count) {
+    vkCmdDrawIndexed(cb->cmd_buffer, index_count, instance_count, 0, 0, 0);
 }

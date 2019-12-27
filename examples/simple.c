@@ -53,19 +53,8 @@ int main(int argc, char *argv[]) {
         fragment_code,
         fragment_code_size,
         &(MtGraphicsPipelineCreateInfo){
-            .blending    = false,
-            .depth_test  = false,
-            .depth_write = false,
-            .depth_bias  = false,
-            .cull_mode   = MT_CULL_MODE_NONE,
-            .front_face  = MT_FRONT_FACE_COUNTER_CLOCKWISE,
-            .line_width  = 1.0f,
-            .vertex_info =
-                {
-                    .attributes      = NULL,
-                    .attribute_count = 0,
-                    .stride          = 0,
-                },
+            .cull_mode  = MT_CULL_MODE_NONE,
+            .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
         });
 
     while (!window.vt->should_close(window.inst)) {

@@ -503,6 +503,10 @@ static void begin_frame(MtDevice *dev) {
             ds_allocator_begin_frame(allocator);
         }
     }
+
+    buffer_allocator_begin_frame(&dev->ubo_allocator);
+    buffer_allocator_begin_frame(&dev->vbo_allocator);
+    buffer_allocator_begin_frame(&dev->ibo_allocator);
 }
 
 static void allocate_cmd_buffers(
@@ -760,9 +764,16 @@ static MtRenderer g_vulkan_renderer = (MtRenderer){
     .cmd_bind_pipeline       = bind_pipeline,
     .cmd_bind_descriptor_set = bind_descriptor_set,
 
+    .cmd_bind_vertex_buffer = bind_vertex_buffer,
+    .cmd_bind_index_buffer  = bind_index_buffer,
+
+    .cmd_bind_vertex_data = bind_vertex_data,
+    .cmd_bind_index_data  = bind_index_data,
+
     .cmd_set_uniform = set_uniform,
 
-    .cmd_draw = draw,
+    .cmd_draw         = draw,
+    .cmd_draw_indexed = draw_indexed,
 };
 
 MtDevice *

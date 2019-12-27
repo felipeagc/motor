@@ -28,10 +28,12 @@ static void buffer_page_init(
 
 static void
 buffer_page_destroy(BufferAllocatorPage *page, BufferAllocator *allocator) {
-    if (page->next) buffer_page_destroy(page->next, allocator);
-    unmap_buffer(allocator->dev, page->buffer);
+    if (page->next) {
+        buffer_page_destroy(page->next, allocator);
+        mt_free(allocator->dev->arena, page->next);
+    }
 
-    // TODO: mt_Free pages
+    unmap_buffer(allocator->dev, page->buffer);
 
     destroy_buffer(allocator->dev, page->buffer);
     mt_dynamic_bitset_destroy(&page->in_use, allocator->dev->arena);

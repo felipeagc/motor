@@ -10,63 +10,11 @@ typedef struct MtPipeline MtPipeline;
 typedef struct MtBuffer MtBuffer;
 typedef struct MtCmdBuffer MtCmdBuffer;
 
-typedef struct MtBufferCreateInfo MtBufferCreateInfo;
-typedef struct MtGraphicsPipelineCreateInfo MtGraphicsPipelineCreateInfo;
-
 typedef enum MtQueueType {
     MT_QUEUE_GRAPHICS,
     MT_QUEUE_COMPUTE,
     MT_QUEUE_TRANSFER,
 } MtQueueType;
-
-typedef struct MtRenderer {
-    void (*device_begin_frame)(MtDevice *);
-    void (*destroy_device)(MtDevice *);
-
-    void (*allocate_cmd_buffers)(
-        MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
-    void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
-
-    MtBuffer *(*create_buffer)(MtDevice *, MtBufferCreateInfo *);
-    void (*destroy_buffer)(MtDevice *, MtBuffer *);
-
-    void *(*map_buffer)(MtDevice *, MtBuffer *);
-    void (*unmap_buffer)(MtDevice *, MtBuffer *);
-
-    void (*submit)(MtDevice *, MtCmdBuffer *);
-
-    MtPipeline *(*create_graphics_pipeline)(
-        MtDevice *,
-        uint8_t *vertex_code,
-        size_t vertex_code_size,
-        uint8_t *fragment_code,
-        size_t fragment_code_size,
-        MtGraphicsPipelineCreateInfo *);
-    MtPipeline *(*create_compute_pipeline)(
-        MtDevice *, uint8_t *code, size_t code_size);
-    void (*destroy_pipeline)(MtDevice *, MtPipeline *);
-
-    void (*begin_cmd_buffer)(MtCmdBuffer *);
-    void (*end_cmd_buffer)(MtCmdBuffer *);
-
-    void (*cmd_begin_render_pass)(MtCmdBuffer *, MtRenderPass *);
-    void (*cmd_end_render_pass)(MtCmdBuffer *);
-
-    void (*cmd_set_viewport)(MtCmdBuffer *, float x, float y, float w, float h);
-    void (*cmd_set_scissor)(
-        MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
-
-    void (*cmd_set_uniform)(
-        MtCmdBuffer *, uint32_t set, uint32_t binding, void *data, size_t size);
-
-    void (*cmd_bind_pipeline)(MtCmdBuffer *, MtPipeline *pipeline);
-    void (*cmd_bind_descriptor_set)(MtCmdBuffer *, uint32_t set);
-
-    void (*cmd_draw)(
-        MtCmdBuffer *, uint32_t vertex_count, uint32_t instance_count);
-} MtRenderer;
-
-extern MtRenderer mt_render;
 
 typedef enum MtFormat {
     MT_FORMAT_UNDEFINED,
@@ -115,13 +63,6 @@ typedef struct MtVertexAttribute {
     uint32_t offset;
 } MtVertexAttribute;
 
-typedef struct MtVertexInfo {
-    MtVertexAttribute *attributes;
-    uint32_t attribute_count;
-
-    uint32_t stride;
-} MtVertexInfo;
-
 typedef struct MtGraphicsPipelineCreateInfo {
     bool blending;
     bool depth_test;
@@ -130,7 +71,10 @@ typedef struct MtGraphicsPipelineCreateInfo {
     MtCullMode cull_mode;
     MtFrontFace front_face;
     float line_width;
-    MtVertexInfo vertex_info;
+
+    MtVertexAttribute *vertex_attributes;
+    uint32_t vertex_attribute_count;
+    uint32_t vertex_stride;
 } MtGraphicsPipelineCreateInfo;
 
 typedef union MtColor {
@@ -158,3 +102,62 @@ typedef struct MtBufferCreateInfo {
     MtBufferMemory memory;
     size_t size;
 } MtBufferCreateInfo;
+
+typedef struct MtRenderer {
+    void (*device_begin_frame)(MtDevice *);
+    void (*destroy_device)(MtDevice *);
+
+    void (*allocate_cmd_buffers)(
+        MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
+    void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
+
+    MtBuffer *(*create_buffer)(MtDevice *, MtBufferCreateInfo *);
+    void (*destroy_buffer)(MtDevice *, MtBuffer *);
+
+    void *(*map_buffer)(MtDevice *, MtBuffer *);
+    void (*unmap_buffer)(MtDevice *, MtBuffer *);
+
+    void (*submit)(MtDevice *, MtCmdBuffer *);
+
+    MtPipeline *(*create_graphics_pipeline)(
+        MtDevice *,
+        uint8_t *vertex_code,
+        size_t vertex_code_size,
+        uint8_t *fragment_code,
+        size_t fragment_code_size,
+        MtGraphicsPipelineCreateInfo *);
+    MtPipeline *(*create_compute_pipeline)(
+        MtDevice *, uint8_t *code, size_t code_size);
+    void (*destroy_pipeline)(MtDevice *, MtPipeline *);
+
+    void (*begin_cmd_buffer)(MtCmdBuffer *);
+    void (*end_cmd_buffer)(MtCmdBuffer *);
+
+    void (*cmd_begin_render_pass)(MtCmdBuffer *, MtRenderPass *);
+    void (*cmd_end_render_pass)(MtCmdBuffer *);
+
+    void (*cmd_set_viewport)(MtCmdBuffer *, float x, float y, float w, float h);
+    void (*cmd_set_scissor)(
+        MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
+
+    void (*cmd_set_uniform)(
+        MtCmdBuffer *, uint32_t set, uint32_t binding, void *data, size_t size);
+
+    void (*cmd_bind_pipeline)(MtCmdBuffer *, MtPipeline *pipeline);
+    void (*cmd_bind_descriptor_set)(MtCmdBuffer *, uint32_t set);
+
+    void (*cmd_bind_vertex_buffer)(MtCmdBuffer *, MtBuffer *, size_t offset);
+    void (*cmd_bind_index_buffer)(
+        MtCmdBuffer *, MtBuffer *, MtIndexType index_type, size_t offset);
+
+    void (*cmd_bind_vertex_data)(MtCmdBuffer *, void *data, size_t size);
+    void (*cmd_bind_index_data)(
+        MtCmdBuffer *, void *data, size_t size, MtIndexType index_type);
+
+    void (*cmd_draw)(
+        MtCmdBuffer *, uint32_t vertex_count, uint32_t instance_count);
+    void (*cmd_draw_indexed)(
+        MtCmdBuffer *, uint32_t index_count, uint32_t instance_count);
+} MtRenderer;
+
+extern MtRenderer mt_render;

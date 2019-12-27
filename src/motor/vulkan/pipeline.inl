@@ -312,6 +312,11 @@ static void pipeline_init_graphics(
     MtGraphicsPipelineCreateInfo *ci) {
     memset(pipeline, 0, sizeof(*pipeline));
 
+    if (ci->line_width == 0.0f ||
+        memcmp(&(uint32_t){0}, &ci->line_width, sizeof(uint32_t)) == 0) {
+        ci->line_width = 1.0f;
+    }
+
     pipeline->create_info = *ci;
     mt_array_pushn(dev->arena, pipeline->shaders, 2);
 
@@ -331,13 +336,12 @@ static void pipeline_init_graphics(
     XXH64_update(&state, &ci->front_face, sizeof(ci->front_face));
     XXH64_update(&state, &ci->line_width, sizeof(ci->line_width));
 
-    XXH64_update(
-        &state, &ci->vertex_info.stride, sizeof(ci->vertex_info.stride));
-    for (uint32_t i = 0; i < ci->vertex_info.attribute_count; i++) {
+    XXH64_update(&state, &ci->vertex_stride, sizeof(ci->vertex_stride));
+    for (uint32_t i = 0; i < ci->vertex_attribute_count; i++) {
         XXH64_update(
             &state,
-            &ci->vertex_info.attributes[i],
-            sizeof(ci->vertex_info.attributes[i]));
+            &ci->vertex_attributes[i],
+            sizeof(ci->vertex_attributes[i]));
     }
 
     pipeline->hash = (uint64_t)XXH64_digest(&state);
@@ -412,27 +416,26 @@ static void create_graphics_pipeline_instance(
 
     VkVertexInputBindingDescription binding_description = {
         .binding   = 0,
-        .stride    = options->vertex_info.stride,
+        .stride    = options->vertex_stride,
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
     };
 
-    if (options->vertex_info.stride > 0) {
+    if (options->vertex_stride > 0) {
         vertex_input_info.vertexBindingDescriptionCount = 1;
         vertex_input_info.pVertexBindingDescriptions    = &binding_description;
     }
 
     VkVertexInputAttributeDescription *attributes = NULL;
-    if (options->vertex_info.attribute_count > 0) {
-        mt_array_pushn(
-            dev->arena, attributes, options->vertex_info.attribute_count);
+    if (options->vertex_attribute_count > 0) {
+        mt_array_pushn(dev->arena, attributes, options->vertex_attribute_count);
 
-        for (uint32_t i = 0; i < options->vertex_info.attribute_count; i++) {
+        for (uint32_t i = 0; i < options->vertex_attribute_count; i++) {
             attributes[i] = (VkVertexInputAttributeDescription){
                 .location = i,
                 .binding  = 0,
                 .format =
-                    format_to_vulkan(options->vertex_info.attributes[i].format),
-                .offset = options->vertex_info.attributes[i].offset,
+                    format_to_vulkan(options->vertex_attributes[i].format),
+                .offset = options->vertex_attributes[i].offset,
             };
         }
 

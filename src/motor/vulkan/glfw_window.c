@@ -265,7 +265,7 @@ static VkExtent2D choose_swapchain_extent(
     if (capabilities.currentExtent.width != UINT32_MAX) {
         return capabilities.currentExtent;
     } else {
-        int width, height;
+        int width = 0, height = 0;
         glfwGetFramebufferSize(window->window, &width, &height);
         VkExtent2D actual_extent = {(uint32_t)width, (uint32_t)height};
 
