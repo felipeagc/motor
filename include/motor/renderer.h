@@ -29,7 +29,13 @@ typedef struct MtCmdBufferVT {
     void (*set_scissor)(
         MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
 
+    void (*set_uniform)(
+        MtCmdBuffer *, uint32_t set, uint32_t binding, void *data, size_t size);
+
     void (*bind_pipeline)(MtCmdBuffer *, MtPipeline *pipeline);
+    void (*bind_descriptor_set)(MtCmdBuffer *, uint32_t set);
+
+    void (*draw)(MtCmdBuffer *, uint32_t vertex_count, uint32_t instance_count);
 } MtCmdBufferVT;
 
 typedef struct MtICmdBuffer {

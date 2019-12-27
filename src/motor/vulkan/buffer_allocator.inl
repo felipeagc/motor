@@ -31,6 +31,8 @@ buffer_page_destroy(BufferAllocatorPage *page, BufferAllocator *allocator) {
     if (page->next) buffer_page_destroy(page->next, allocator);
     unmap_buffer(allocator->dev, page->buffer);
 
+    // TODO: mt_Free pages
+
     destroy_buffer(allocator->dev, page->buffer);
     mt_dynamic_bitset_destroy(&page->in_use, allocator->dev->arena);
 }

@@ -2,7 +2,7 @@
 
 #include <inttypes.h>
 
-#define MT_HASH_NOT_FOUND UINT32_MAX
+#define MT_HASH_NOT_FOUND UINT64_MAX
 #define MT_HASH_UNUSED UINT64_MAX
 
 typedef struct MtArena MtArena;

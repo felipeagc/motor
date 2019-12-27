@@ -21,6 +21,7 @@ static void ds_page_init(
 
     // Create descriptor pool
     VkDescriptorPoolCreateInfo create_info = {
+        .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
         .maxSets       = SETS_PER_PAGE,
         .poolSizeCount = mt_array_size(allocator->pool_sizes[set_index]),
@@ -76,10 +77,12 @@ static void ds_page_destroy(DSAllocatorPage *page, DSAllocator *allocator) {
 }
 
 static VkDescriptorSet ds_page_find(
-    DSAllocatorPage *page, DSAllocator *allocator, Descriptor *descriptors) {
+    DSAllocatorPage *page,
+    DSAllocator *allocator,
+    Descriptor *descriptors,
+    uint32_t descriptor_count) {
     XXH64_state_t state = {0};
-    XXH64_update(
-        &state, descriptors, mt_array_size(descriptors) * sizeof(*descriptors));
+    XXH64_update(&state, descriptors, descriptor_count * sizeof(*descriptors));
     uint64_t descriptors_hash = (uint64_t)XXH64_digest(&state);
 
     uintptr_t addr = mt_hash_get(&page->hashmap, descriptors_hash);
@@ -92,7 +95,10 @@ static VkDescriptorSet ds_page_find(
 }
 
 static VkDescriptorSet ds_page_allocate(
-    DSAllocatorPage *page, DSAllocator *allocator, Descriptor *descriptors) {
+    DSAllocatorPage *page,
+    DSAllocator *allocator,
+    Descriptor *descriptors,
+    uint32_t descriptor_count) {
     for (uint32_t i = page->last_index; i < mt_array_size(page->sets); i++) {
         VkDescriptorSet set = page->sets[i];
 
@@ -103,13 +109,12 @@ static VkDescriptorSet ds_page_allocate(
 
             XXH64_state_t state = {0};
             XXH64_update(
-                &state,
-                descriptors,
-                mt_array_size(descriptors) * sizeof(*descriptors));
+                &state, descriptors, descriptor_count * sizeof(*descriptors));
             uint64_t descriptors_hash = (uint64_t)XXH64_digest(&state);
 
             page->hashes[i] = descriptors_hash;
-            mt_hash_set(&page->hashmap, page->hashes[i], (uintptr_t)set);
+            mt_hash_set(
+                &page->hashmap, page->hashes[i], (uintptr_t)&page->sets[i]);
 
             vkUpdateDescriptorSetWithTemplate(
                 allocator->dev->device,
@@ -181,16 +186,14 @@ static void ds_allocator_init(
         sizeof(*allocator->pool_sizes) * mt_array_size(allocator->pool_sizes));
 
     for (uint32_t i = 0; i < mt_array_size(allocator->pool_sizes); i++) {
-        VkDescriptorPoolSize *set_pool_sizes = allocator->pool_sizes[i];
-
         SetInfo *set = &pipeline_layout->sets[i];
 
         VkDescriptorSetLayoutBinding *binding;
         mt_array_foreach(binding, set->bindings) {
-            VkDescriptorPoolSize *found_pool_size;
+            VkDescriptorPoolSize *found_pool_size = NULL;
 
-            VkDescriptorPoolSize *pool_size;
-            mt_array_foreach(pool_size, set_pool_sizes) {
+            VkDescriptorPoolSize *pool_size = NULL;
+            mt_array_foreach(pool_size, allocator->pool_sizes[i]) {
                 if (pool_size->type == binding->descriptorType) {
                     found_pool_size = pool_size;
                     break;
@@ -199,12 +202,16 @@ static void ds_allocator_init(
 
             if (!found_pool_size) {
                 found_pool_size = mt_array_push(
-                    dev->arena, set_pool_sizes, (VkDescriptorPoolSize){0});
+                    dev->arena,
+                    allocator->pool_sizes[i],
+                    (VkDescriptorPoolSize){0});
                 found_pool_size->type            = binding->descriptorType;
                 found_pool_size->descriptorCount = 0;
             }
 
             found_pool_size->descriptorCount += SETS_PER_PAGE;
+
+            assert(mt_array_size(allocator->pool_sizes[i]) > 0);
         }
     }
 
@@ -230,7 +237,7 @@ static void ds_allocator_init(
     ds_allocator_begin_frame(allocator);
 }
 
-static void ds_allocator_destroy(DSAllocator *allocator, MtDevice *dev) {
+static void ds_allocator_destroy(DSAllocator *allocator) {
     for (DSAllocatorFrame *frame = allocator->frames;
          frame != allocator->frames + MT_LENGTH(allocator->frames);
          frame++) {
@@ -239,26 +246,29 @@ static void ds_allocator_destroy(DSAllocator *allocator, MtDevice *dev) {
             ds_page_destroy(&frame->base_pages[i], allocator);
         }
 
-        mt_array_free(dev->arena, frame->base_pages);
-        mt_array_free(dev->arena, frame->last_pages);
+        mt_array_free(allocator->dev->arena, frame->base_pages);
+        mt_array_free(allocator->dev->arena, frame->last_pages);
     }
 
-    mt_array_free(dev->arena, allocator->set_layouts);
-    mt_array_free(dev->arena, allocator->update_templates);
+    mt_array_free(allocator->dev->arena, allocator->set_layouts);
+    mt_array_free(allocator->dev->arena, allocator->update_templates);
     for (uint32_t i = 0; i < mt_array_size(allocator->pool_sizes); i++) {
-        mt_array_free(dev->arena, allocator->pool_sizes[i]);
+        mt_array_free(allocator->dev->arena, allocator->pool_sizes[i]);
     }
-    mt_array_free(dev->arena, allocator->pool_sizes);
+    mt_array_free(allocator->dev->arena, allocator->pool_sizes);
 }
 
 static VkDescriptorSet ds_allocator_allocate(
-    DSAllocator *allocator, uint32_t set, Descriptor *descriptors) {
+    DSAllocator *allocator,
+    uint32_t set,
+    Descriptor *descriptors,
+    uint32_t descriptor_count) {
     DSAllocatorFrame *frame = &allocator->frames[allocator->current_frame];
 
     DSAllocatorPage *page = frame->last_pages[set];
     while (page) {
         VkDescriptorSet descriptor_set =
-            ds_page_find(page, allocator, descriptors);
+            ds_page_find(page, allocator, descriptors, descriptor_count);
         if (descriptor_set) return descriptor_set;
         page = page->next;
     }
@@ -266,7 +276,7 @@ static VkDescriptorSet ds_allocator_allocate(
     page = frame->last_pages[set];
     while (page) {
         VkDescriptorSet descriptor_set =
-            ds_page_allocate(page, allocator, descriptors);
+            ds_page_allocate(page, allocator, descriptors, descriptor_count);
         if (descriptor_set) return descriptor_set;
         if (!page->next) break;
         page = page->next;
@@ -279,7 +289,7 @@ static VkDescriptorSet ds_allocator_allocate(
     page                   = page->next;
     frame->last_pages[set] = page;
 
-    return ds_page_allocate(page, allocator, descriptors);
+    return ds_page_allocate(page, allocator, descriptors, descriptor_count);
 }
 // }}}
 
