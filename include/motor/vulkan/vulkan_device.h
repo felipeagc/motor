@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 typedef struct MtArena MtArena;
-typedef struct MtIDevice MtIDevice;
+typedef struct MtDevice MtDevice;
 typedef struct MtIWindowSystem MtIWindowSystem;
 
 typedef uint32_t MtVulkanDeviceFlags;
@@ -18,5 +18,5 @@ typedef struct MtVulkanDeviceCreateInfo {
     MtIWindowSystem *window_system;
 } MtVulkanDeviceCreateInfo;
 
-void mt_vulkan_device_init(
-    MtIDevice *device, MtVulkanDeviceCreateInfo *descriptor, MtArena *arena);
+MtDevice *
+mt_vulkan_device_init(MtVulkanDeviceCreateInfo *descriptor, MtArena *arena);

@@ -10,6 +10,7 @@ add_subdirectory(thirdparty)
 set(
 	MOTOR_SOURCES
 	src/motor/arena.c
+	src/motor/renderer.c
 	src/motor/threads.c
 	src/motor/array.c
 	src/motor/hashmap.c
