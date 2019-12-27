@@ -154,21 +154,3 @@ static void
 draw(MtCmdBuffer *cmd_buffer, uint32_t vertex_count, uint32_t instance_count) {
     vkCmdDraw(cmd_buffer->cmd_buffer, vertex_count, instance_count, 0, 0);
 }
-
-static MtCmdBufferVT g_cmd_buffer_vt = (MtCmdBufferVT){
-    .begin = begin_cmd_buffer,
-    .end   = end_cmd_buffer,
-
-    .begin_render_pass = begin_render_pass,
-    .end_render_pass   = end_render_pass,
-
-    .set_viewport = set_viewport,
-    .set_scissor  = set_scissor,
-
-    .bind_pipeline       = bind_pipeline,
-    .bind_descriptor_set = bind_descriptor_set,
-
-    .set_uniform = set_uniform,
-
-    .draw = draw,
-};

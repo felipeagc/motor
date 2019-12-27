@@ -30,14 +30,11 @@ int main(int argc, char *argv[]) {
     MtIWindowSystem window_system;
     mt_glfw_vulkan_init(&window_system);
 
-    MtIDevice dev;
-    mt_vulkan_device_init(
-        &dev,
-        &(MtVulkanDeviceCreateInfo){.window_system = &window_system},
-        &arena);
+    MtDevice *dev = mt_vulkan_device_init(
+        &(MtVulkanDeviceCreateInfo){.window_system = &window_system}, &arena);
 
     MtIWindow window;
-    mt_glfw_vulkan_window_init(&window, &dev, 800, 600, "Hello", &arena);
+    mt_glfw_vulkan_window_init(&window, dev, 800, 600, "Hello", &arena);
 
     uint8_t *vertex_code = NULL, *fragment_code = NULL;
     size_t vertex_code_size = 0, fragment_code_size = 0;
@@ -49,8 +46,8 @@ int main(int argc, char *argv[]) {
         load_shader(&arena, "../shaders/test.frag.spv", &fragment_code_size);
     assert(fragment_code);
 
-    MtPipeline *pipeline = dev.vt->create_graphics_pipeline(
-        dev.inst,
+    MtPipeline *pipeline = mt_render.create_graphics_pipeline(
+        dev,
         vertex_code,
         vertex_code_size,
         fragment_code,
@@ -72,7 +69,7 @@ int main(int argc, char *argv[]) {
         });
 
     while (!window.vt->should_close(window.inst)) {
-        dev.vt->begin_frame(dev.inst);
+        mt_render.device_begin_frame(dev);
 
         window_system.vt->poll_events();
 
@@ -85,29 +82,29 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        MtICmdBuffer cb = window.vt->begin_frame(window.inst);
+        MtCmdBuffer *cb = window.vt->begin_frame(window.inst);
 
-        cb.vt->begin(cb.inst);
+        mt_render.begin_cmd_buffer(cb);
 
-        cb.vt->begin_render_pass(
-            cb.inst, window.vt->get_render_pass(window.inst));
+        mt_render.cmd_begin_render_pass(
+            cb, window.vt->get_render_pass(window.inst));
 
-        cb.vt->bind_pipeline(cb.inst, pipeline);
-        cb.vt->set_uniform(cb.inst, 0, 0, &(float){0.5f}, sizeof(float));
-        cb.vt->bind_descriptor_set(cb.inst, 0);
-        cb.vt->draw(cb.inst, 3, 1);
+        mt_render.cmd_bind_pipeline(cb, pipeline);
+        mt_render.cmd_set_uniform(cb, 0, 0, &(float){0.5f}, sizeof(float));
+        mt_render.cmd_bind_descriptor_set(cb, 0);
+        mt_render.cmd_draw(cb, 3, 1);
 
-        cb.vt->end_render_pass(cb.inst);
+        mt_render.cmd_end_render_pass(cb);
 
-        cb.vt->end(cb.inst);
+        mt_render.end_cmd_buffer(cb);
 
         window.vt->end_frame(window.inst);
     }
 
-    dev.vt->destroy_pipeline(dev.inst, pipeline);
+    mt_render.destroy_pipeline(dev, pipeline);
 
     window.vt->destroy(window.inst);
-    dev.vt->destroy(dev.inst);
+    mt_render.destroy_device(dev);
     window_system.vt->destroy();
 
     mt_arena_destroy(&arena);

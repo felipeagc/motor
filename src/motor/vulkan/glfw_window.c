@@ -19,7 +19,7 @@
  */
 
 typedef struct MtWindow {
-    MtIDevice dev;
+    MtDevice *dev;
     MtArena *arena;
 
     GLFWwindow *window;
@@ -47,7 +47,7 @@ typedef struct MtWindow {
 
     MtRenderPass render_pass;
 
-    MtICmdBuffer cmd_buffers[FRAMES_IN_FLIGHT];
+    MtCmdBuffer *cmd_buffers[FRAMES_IN_FLIGHT];
 } MtWindow;
 
 /*
@@ -138,7 +138,7 @@ typedef struct SwapchainSupport {
 } SwapchainSupport;
 
 static void create_semaphores(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     VkSemaphoreCreateInfo semaphore_info = {0};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -158,7 +158,7 @@ static void create_semaphores(MtWindow *window) {
 }
 
 static void create_fences(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     VkFenceCreateInfo fence_info = {0};
     fence_info.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -171,7 +171,7 @@ static void create_fences(MtWindow *window) {
 }
 
 static SwapchainSupport query_swapchain_support(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     SwapchainSupport details = {0};
 
@@ -284,7 +284,7 @@ static VkExtent2D choose_swapchain_extent(
 }
 
 static void create_swapchain(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     SwapchainSupport swapchain_support = query_swapchain_support(window);
 
@@ -373,7 +373,7 @@ static void create_swapchain(MtWindow *window) {
 }
 
 static void create_swapchain_image_views(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     window->swapchain_image_views = mt_realloc(
         window->arena,
@@ -406,7 +406,7 @@ static void create_swapchain_image_views(MtWindow *window) {
 }
 
 static void create_depth_images(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     VkImageCreateInfo image_create_info = {
         .sType     = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -460,7 +460,7 @@ static void create_depth_images(MtWindow *window) {
 }
 
 static void create_renderpass(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     VkAttachmentDescription color_attachment = {
         .format         = window->swapchain_image_format,
@@ -534,7 +534,7 @@ static void create_renderpass(MtWindow *window) {
 }
 
 static void create_framebuffers(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     window->swapchain_framebuffers = mt_realloc(
         window->arena,
@@ -564,7 +564,7 @@ static void create_framebuffers(MtWindow *window) {
 }
 
 static void create_resizables(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     int width = 0, height = 0;
     while (width == 0 || height == 0) {
@@ -582,7 +582,7 @@ static void create_resizables(MtWindow *window) {
 }
 
 static void destroy_resizables(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     VK_CHECK(vkDeviceWaitIdle(dev->device));
 
@@ -622,19 +622,13 @@ static void destroy_resizables(MtWindow *window) {
 }
 
 static void allocate_cmd_buffers(MtWindow *window) {
-    window->dev.vt->allocate_cmd_buffers(
-        window->dev.inst,
-        MT_QUEUE_GRAPHICS,
-        FRAMES_IN_FLIGHT,
-        window->cmd_buffers);
+    mt_render.allocate_cmd_buffers(
+        window->dev, MT_QUEUE_GRAPHICS, FRAMES_IN_FLIGHT, window->cmd_buffers);
 }
 
 static void free_cmd_buffers(MtWindow *window) {
-    window->dev.vt->free_cmd_buffers(
-        window->dev.inst,
-        MT_QUEUE_GRAPHICS,
-        FRAMES_IN_FLIGHT,
-        window->cmd_buffers);
+    mt_render.free_cmd_buffers(
+        window->dev, MT_QUEUE_GRAPHICS, FRAMES_IN_FLIGHT, window->cmd_buffers);
 }
 
 /*
@@ -664,8 +658,8 @@ static bool next_event(MtWindow *window, MtEvent *event) {
     return event->type != MT_EVENT_NONE;
 }
 
-static MtICmdBuffer begin_frame(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+static MtCmdBuffer *begin_frame(MtWindow *window) {
+    MtDevice *dev = window->dev;
 
     vkWaitForFences(
         dev->device,
@@ -697,7 +691,7 @@ static MtICmdBuffer begin_frame(MtWindow *window) {
 }
 
 static void end_frame(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     VkSubmitInfo submit_info = {0};
     submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -714,11 +708,10 @@ static void end_frame(MtWindow *window) {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     submit_info.pWaitDstStageMask = &wait_stage;
 
-    MtCmdBuffer *cmd_buffer_inst =
-        window->cmd_buffers[window->current_frame].inst;
+    MtCmdBuffer *cmd_buffer = window->cmd_buffers[window->current_frame];
 
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = &cmd_buffer_inst->cmd_buffer;
+    submit_info.pCommandBuffers    = &cmd_buffer->cmd_buffer;
 
     submit_info.signalSemaphoreCount = MT_LENGTH(signal_semaphores);
     submit_info.pSignalSemaphores    = signal_semaphores;
@@ -754,7 +747,7 @@ static void end_frame(MtWindow *window) {
 }
 
 static void window_destroy(MtWindow *window) {
-    MtDevice *dev = window->dev.inst;
+    MtDevice *dev = window->dev;
 
     VK_CHECK(vkDeviceWaitIdle(dev->device));
 
@@ -809,7 +802,7 @@ void mt_glfw_vulkan_init(MtIWindowSystem *system) {
 
 void mt_glfw_vulkan_window_init(
     MtIWindow *interface,
-    MtIDevice *idev,
+    MtDevice *dev,
     uint32_t width,
     uint32_t height,
     const char *title,
@@ -817,9 +810,8 @@ void mt_glfw_vulkan_window_init(
     MtWindow *window = mt_calloc(arena, sizeof(MtWindow));
     window->window =
         glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
-    window->dev   = *idev;
     window->arena = arena;
-    MtDevice *dev = window->dev.inst;
+    window->dev   = dev;
 
     interface->vt   = &g_glfw_window_vt;
     interface->inst = (MtWindow *)window;

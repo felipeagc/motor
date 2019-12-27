@@ -509,7 +509,7 @@ static void allocate_cmd_buffers(
     MtDevice *dev,
     MtQueueType queue_type,
     uint32_t count,
-    MtICmdBuffer *cmd_buffers) {
+    MtCmdBuffer **cmd_buffers) {
     VkCommandPool pool = VK_NULL_HANDLE;
 
     switch (queue_type) {
@@ -540,15 +540,11 @@ static void allocate_cmd_buffers(
         vkAllocateCommandBuffers(dev->device, &alloc_info, command_buffers));
 
     for (uint32_t i = 0; i < count; i++) {
-        cmd_buffers[i].vt   = &g_cmd_buffer_vt;
-        cmd_buffers[i].inst = mt_calloc(dev->arena, sizeof(MtCmdBuffer));
-
-        MtCmdBuffer *inst = (MtCmdBuffer *)cmd_buffers[i].inst;
-        memset(inst, 0, sizeof(*inst));
-
-        inst->dev        = dev;
-        inst->cmd_buffer = command_buffers[i];
-        inst->queue_type = queue_type;
+        cmd_buffers[i] = mt_alloc(dev->arena, sizeof(*cmd_buffers[i]));
+        memset(cmd_buffers[i], 0, sizeof(*cmd_buffers[i]));
+        cmd_buffers[i]->dev        = dev;
+        cmd_buffers[i]->cmd_buffer = command_buffers[i];
+        cmd_buffers[i]->queue_type = queue_type;
     }
 
     mt_free(dev->arena, command_buffers);
@@ -558,7 +554,7 @@ static void free_cmd_buffers(
     MtDevice *dev,
     MtQueueType queue_type,
     uint32_t count,
-    MtICmdBuffer *cmd_buffers) {
+    MtCmdBuffer **cmd_buffers) {
     VkCommandPool pool = VK_NULL_HANDLE;
 
     switch (queue_type) {
@@ -579,25 +575,22 @@ static void free_cmd_buffers(
         mt_alloc(dev->arena, sizeof(VkCommandBuffer) * count);
 
     for (uint32_t i = 0; i < count; i++) {
-        MtCmdBuffer *inst  = (MtCmdBuffer *)cmd_buffers[i].inst;
-        command_buffers[i] = inst->cmd_buffer;
+        command_buffers[i] = cmd_buffers[i]->cmd_buffer;
     }
 
     vkFreeCommandBuffers(dev->device, pool, count, command_buffers);
 
     for (uint32_t i = 0; i < count; i++) {
-        mt_free(dev->arena, cmd_buffers[i].inst);
+        mt_free(dev->arena, cmd_buffers[i]);
     }
 
     mt_free(dev->arena, command_buffers);
 }
 
-static void submit(MtDevice *dev, MtICmdBuffer *cmd_buffer) {
-    MtCmdBuffer *vk_cmd_buffer = cmd_buffer->inst;
-
+static void submit(MtDevice *dev, MtCmdBuffer *cmd_buffer) {
     VkQueue queue = VK_NULL_HANDLE;
 
-    switch (vk_cmd_buffer->queue_type) {
+    switch (cmd_buffer->queue_type) {
     case MT_QUEUE_GRAPHICS: {
         queue = dev->graphics_queue;
     } break;
@@ -618,7 +611,7 @@ static void submit(MtDevice *dev, MtICmdBuffer *cmd_buffer) {
         .pWaitSemaphores      = NULL,
         .pWaitDstStageMask    = NULL,
         .commandBufferCount   = 1,
-        .pCommandBuffers      = &vk_cmd_buffer->cmd_buffer,
+        .pCommandBuffers      = &cmd_buffer->cmd_buffer,
         .signalSemaphoreCount = 0,
         .pSignalSemaphores    = NULL,
     };
@@ -727,9 +720,7 @@ static void device_destroy(MtDevice *dev) {
 }
 // }}}
 
-static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
-    .begin_frame = begin_frame,
-
+static MtRenderer g_vulkan_renderer = (MtRenderer){
     .allocate_cmd_buffers = allocate_cmd_buffers,
     .free_cmd_buffers     = free_cmd_buffers,
 
@@ -744,13 +735,30 @@ static MtDeviceVT g_vulkan_device_vt = (MtDeviceVT){
     .create_graphics_pipeline = create_graphics_pipeline,
     .destroy_pipeline         = destroy_pipeline,
 
-    .destroy = device_destroy,
+    .device_begin_frame = begin_frame,
+    .destroy_device     = device_destroy,
+
+    .begin_cmd_buffer = begin_cmd_buffer,
+    .end_cmd_buffer   = end_cmd_buffer,
+
+    .cmd_begin_render_pass = begin_render_pass,
+    .cmd_end_render_pass   = end_render_pass,
+
+    .cmd_set_viewport = set_viewport,
+    .cmd_set_scissor  = set_scissor,
+
+    .cmd_bind_pipeline       = bind_pipeline,
+    .cmd_bind_descriptor_set = bind_descriptor_set,
+
+    .cmd_set_uniform = set_uniform,
+
+    .cmd_draw = draw,
 };
 
-void mt_vulkan_device_init(
-    MtIDevice *interface,
-    MtVulkanDeviceCreateInfo *create_info,
-    MtArena *arena) {
+MtDevice *
+mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtArena *arena) {
+    mt_render = g_vulkan_renderer;
+
     MtDevice *dev = mt_calloc(arena, sizeof(MtDevice));
     dev->flags    = create_info->flags;
     dev->arena    = arena;
@@ -787,6 +795,5 @@ void mt_vulkan_device_init(
     buffer_allocator_init(
         &dev->ibo_allocator, dev, 1 << 15, MT_BUFFER_USAGE_INDEX);
 
-    interface->inst = dev;
-    interface->vt   = &g_vulkan_device_vt;
+    return dev;
 }
