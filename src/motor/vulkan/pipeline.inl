@@ -19,7 +19,7 @@ static void combined_set_layouts_init(
     }
 
     if (pc_count > 0) {
-        mt_array_pushn(arena, c->push_constants, pc_count);
+        mt_array_pushn_zeroed(arena, c->push_constants, pc_count);
 
         uint32_t pc_index = 0;
         Shader *shader;
@@ -43,8 +43,7 @@ static void combined_set_layouts_init(
     }
 
     if (set_count > 0) {
-        mt_array_pushn(arena, c->sets, set_count);
-        memset(c->sets, 0, sizeof(*c->sets) * mt_array_size(c->sets));
+        mt_array_pushn_zeroed(arena, c->sets, set_count);
 
         Shader *shader;
         mt_array_foreach(shader, pipeline->shaders) {
@@ -132,7 +131,7 @@ shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size) {
     assert(reflect_mod.entry_point_count == 1);
 
     if (reflect_mod.descriptor_set_count > 0) {
-        mt_array_pushn(
+        mt_array_pushn_zeroed(
             dev->arena, shader->sets, reflect_mod.descriptor_set_count);
 
         for (uint32_t i = 0; i < reflect_mod.descriptor_set_count; i++) {
@@ -140,7 +139,8 @@ shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size) {
 
             SetInfo *set = &shader->sets[i];
             set->index   = rset->set;
-            mt_array_pushn(dev->arena, set->bindings, rset->binding_count);
+            mt_array_pushn_zeroed(
+                dev->arena, set->bindings, rset->binding_count);
 
             for (uint32_t b = 0; b < mt_array_size(set->bindings); b++) {
                 VkDescriptorSetLayoutBinding *binding = &set->bindings[b];
@@ -156,7 +156,7 @@ shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size) {
 
     if (reflect_mod.push_constant_block_count > 0) {
         // Push constants
-        mt_array_pushn(
+        mt_array_pushn_zeroed(
             dev->arena,
             shader->push_constants,
             reflect_mod.push_constant_block_count);
@@ -205,7 +205,8 @@ static void pipeline_layout_init(
         mt_array_size(combined->push_constants) *
             sizeof(*combined->push_constants));
 
-    mt_array_pushn(dev->arena, l->sets, mt_array_size(combined->sets));
+    mt_array_pushn_zeroed(dev->arena, l->sets, mt_array_size(combined->sets));
+
     SetInfo *set;
     for (uint32_t i = 0; i < mt_array_size(l->sets); i++) {
         SetInfo *cset = &combined->sets[i];
@@ -217,7 +218,7 @@ static void pipeline_layout_init(
             sizeof(*cset->bindings) * mt_array_size(cset->bindings));
     }
 
-    mt_array_pushn(dev->arena, l->set_layouts, mt_array_size(l->sets));
+    mt_array_pushn_zeroed(dev->arena, l->set_layouts, mt_array_size(l->sets));
     for (uint32_t i = 0; i < mt_array_size(l->sets); i++) {
         VkDescriptorSetLayoutCreateInfo create_info = {
             .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -240,7 +241,8 @@ static void pipeline_layout_init(
     VK_CHECK(vkCreatePipelineLayout(
         dev->device, &pipeline_layout_info, NULL, &l->layout));
 
-    mt_array_pushn(dev->arena, l->update_templates, mt_array_size(l->sets));
+    mt_array_pushn_zeroed(
+        dev->arena, l->update_templates, mt_array_size(l->sets));
 
     for (uint32_t i = 0; i < mt_array_size(l->sets); i++) {
         SetInfo *set                             = &l->sets[i];

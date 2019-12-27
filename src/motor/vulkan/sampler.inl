@@ -1,4 +1,3 @@
-
 static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci) {
     MtSampler *sampler = mt_calloc(dev->arena, sizeof(MtSampler));
 

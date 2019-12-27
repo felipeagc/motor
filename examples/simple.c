@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <assert.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 static uint8_t *load_shader(MtArena *arena, const char *path, size_t *size) {
     FILE *f = fopen(path, "rb");
     if (!f) return NULL;
@@ -35,6 +38,23 @@ int main(int argc, char *argv[]) {
 
     MtIWindow window;
     mt_glfw_vulkan_window_init(&window, dev, 800, 600, "Hello", &arena);
+
+    int32_t w, h, num_channels;
+    uint8_t *image_data =
+        stbi_load("../assets/test.png", &w, &h, &num_channels, 4);
+
+    MtImage *image = mt_render.create_image(
+        dev,
+        &(MtImageCreateInfo){
+            .width  = (uint32_t)w,
+            .height = (uint32_t)h,
+            .format = MT_FORMAT_RGBA8_UNORM,
+        });
+
+    free(image_data);
+
+    MtSampler *sampler =
+        mt_render.create_sampler(dev, &(MtSamplerCreateInfo){});
 
     uint8_t *vertex_code = NULL, *fragment_code = NULL;
     size_t vertex_code_size = 0, fragment_code_size = 0;
@@ -89,6 +109,9 @@ int main(int argc, char *argv[]) {
 
         window.vt->end_frame(window.inst);
     }
+
+    mt_render.destroy_image(dev, image);
+    mt_render.destroy_sampler(dev, sampler);
 
     mt_render.destroy_pipeline(dev, pipeline);
 
