@@ -28,7 +28,7 @@ static void set_scissor(
 static void bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline) {
     switch (pipeline->bind_point) {
     case VK_PIPELINE_BIND_POINT_GRAPHICS: {
-        cb->bound_pipeline = request_graphics_pipeline(
+        cb->bound_pipeline = request_graphics_pipeline_instance(
             cb->dev, pipeline, &cb->current_renderpass);
 
         vkCmdBindPipeline(
@@ -38,13 +38,13 @@ static void bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline) {
     } break;
 
     case VK_PIPELINE_BIND_POINT_COMPUTE: {
-        // TODO
-        /* bound_pipeline = dev.request_compute_pipeline(program); */
+        cb->bound_pipeline =
+            request_compute_pipeline_instance(cb->dev, pipeline);
 
-        /* vkCmdBindPipeline( */
-        /*     cmd_buffer, */
-        /*     bound_pipeline.bind_point, */
-        /*     bound_pipeline.pipeline); */
+        vkCmdBindPipeline(
+            cb->cmd_buffer,
+            cb->bound_pipeline->bind_point,
+            cb->bound_pipeline->pipeline);
     } break;
     }
 }
