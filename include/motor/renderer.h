@@ -8,6 +8,8 @@ typedef struct MtDevice MtDevice;
 typedef struct MtRenderPass MtRenderPass;
 typedef struct MtPipeline MtPipeline;
 typedef struct MtBuffer MtBuffer;
+typedef struct MtImage MtImage;
+typedef struct MtSampler MtSampler;
 typedef struct MtCmdBuffer MtCmdBuffer;
 
 typedef enum MtQueueType {
@@ -103,6 +105,63 @@ typedef struct MtBufferCreateInfo {
     size_t size;
 } MtBufferCreateInfo;
 
+typedef enum MtImageUsage {
+    MT_IMAGE_USAGE_SAMPLED_BIT                  = 1,
+    MT_IMAGE_USAGE_STORAGE_BIT                  = 2,
+    MT_IMAGE_USAGE_TRANSFER_SRC_BIT             = 4,
+    MT_IMAGE_USAGE_TRANSFER_DST_BIT             = 8,
+    MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT         = 16,
+    MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT = 32,
+} MtImageUsage;
+
+typedef enum MtImageAspect {
+    MT_IMAGE_ASPECT_COLOR_BIT   = 1,
+    MT_IMAGE_ASPECT_DEPTH_BIT   = 2,
+    MT_IMAGE_ASPECT_STENCIL_BIT = 4,
+} MtImageAspect;
+
+typedef struct MtImageCreateInfo {
+    uint32_t width;
+    uint32_t height;
+    uint32_t sample_count;
+    uint32_t mip_count;
+    uint32_t layer_count;
+    MtFormat format;
+    MtImageUsage usage;
+    MtImageAspect aspect;
+} MtImageCreateInfo;
+
+typedef enum MtFilter {
+    MT_FILTER_LINEAR,
+    MT_FILTER_NEAREST,
+} MtFilter;
+
+typedef enum MtSamplerAddressMode {
+    MT_SAMPLER_ADDRESS_MODE_REPEAT,
+    MT_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
+    MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+    MT_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
+} MtSamplerAddressMode;
+
+typedef enum MtBorderColor {
+    MT_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+    MT_BORDER_COLOR_INT_TRANSPARENT_BLACK,
+    MT_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
+    MT_BORDER_COLOR_INT_OPAQUE_BLACK,
+    MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+    MT_BORDER_COLOR_INT_OPAQUE_WHITE,
+} MtBorderColor;
+
+typedef struct MtSamplerCreateInfo {
+    bool anisotropy;
+    float max_lod;
+    MtFilter mag_filter;
+    MtFilter min_filter;
+    MtSamplerAddressMode address_mode;
+    MtBorderColor border_color;
+} MtSamplerCreateInfo;
+
 typedef struct MtRenderer {
     void (*device_begin_frame)(MtDevice *);
     void (*destroy_device)(MtDevice *);
@@ -113,6 +172,12 @@ typedef struct MtRenderer {
 
     MtBuffer *(*create_buffer)(MtDevice *, MtBufferCreateInfo *);
     void (*destroy_buffer)(MtDevice *, MtBuffer *);
+
+    MtImage *(*create_image)(MtDevice *, MtImageCreateInfo *);
+    void (*destroy_image)(MtDevice *, MtImage *);
+
+    MtSampler *(*create_sampler)(MtDevice *, MtSamplerCreateInfo *);
+    void (*destroy_sampler)(MtDevice *, MtSampler *);
 
     void *(*map_buffer)(MtDevice *, MtBuffer *);
     void (*unmap_buffer)(MtDevice *, MtBuffer *);

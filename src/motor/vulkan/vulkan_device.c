@@ -18,6 +18,8 @@
 #include "buffer_allocator.inl"
 #include "descriptor_set.inl"
 #include "pipeline.inl"
+#include "image.inl"
+#include "sampler.inl"
 #include "cmd_buffer.inl"
 
 #if !defined(NDEBUG)
@@ -739,6 +741,12 @@ static MtRenderer g_vulkan_renderer = (MtRenderer){
 
     .create_buffer  = create_buffer,
     .destroy_buffer = destroy_buffer,
+
+    .create_image  = create_image,
+    .destroy_image = destroy_image,
+
+    .create_sampler  = create_sampler,
+    .destroy_sampler = destroy_sampler,
 
     .map_buffer   = map_buffer,
     .unmap_buffer = unmap_buffer,

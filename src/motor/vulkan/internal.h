@@ -190,3 +190,22 @@ typedef struct MtBuffer {
     MtBufferUsage usage;
     MtBufferMemory memory;
 } MtBuffer;
+
+typedef struct MtImage {
+    VkImage image;
+    VmaAllocation allocation;
+    VkImageView image_view;
+
+    VkSampleCountFlags sample_count;
+    uint32_t width;
+    uint32_t height;
+    uint32_t mip_count;
+    uint32_t layer_count;
+    VkImageAspectFlags aspect;
+    VkFormat format;
+    VkImageLayout layout;
+} MtImage;
+
+typedef struct MtSampler {
+    VkSampler sampler;
+} MtSampler;

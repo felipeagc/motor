@@ -99,3 +99,81 @@ static VkFrontFace front_face_to_vulkan(MtFrontFace front_face) {
         return VK_FRONT_FACE_COUNTER_CLOCKWISE;
     }
 }
+
+static MtFilter filter_from_vulkan(VkFilter value) {
+    switch (value) {
+    case VK_FILTER_LINEAR: return MT_FILTER_LINEAR;
+    case VK_FILTER_NEAREST: return MT_FILTER_NEAREST;
+    }
+}
+
+static VkFilter filter_to_vulkan(MtFilter value) {
+    switch (value) {
+    case MT_FILTER_LINEAR: return VK_FILTER_LINEAR;
+    case MT_FILTER_NEAREST: return VK_FILTER_NEAREST;
+    }
+}
+
+static MtSamplerAddressMode
+sampler_address_mode_from_vulkan(VkSamplerAddressMode value) {
+    switch (value) {
+    case VK_SAMPLER_ADDRESS_MODE_REPEAT: return MT_SAMPLER_ADDRESS_MODE_REPEAT;
+    case VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT:
+        return MT_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    case VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE:
+        return MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    case VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER:
+        return MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    case VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE:
+        return MT_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+    }
+}
+
+static VkSamplerAddressMode
+sampler_address_mode_to_vulkan(MtSamplerAddressMode value) {
+    switch (value) {
+    case MT_SAMPLER_ADDRESS_MODE_REPEAT: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    case MT_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT:
+        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    case MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    case MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    case MT_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE:
+        return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+    }
+}
+
+static MtBorderColor border_color_from_vulkan(VkBorderColor value) {
+    switch (value) {
+    case VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK:
+        return MT_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    case VK_BORDER_COLOR_INT_TRANSPARENT_BLACK:
+        return MT_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+    case VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK:
+        return MT_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+    case VK_BORDER_COLOR_INT_OPAQUE_BLACK:
+        return MT_BORDER_COLOR_INT_OPAQUE_BLACK;
+    case VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE:
+        return MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    case VK_BORDER_COLOR_INT_OPAQUE_WHITE:
+        return MT_BORDER_COLOR_INT_OPAQUE_WHITE;
+    }
+}
+
+static VkBorderColor border_color_to_vulkan(MtBorderColor value) {
+    switch (value) {
+    case MT_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK:
+        return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    case MT_BORDER_COLOR_INT_TRANSPARENT_BLACK:
+        return VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
+    case MT_BORDER_COLOR_FLOAT_OPAQUE_BLACK:
+        return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+    case MT_BORDER_COLOR_INT_OPAQUE_BLACK:
+        return VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    case MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE:
+        return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    case MT_BORDER_COLOR_INT_OPAQUE_WHITE:
+        return VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+    }
+}
