@@ -171,12 +171,16 @@ typedef struct MtPipeline {
     uint64_t hash;
 } MtPipeline;
 
+enum { MAX_DESCRIPTOR_BINDINGS = 8 };
+enum { MAX_DESCRIPTOR_SETS = 8 };
+
 typedef struct MtCmdBuffer {
     MtDevice *dev;
     VkCommandBuffer cmd_buffer;
     PipelineBundle *bound_pipeline;
     MtRenderPass current_renderpass;
     uint32_t queue_type;
+    Descriptor bound_descriptors[MAX_DESCRIPTOR_BINDINGS][MAX_DESCRIPTOR_SETS];
 } MtCmdBuffer;
 
 typedef struct MtBuffer {

@@ -43,16 +43,17 @@ static void combined_set_layouts_init(
     }
 
     if (set_count > 0) {
-        mt_array_reserve(arena, c->sets, set_count);
+        mt_array_pushn(arena, c->sets, set_count);
         memset(c->sets, 0, sizeof(*c->sets) * mt_array_size(c->sets));
 
         Shader *shader;
         mt_array_foreach(shader, pipeline->shaders) {
             SetInfo *shader_set;
             mt_array_foreach(shader_set, shader->sets) {
+                uint32_t i = shader_set->index;
+
                 VkDescriptorSetLayoutBinding *sbinding;
                 mt_array_foreach(sbinding, shader_set->bindings) {
-                    uint32_t i   = shader_set->index;
                     SetInfo *set = &c->sets[i];
 
                     VkDescriptorSetLayoutBinding *binding = NULL;
@@ -208,7 +209,8 @@ static void pipeline_layout_init(
     SetInfo *set;
     for (uint32_t i = 0; i < mt_array_size(l->sets); i++) {
         SetInfo *cset = &combined->sets[i];
-        mt_array_pushn(dev->arena, l->sets, mt_array_size(cset->bindings));
+        mt_array_pushn(
+            dev->arena, l->sets[i].bindings, mt_array_size(cset->bindings));
         memcpy(
             l->sets[i].bindings,
             cset->bindings,
