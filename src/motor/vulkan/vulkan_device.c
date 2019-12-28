@@ -16,7 +16,7 @@
 #include "hashing.inl"
 #include "buffer.inl"
 #include "buffer_allocator.inl"
-#include "descriptor_set.inl"
+#include "descriptor_pool.inl"
 #include "pipeline.inl"
 #include "image.inl"
 #include "sampler.inl"
@@ -498,14 +498,6 @@ static void create_command_pools(MtDevice *dev) {
 
 // Device functions {{{
 static void begin_frame(MtDevice *dev) {
-    for (uint32_t i = 0; i < dev->descriptor_set_allocators.size; i++) {
-        if (dev->descriptor_set_allocators.keys[i] != MT_HASH_UNUSED) {
-            DSAllocator *allocator =
-                (DSAllocator *)dev->descriptor_set_allocators.values[i];
-            ds_allocator_begin_frame(allocator);
-        }
-    }
-
     buffer_allocator_begin_frame(&dev->ubo_allocator);
     buffer_allocator_begin_frame(&dev->vbo_allocator);
     buffer_allocator_begin_frame(&dev->ibo_allocator);
@@ -681,23 +673,13 @@ static void device_destroy(MtDevice *dev) {
         if (dev->pipeline_layout_map.keys[i] != MT_HASH_UNUSED) {
             PipelineLayout *layout =
                 (PipelineLayout *)dev->pipeline_layout_map.values[i];
-            pipeline_layout_destroy(layout, dev);
+            pipeline_layout_destroy(dev, layout);
             mt_free(dev->arena, layout);
-        }
-    }
-
-    for (uint32_t i = 0; i < dev->descriptor_set_allocators.size; i++) {
-        if (dev->descriptor_set_allocators.keys[i] != MT_HASH_UNUSED) {
-            DSAllocator *allocator =
-                (DSAllocator *)dev->descriptor_set_allocators.values[i];
-            ds_allocator_destroy(allocator);
-            mt_free(dev->arena, allocator);
         }
     }
 
     mt_hash_destroy(&dev->pipeline_map);
     mt_hash_destroy(&dev->pipeline_layout_map);
-    mt_hash_destroy(&dev->descriptor_set_allocators);
 
     if (dev->graphics_cmd_pools != dev->compute_cmd_pools) {
         for (uint32_t i = 0; i < dev->num_threads; i++) {
@@ -772,13 +754,14 @@ static MtRenderer g_vulkan_renderer = (MtRenderer){
     .cmd_bind_pipeline       = bind_pipeline,
     .cmd_bind_descriptor_set = bind_descriptor_set,
 
+    .cmd_set_uniform = set_uniform,
+    .cmd_bind_image  = bind_image,
+
     .cmd_bind_vertex_buffer = bind_vertex_buffer,
     .cmd_bind_index_buffer  = bind_index_buffer,
 
     .cmd_bind_vertex_data = bind_vertex_data,
     .cmd_bind_index_data  = bind_index_data,
-
-    .cmd_set_uniform = set_uniform,
 
     .cmd_draw         = draw,
     .cmd_draw_indexed = draw_indexed,
@@ -813,7 +796,6 @@ mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtArena *arena) {
 
     create_command_pools(dev);
 
-    mt_hash_init(&dev->descriptor_set_allocators, 51, dev->arena);
     mt_hash_init(&dev->pipeline_layout_map, 51, dev->arena);
     mt_hash_init(&dev->pipeline_map, 51, dev->arena);
 

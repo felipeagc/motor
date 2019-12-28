@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
             cb, window.vt->get_render_pass(window.inst));
 
         mt_render.cmd_bind_pipeline(cb, pipeline);
-        mt_render.cmd_set_uniform(cb, 0, 0, &(float){0.5f}, sizeof(float));
+        mt_render.cmd_set_uniform(cb, &(float){0.5f}, sizeof(float), 0, 0);
         mt_render.cmd_bind_descriptor_set(cb, 0);
         mt_render.cmd_draw(cb, 3, 1);
 

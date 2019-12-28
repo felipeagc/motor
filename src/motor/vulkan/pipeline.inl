@@ -189,8 +189,8 @@ static void shader_destroy(MtDevice *dev, Shader *shader) {
 }
 
 static void pipeline_layout_init(
-    PipelineLayout *l,
     MtDevice *dev,
+    PipelineLayout *l,
     CombinedSetLayouts *combined,
     VkPipelineBindPoint bind_point) {
     memset(l, 0, sizeof(*l));
@@ -218,22 +218,17 @@ static void pipeline_layout_init(
             sizeof(*cset->bindings) * mt_array_size(cset->bindings));
     }
 
-    mt_array_pushn_zeroed(dev->arena, l->set_layouts, mt_array_size(l->sets));
-    for (uint32_t i = 0; i < mt_array_size(l->sets); i++) {
-        VkDescriptorSetLayoutCreateInfo create_info = {
-            .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .bindingCount = mt_array_size(l->sets[i].bindings),
-            .pBindings    = l->sets[i].bindings,
-        };
-
-        VK_CHECK(vkCreateDescriptorSetLayout(
-            dev->device, &create_info, NULL, &l->set_layouts[i]));
+    VkDescriptorSetLayout *set_layouts = NULL;
+    mt_array_pushn_zeroed(dev->arena, l->pools, mt_array_size(l->sets));
+    for (uint32_t i = 0; i < mt_array_size(l->pools); i++) {
+        descriptor_pool_init(dev, &l->pools[i], l, i);
+        mt_array_push(dev->arena, set_layouts, l->pools[i].set_layout);
     }
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount         = mt_array_size(l->set_layouts),
-        .pSetLayouts            = l->set_layouts,
+        .setLayoutCount         = mt_array_size(set_layouts),
+        .pSetLayouts            = set_layouts,
         .pushConstantRangeCount = mt_array_size(l->push_constants),
         .pPushConstantRanges    = l->push_constants,
     };
@@ -241,67 +236,22 @@ static void pipeline_layout_init(
     VK_CHECK(vkCreatePipelineLayout(
         dev->device, &pipeline_layout_info, NULL, &l->layout));
 
-    mt_array_pushn_zeroed(
-        dev->arena, l->update_templates, mt_array_size(l->sets));
-
-    for (uint32_t i = 0; i < mt_array_size(l->sets); i++) {
-        SetInfo *set                             = &l->sets[i];
-        VkDescriptorUpdateTemplateEntry *entries = NULL;
-
-        for (uint32_t b = 0; b < mt_array_size(set->bindings); b++) {
-            VkDescriptorSetLayoutBinding *binding = &set->bindings[b];
-
-            VkDescriptorUpdateTemplateEntry entry = {
-                .dstBinding      = binding->binding,
-                .dstArrayElement = 0,
-                .descriptorCount = binding->descriptorCount,
-                .descriptorType  = binding->descriptorType,
-                .offset          = binding->binding * sizeof(Descriptor),
-                .stride          = sizeof(Descriptor),
-            };
-            mt_array_push(dev->arena, entries, entry);
-        }
-
-        VkDescriptorUpdateTemplateCreateInfo template_info = {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO,
-            .descriptorUpdateEntryCount = mt_array_size(entries),
-            .pDescriptorUpdateEntries   = entries,
-            .templateType = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET,
-            .descriptorSetLayout = l->set_layouts[i],
-            .pipelineBindPoint   = l->bind_point,
-            .pipelineLayout      = l->layout,
-            .set                 = i,
-        };
-
-        vkCreateDescriptorUpdateTemplate(
-            dev->device, &template_info, NULL, &l->update_templates[i]);
-
-        mt_array_free(dev->arena, entries);
-    }
-
-    l->set_allocator = request_descriptor_set_allocator(dev, l);
+    mt_array_free(dev->arena, set_layouts);
 }
 
-static void pipeline_layout_destroy(PipelineLayout *l, MtDevice *dev) {
+static void pipeline_layout_destroy(MtDevice *dev, PipelineLayout *l) {
     VK_CHECK(vkDeviceWaitIdle(dev->device));
+
+    for (uint32_t i = 0; i < mt_array_size(l->pools); i++) {
+        descriptor_pool_destroy(dev, &l->pools[i]);
+    }
+    mt_array_free(dev->arena, l->pools);
 
     vkDestroyPipelineLayout(dev->device, l->layout, NULL);
 
     SetInfo *set;
     mt_array_foreach(set, l->sets) { mt_array_free(dev->arena, set->bindings); }
     mt_array_free(dev->arena, l->sets);
-
-    VkDescriptorUpdateTemplate *update_template;
-    mt_array_foreach(update_template, l->update_templates) {
-        vkDestroyDescriptorUpdateTemplate(dev->device, *update_template, NULL);
-    }
-    mt_array_free(dev->arena, l->update_templates);
-
-    VkDescriptorSetLayout *set_layout;
-    mt_array_foreach(set_layout, l->set_layouts) {
-        vkDestroyDescriptorSetLayout(dev->device, *set_layout, NULL);
-    }
-    mt_array_free(dev->arena, l->set_layouts);
 }
 
 static void pipeline_init_graphics(
@@ -374,20 +324,18 @@ request_pipeline_layout(MtDevice *dev, MtPipeline *pipeline) {
     combined_set_layouts_init(&combined, pipeline, dev->arena);
     uint64_t hash = combined.hash;
 
-    uintptr_t addr = mt_hash_get(&dev->pipeline_layout_map, hash);
-
-    if (addr != MT_HASH_NOT_FOUND) {
+    PipelineLayout *layout = mt_hash_get_ptr(&dev->pipeline_layout_map, hash);
+    if (layout) {
         combined_set_layouts_destroy(&combined, dev->arena);
-        return (PipelineLayout *)addr;
+        return layout;
     }
 
-    PipelineLayout *layout = mt_alloc(dev->arena, sizeof(PipelineLayout));
-    pipeline_layout_init(layout, dev, &combined, pipeline->bind_point);
+    layout = mt_alloc(dev->arena, sizeof(PipelineLayout));
+    pipeline_layout_init(dev, layout, &combined, pipeline->bind_point);
 
     combined_set_layouts_destroy(&combined, dev->arena);
 
-    return (PipelineLayout *)mt_hash_set(
-        &dev->pipeline_layout_map, hash, (uintptr_t)layout);
+    return mt_hash_set_ptr(&dev->pipeline_layout_map, hash, layout);
 }
 
 static void create_graphics_pipeline_instance(
@@ -620,26 +568,25 @@ static PipelineInstance *request_graphics_pipeline_instance(
     XXH64_update(&state, &render_pass->hash, sizeof(render_pass->hash));
     uint64_t hash = (uint64_t)XXH64_digest(&state);
 
-    uintptr_t addr = mt_hash_get(&dev->pipeline_map, hash);
-    if (addr != MT_HASH_NOT_FOUND) return (PipelineInstance *)addr;
+    PipelineInstance *instance = mt_hash_get_ptr(&dev->pipeline_map, hash);
+    if (instance) return instance;
 
-    PipelineInstance *instance = mt_alloc(dev->arena, sizeof(PipelineInstance));
+    instance = mt_alloc(dev->arena, sizeof(PipelineInstance));
 
     create_graphics_pipeline_instance(dev, instance, render_pass, pipeline);
 
-    return (PipelineInstance *)mt_hash_set(
-        &dev->pipeline_map, hash, (uintptr_t)instance);
+    return mt_hash_set_ptr(&dev->pipeline_map, hash, instance);
 }
 
 static PipelineInstance *
 request_compute_pipeline_instance(MtDevice *dev, MtPipeline *pipeline) {
-    uintptr_t addr = mt_hash_get(&dev->pipeline_map, pipeline->hash);
-    if (addr != MT_HASH_NOT_FOUND) return (PipelineInstance *)addr;
+    PipelineInstance *instance =
+        mt_hash_get_ptr(&dev->pipeline_map, pipeline->hash);
+    if (instance) return instance;
 
-    PipelineInstance *instance = mt_alloc(dev->arena, sizeof(PipelineInstance));
+    instance = mt_alloc(dev->arena, sizeof(PipelineInstance));
 
     create_compute_pipeline_instance(dev, instance, pipeline);
 
-    return (PipelineInstance *)mt_hash_set(
-        &dev->pipeline_map, pipeline->hash, (uintptr_t)instance);
+    return mt_hash_set_ptr(&dev->pipeline_map, pipeline->hash, instance);
 }
