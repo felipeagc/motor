@@ -80,7 +80,6 @@ typedef struct MtDevice {
     VkCommandPool *compute_cmd_pools;
     VkCommandPool *transfer_cmd_pools;
 
-    MtHashMap descriptor_set_allocators;
     MtHashMap pipeline_layout_map;
     MtHashMap pipeline_map;
 
@@ -114,45 +113,24 @@ typedef union Descriptor {
     VkDescriptorBufferInfo buffer;
 } Descriptor;
 
-enum { SETS_PER_PAGE = 32 };
+enum { SETS_PER_PAGE = 16 };
 
-typedef struct DSAllocatorPage {
-    struct DSAllocatorPage *next;
-    VkDescriptorPool pool;
+typedef struct DescriptorPool {
+    /*array*/ VkDescriptorPool *pools;
+    /*array*/ VkDescriptorSet **set_arrays;
+    /*array*/ uint32_t *allocated_set_counts;
+    /*array*/ MtHashMap *pool_hashmaps;
 
-    MtHashMap hashmap;
-    /* array */ VkDescriptorSet *sets;
-    /* array */ uint64_t *hashes;
-    /* array */ uint32_t *set_ages;
-    MT_BITSET(SETS_PER_PAGE) in_use;
-
-    uint32_t set_index;
-    uint32_t last_index;
-} DSAllocatorPage;
-
-typedef struct DSAllocatorFrame {
-    /* array */ DSAllocatorPage *base_pages; // [set_index]
-    /* array */ DSAllocatorPage **last_pages;
-} DSAllocatorFrame;
-
-typedef struct DSAllocator {
-    MtDevice *dev;
-    uint32_t current_frame;
-
-    DSAllocatorFrame frames[FRAMES_IN_FLIGHT];
-
-    VkDescriptorSetLayout *set_layouts;           // not owned by this
-    VkDescriptorUpdateTemplate *update_templates; // not owned by this
-    VkDescriptorPoolSize **pool_sizes;            // [pool_size][set]
-} DSAllocator;
+    VkDescriptorSetLayout set_layout;
+    VkDescriptorUpdateTemplate update_template;
+    /*array*/ VkDescriptorPoolSize *pool_sizes;
+} DescriptorPool;
 
 typedef struct PipelineLayout {
     VkPipelineLayout layout;
-    DSAllocator *set_allocator;
     VkPipelineBindPoint bind_point;
 
-    /*array*/ VkDescriptorUpdateTemplate *update_templates;
-    /*array*/ VkDescriptorSetLayout *set_layouts;
+    /*array*/ DescriptorPool *pools;
 
     /*array*/ SetInfo *sets;
     /*array*/ VkPushConstantRange *push_constants;
@@ -177,7 +155,7 @@ enum { MAX_DESCRIPTOR_SETS = 8 };
 typedef struct MtCmdBuffer {
     MtDevice *dev;
     VkCommandBuffer cmd_buffer;
-    PipelineInstance *bound_pipeline;
+    PipelineInstance *bound_pipeline_instance;
     MtRenderPass current_renderpass;
     uint32_t queue_type;
     Descriptor bound_descriptors[MAX_DESCRIPTOR_BINDINGS][MAX_DESCRIPTOR_SETS];

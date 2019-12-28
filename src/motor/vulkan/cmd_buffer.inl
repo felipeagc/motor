@@ -1,3 +1,26 @@
+static void bind_descriptor_set(MtCmdBuffer *cb, uint32_t index) {
+    assert(cb->bound_pipeline_instance);
+
+    DescriptorPool *pool = &cb->bound_pipeline_instance->layout->pools[index];
+
+    uint32_t binding_count = mt_array_size(
+        cb->bound_pipeline_instance->layout->sets[index].bindings);
+
+    VkDescriptorSet descriptor_set = descriptor_pool_alloc(
+        cb->dev, pool, cb->bound_descriptors[index], binding_count);
+    assert(descriptor_set);
+
+    vkCmdBindDescriptorSets(
+        cb->cmd_buffer,
+        cb->bound_pipeline_instance->bind_point,
+        cb->bound_pipeline_instance->layout->layout,
+        index,
+        1,
+        &descriptor_set,
+        0,
+        NULL);
+}
+
 static void set_viewport(
     MtCmdBuffer *cmd_buffer, float x, float y, float width, float height) {
     VkViewport viewport = {
@@ -28,23 +51,23 @@ static void set_scissor(
 static void bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline) {
     switch (pipeline->bind_point) {
     case VK_PIPELINE_BIND_POINT_GRAPHICS: {
-        cb->bound_pipeline = request_graphics_pipeline_instance(
+        cb->bound_pipeline_instance = request_graphics_pipeline_instance(
             cb->dev, pipeline, &cb->current_renderpass);
 
         vkCmdBindPipeline(
             cb->cmd_buffer,
-            cb->bound_pipeline->bind_point,
-            cb->bound_pipeline->pipeline);
+            cb->bound_pipeline_instance->bind_point,
+            cb->bound_pipeline_instance->pipeline);
     } break;
 
     case VK_PIPELINE_BIND_POINT_COMPUTE: {
-        cb->bound_pipeline =
+        cb->bound_pipeline_instance =
             request_compute_pipeline_instance(cb->dev, pipeline);
 
         vkCmdBindPipeline(
             cb->cmd_buffer,
-            cb->bound_pipeline->bind_point,
-            cb->bound_pipeline->pipeline);
+            cb->bound_pipeline_instance->bind_point,
+            cb->bound_pipeline_instance->pipeline);
     } break;
     }
 }
@@ -102,53 +125,62 @@ static void end_cmd_buffer(MtCmdBuffer *cmd_buffer) {
 }
 
 static void set_uniform(
-    MtCmdBuffer *cmd_buffer,
-    uint32_t set,
-    uint32_t binding,
-    void *data,
-    size_t size) {
-    assert(MT_LENGTH(cmd_buffer->bound_descriptors) > set);
-    assert(MT_LENGTH(cmd_buffer->bound_descriptors[set]) > binding);
+    MtCmdBuffer *cb, void *data, size_t size, uint32_t set, uint32_t binding) {
+    assert(MT_LENGTH(cb->bound_descriptors) > set);
+    assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
 
     MtBuffer *buffer;
     size_t offset;
     void *memory = buffer_allocator_allocate(
-        &cmd_buffer->dev->ubo_allocator, size, &buffer, &offset);
+        &cb->dev->ubo_allocator, size, &buffer, &offset);
     assert(memory);
     assert(buffer);
 
     memcpy(memory, data, size);
 
-    Descriptor descriptor;
-    descriptor.buffer.buffer                    = buffer->buffer;
-    descriptor.buffer.offset                    = offset;
-    descriptor.buffer.range                     = size;
-    cmd_buffer->bound_descriptors[set][binding] = descriptor;
+    cb->bound_descriptors[set][binding].buffer.buffer = buffer->buffer;
+    cb->bound_descriptors[set][binding].buffer.offset = offset;
+    cb->bound_descriptors[set][binding].buffer.range  = size;
 }
 
-static void bind_descriptor_set(MtCmdBuffer *cb, uint32_t set) {
-    assert(cb->bound_pipeline);
+static void bind_image(
+    MtCmdBuffer *cb,
+    MtImage *image,
+    MtSampler *sampler,
+    uint32_t set,
+    uint32_t binding) {
+    assert(MT_LENGTH(cb->bound_descriptors) > set);
+    assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
 
-    DSAllocator *set_allocator = cb->bound_pipeline->layout->set_allocator;
-
-    uint32_t binding_count =
-        mt_array_size(cb->bound_pipeline->layout->sets[set].bindings);
-
-    VkDescriptorSet descriptor_set = ds_allocator_allocate(
-        set_allocator, set, cb->bound_descriptors[set], binding_count);
-
-    assert(descriptor_set);
-
-    vkCmdBindDescriptorSets(
-        cb->cmd_buffer,
-        cb->bound_pipeline->bind_point,
-        cb->bound_pipeline->layout->layout,
-        set,
-        1,
-        &descriptor_set,
-        0,
-        NULL);
+    cb->bound_descriptors[set][binding].image.imageView   = image->image_view;
+    cb->bound_descriptors[set][binding].image.imageLayout = image->layout;
+    cb->bound_descriptors[set][binding].image.sampler     = sampler->sampler;
 }
+
+/* static void bind_descriptor_set(MtCmdBuffer *cb, uint32_t set) { */
+/*     assert(cb->bound_pipeline); */
+
+/*     DSAllocator *set_allocator = cb->bound_pipeline->layout->set_allocator;
+ */
+
+/*     uint32_t binding_count = */
+/*         mt_array_size(cb->bound_pipeline->layout->sets[set].bindings); */
+
+/*     VkDescriptorSet descriptor_set = ds_allocator_allocate( */
+/*         set_allocator, set, cb->bound_descriptors[set], binding_count); */
+
+/*     assert(descriptor_set); */
+
+/*     vkCmdBindDescriptorSets( */
+/*         cb->cmd_buffer, */
+/*         cb->bound_pipeline->bind_point, */
+/*         cb->bound_pipeline->layout->layout, */
+/*         set, */
+/*         1, */
+/*         &descriptor_set, */
+/*         0, */
+/*         NULL); */
+/* } */
 
 static void
 bind_vertex_buffer(MtCmdBuffer *cb, MtBuffer *buffer, size_t offset) {
