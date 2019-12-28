@@ -205,14 +205,12 @@ typedef struct MtRenderer {
     void (*cmd_set_scissor)(
         MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
 
-    void (*cmd_set_uniform)(
+    void (*cmd_bind_uniform)(
         MtCmdBuffer *, void *data, size_t size, uint32_t set, uint32_t binding);
-
     void (*cmd_bind_image)(
         MtCmdBuffer *, MtImage *, MtSampler *, uint32_t set, uint32_t binding);
 
     void (*cmd_bind_pipeline)(MtCmdBuffer *, MtPipeline *pipeline);
-    void (*cmd_bind_descriptor_set)(MtCmdBuffer *, uint32_t set);
 
     void (*cmd_bind_vertex_buffer)(MtCmdBuffer *, MtBuffer *, size_t offset);
     void (*cmd_bind_index_buffer)(
