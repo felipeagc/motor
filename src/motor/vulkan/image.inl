@@ -1,6 +1,9 @@
 static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
     MtImage *image = mt_calloc(dev->arena, sizeof(MtImage));
 
+    if (ci->depth == 0) {
+        ci->depth = 1;
+    }
     if (ci->sample_count == 0) {
         ci->sample_count = 1;
     }
@@ -23,8 +26,10 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
 
     image->width       = ci->width;
     image->height      = ci->height;
+    image->depth       = ci->depth;
     image->mip_count   = ci->mip_count;
     image->layer_count = ci->layer_count;
+    image->layout      = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     image->format      = format_to_vulkan(ci->format);
 
     assert(image->format != VK_FORMAT_UNDEFINED);
@@ -55,7 +60,7 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
                 {
                     .width  = image->width,
                     .height = image->height,
-                    .depth  = 1,
+                    .depth  = image->depth,
                 },
             .mipLevels     = image->mip_count,
             .arrayLayers   = image->layer_count,

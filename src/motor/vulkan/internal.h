@@ -149,6 +149,10 @@ typedef struct MtPipeline {
     uint64_t hash;
 } MtPipeline;
 
+typedef struct MtFence {
+    VkFence fence;
+} MtFence;
+
 enum { MAX_DESCRIPTOR_BINDINGS = 8 };
 enum { MAX_DESCRIPTOR_SETS = 8 };
 
@@ -178,11 +182,13 @@ typedef struct MtImage {
     VkSampleCountFlags sample_count;
     uint32_t width;
     uint32_t height;
+    uint32_t depth;
     uint32_t mip_count;
     uint32_t layer_count;
     VkImageAspectFlags aspect;
     VkFormat format;
     VkImageLayout layout;
+    bool initialized;
 } MtImage;
 
 typedef struct MtSampler {

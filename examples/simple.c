@@ -53,6 +53,12 @@ int main(int argc, char *argv[]) {
 
     free(image_data);
 
+    mt_render.transfer_to_image(
+        dev,
+        &(MtImageCopyView){.image = image},
+        (uint32_t)(num_channels * w * h),
+        image_data);
+
     MtSampler *sampler =
         mt_render.create_sampler(dev, &(MtSamplerCreateInfo){});
 

@@ -10,6 +10,7 @@ typedef struct MtPipeline MtPipeline;
 typedef struct MtBuffer MtBuffer;
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
+typedef struct MtFence MtFence;
 typedef struct MtCmdBuffer MtCmdBuffer;
 
 typedef enum MtQueueType {
@@ -123,6 +124,7 @@ typedef enum MtImageAspect {
 typedef struct MtImageCreateInfo {
     uint32_t width;
     uint32_t height;
+    uint32_t depth;
     uint32_t sample_count;
     uint32_t mip_count;
     uint32_t layer_count;
@@ -162,6 +164,32 @@ typedef struct MtSamplerCreateInfo {
     MtBorderColor border_color;
 } MtSamplerCreateInfo;
 
+typedef struct MtBufferCopyView {
+    MtBuffer *buffer;
+    size_t offset;
+    uint32_t row_length;
+    uint32_t image_height;
+} MtBufferCopyView;
+
+typedef struct MtExtent3D {
+    uint32_t width;
+    uint32_t height;
+    uint32_t depth;
+} MtExtent3D;
+
+typedef struct MtOffset3D {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+} MtOffset3D;
+
+typedef struct MtImageCopyView {
+    MtImage *image;
+    uint32_t mip_level;
+    uint32_t array_layer;
+    MtOffset3D offset;
+} MtImageCopyView;
+
 typedef struct MtRenderer {
     void (*device_begin_frame)(MtDevice *);
     void (*destroy_device)(MtDevice *);
@@ -170,8 +198,17 @@ typedef struct MtRenderer {
         MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
     void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
 
+    MtFence *(*create_fence)(MtDevice *);
+    void (*destroy_fence)(MtDevice *, MtFence *fence);
+
+    void (*wait_for_fence)(MtDevice *, MtFence *);
+    void (*submit)(MtDevice *, MtCmdBuffer *, MtFence *fence);
+
     MtBuffer *(*create_buffer)(MtDevice *, MtBufferCreateInfo *);
     void (*destroy_buffer)(MtDevice *, MtBuffer *);
+
+    void *(*map_buffer)(MtDevice *, MtBuffer *);
+    void (*unmap_buffer)(MtDevice *, MtBuffer *);
 
     MtImage *(*create_image)(MtDevice *, MtImageCreateInfo *);
     void (*destroy_image)(MtDevice *, MtImage *);
@@ -179,10 +216,10 @@ typedef struct MtRenderer {
     MtSampler *(*create_sampler)(MtDevice *, MtSamplerCreateInfo *);
     void (*destroy_sampler)(MtDevice *, MtSampler *);
 
-    void *(*map_buffer)(MtDevice *, MtBuffer *);
-    void (*unmap_buffer)(MtDevice *, MtBuffer *);
-
-    void (*submit)(MtDevice *, MtCmdBuffer *);
+    void (*transfer_to_buffer)(
+        MtDevice *, MtBuffer *, size_t offset, size_t size, const void *data);
+    void (*transfer_to_image)(
+        MtDevice *, const MtImageCopyView *dst, size_t size, const void *data);
 
     MtPipeline *(*create_graphics_pipeline)(
         MtDevice *,
@@ -198,6 +235,24 @@ typedef struct MtRenderer {
     void (*begin_cmd_buffer)(MtCmdBuffer *);
     void (*end_cmd_buffer)(MtCmdBuffer *);
 
+    void (*cmd_copy_buffer_to_buffer)(
+        MtCmdBuffer *,
+        MtBuffer *src,
+        size_t src_offset,
+        MtBuffer *dst,
+        size_t dst_offset,
+        size_t size);
+    void (*cmd_copy_buffer_to_image)(
+        MtCmdBuffer *,
+        const MtBufferCopyView *src,
+        const MtImageCopyView *dst,
+        MtExtent3D extent);
+    void (*cmd_copy_image_to_buffer)(
+        MtCmdBuffer *,
+        const MtImageCopyView *src,
+        const MtBufferCopyView *dst,
+        MtExtent3D extent);
+
     void (*cmd_begin_render_pass)(MtCmdBuffer *, MtRenderPass *);
     void (*cmd_end_render_pass)(MtCmdBuffer *);
 
@@ -206,7 +261,11 @@ typedef struct MtRenderer {
         MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
 
     void (*cmd_bind_uniform)(
-        MtCmdBuffer *, void *data, size_t size, uint32_t set, uint32_t binding);
+        MtCmdBuffer *,
+        const void *data,
+        size_t size,
+        uint32_t set,
+        uint32_t binding);
     void (*cmd_bind_image)(
         MtCmdBuffer *, MtImage *, MtSampler *, uint32_t set, uint32_t binding);
 
@@ -224,6 +283,12 @@ typedef struct MtRenderer {
         MtCmdBuffer *, uint32_t vertex_count, uint32_t instance_count);
     void (*cmd_draw_indexed)(
         MtCmdBuffer *, uint32_t index_count, uint32_t instance_count);
+
+    void (*cmd_dispatch)(
+        MtCmdBuffer *,
+        uint32_t group_count_x,
+        uint32_t group_count_y,
+        uint32_t group_count_z);
 } MtRenderer;
 
 extern MtRenderer mt_render;

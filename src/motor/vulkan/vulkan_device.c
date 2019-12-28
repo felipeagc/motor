@@ -456,42 +456,47 @@ static void find_supported_depth_format(MtDevice *dev) {
 }
 
 static void create_command_pools(MtDevice *dev) {
-    VkCommandPoolCreateInfo create_info = {0};
-    create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
     dev->graphics_cmd_pools =
         mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
 
     for (uint32_t i = 0; i < dev->num_threads; i++) {
-        create_info.queueFamilyIndex = dev->indices.graphics;
+        VkCommandPoolCreateInfo create_info = {
+            .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+            .queueFamilyIndex = dev->indices.graphics,
+        };
         VK_CHECK(vkCreateCommandPool(
             dev->device, &create_info, NULL, &dev->graphics_cmd_pools[i]));
     }
 
     dev->compute_cmd_pools = dev->graphics_cmd_pools;
-
     if (dev->indices.graphics != dev->indices.compute) {
         dev->compute_cmd_pools =
             mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
 
         for (uint32_t i = 0; i < dev->num_threads; i++) {
-            create_info.queueFamilyIndex = dev->indices.compute;
+            VkCommandPoolCreateInfo create_info = {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                .queueFamilyIndex = dev->indices.compute,
+            };
             VK_CHECK(vkCreateCommandPool(
                 dev->device, &create_info, NULL, &dev->compute_cmd_pools[i]));
         }
     }
 
-    dev->transfer_cmd_pools = dev->graphics_cmd_pools;
-    if (dev->indices.graphics != dev->indices.transfer) {
-        dev->transfer_cmd_pools =
-            mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
-
-        for (uint32_t i = 0; i < dev->num_threads; i++) {
-            create_info.queueFamilyIndex = dev->indices.transfer;
-            VK_CHECK(vkCreateCommandPool(
-                dev->device, &create_info, NULL, &dev->transfer_cmd_pools[i]));
-        }
+    dev->transfer_cmd_pools =
+        mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
+    for (uint32_t i = 0; i < dev->num_threads; i++) {
+        VkCommandPoolCreateInfo create_info = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT |
+                     VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+            .queueFamilyIndex = dev->indices.transfer,
+        };
+        VK_CHECK(vkCreateCommandPool(
+            dev->device, &create_info, NULL, &dev->transfer_cmd_pools[i]));
     }
 }
 // }}}
@@ -585,7 +590,27 @@ static void free_cmd_buffers(
     mt_free(dev->arena, command_buffers);
 }
 
-static void submit(MtDevice *dev, MtCmdBuffer *cmd_buffer) {
+static MtFence *create_fence(MtDevice *dev) {
+    MtFence *fence = mt_alloc(dev->arena, sizeof(MtFence));
+
+    VkFenceCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+    };
+    VK_CHECK(vkCreateFence(dev->device, &create_info, NULL, &fence->fence));
+    return fence;
+}
+
+static void destroy_fence(MtDevice *dev, MtFence *fence) {
+    vkDestroyFence(dev->device, fence->fence, NULL);
+    mt_free(dev->arena, fence);
+}
+
+static void wait_for_fence(MtDevice *dev, MtFence *fence) {
+    VK_CHECK(
+        vkWaitForFences(dev->device, 1, &fence->fence, VK_TRUE, UINT64_MAX));
+}
+
+static void submit(MtDevice *dev, MtCmdBuffer *cmd_buffer, MtFence *fence) {
     VkQueue queue = VK_NULL_HANDLE;
 
     switch (cmd_buffer->queue_type) {
@@ -614,7 +639,11 @@ static void submit(MtDevice *dev, MtCmdBuffer *cmd_buffer) {
         .pSignalSemaphores    = NULL,
     };
 
-    VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE));
+    VkFence vk_fence = VK_NULL_HANDLE;
+    if (fence) {
+        vk_fence = fence->fence;
+    }
+    VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, vk_fence));
 }
 
 static MtPipeline *create_graphics_pipeline(
@@ -652,7 +681,94 @@ static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
     mt_free(dev->arena, pipeline);
 }
 
-static void device_destroy(MtDevice *dev) {
+static void transfer_to_buffer(
+    MtDevice *dev,
+    MtBuffer *buffer,
+    size_t offset,
+    size_t size,
+    const void *data) {
+    MtFence *fence = create_fence(dev);
+
+    MtBuffer *staging = create_buffer(
+        dev,
+        &(MtBufferCreateInfo){
+            .usage  = MT_BUFFER_USAGE_TRANSFER,
+            .memory = MT_BUFFER_MEMORY_HOST,
+            .size   = size,
+        });
+
+    void *mapping = map_buffer(dev, staging);
+    memcpy(mapping, data, size);
+
+    MtCmdBuffer *cb;
+    allocate_cmd_buffers(dev, MT_QUEUE_TRANSFER, 1, &cb);
+
+    begin_cmd_buffer(cb);
+
+    cmd_copy_buffer_to_buffer(cb, staging, 0, buffer, 0, size);
+
+    end_cmd_buffer(cb);
+
+    submit(dev, cb, fence);
+    wait_for_fence(dev, fence);
+
+    free_cmd_buffers(dev, MT_QUEUE_TRANSFER, 1, &cb);
+
+    unmap_buffer(dev, staging);
+    destroy_buffer(dev, staging);
+
+    destroy_fence(dev, fence);
+}
+
+static void transfer_to_image(
+    MtDevice *dev, const MtImageCopyView *dst, size_t size, const void *data) {
+    MtFence *fence = create_fence(dev);
+
+    MtBuffer *staging = create_buffer(
+        dev,
+        &(MtBufferCreateInfo){
+            .usage  = MT_BUFFER_USAGE_TRANSFER,
+            .memory = MT_BUFFER_MEMORY_HOST,
+            .size   = size,
+        });
+
+    void *mapping = map_buffer(dev, staging);
+    memcpy(mapping, data, size);
+
+    MtCmdBuffer *cb;
+    allocate_cmd_buffers(dev, MT_QUEUE_TRANSFER, 1, &cb);
+
+    begin_cmd_buffer(cb);
+
+    cmd_copy_buffer_to_image(
+        cb,
+        &(MtBufferCopyView){
+            .buffer       = staging,
+            .offset       = 0,
+            .row_length   = 0,
+            .image_height = 0,
+        },
+        dst,
+        (MtExtent3D){
+            .width  = dst->image->width,
+            .height = dst->image->height,
+            .depth  = dst->image->depth,
+        });
+
+    end_cmd_buffer(cb);
+
+    submit(dev, cb, fence);
+    wait_for_fence(dev, fence);
+
+    free_cmd_buffers(dev, MT_QUEUE_TRANSFER, 1, &cb);
+
+    unmap_buffer(dev, staging);
+    destroy_buffer(dev, staging);
+
+    destroy_fence(dev, fence);
+}
+
+static void destroy_device(MtDevice *dev) {
     MtArena *arena = dev->arena;
     vkDeviceWaitIdle(dev->device);
 
@@ -681,6 +797,15 @@ static void device_destroy(MtDevice *dev) {
     mt_hash_destroy(&dev->pipeline_map);
     mt_hash_destroy(&dev->pipeline_layout_map);
 
+    // Destroy transfer command pools
+    for (uint32_t i = 0; i < dev->num_threads; i++) {
+        vkDestroyCommandPool(dev->device, dev->transfer_cmd_pools[i], NULL);
+    }
+    mt_free(dev->arena, dev->transfer_cmd_pools);
+    dev->transfer_cmd_pools = NULL;
+
+    // Destroy compute command pools if they're not the same as the graphics
+    // command pools
     if (dev->graphics_cmd_pools != dev->compute_cmd_pools) {
         for (uint32_t i = 0; i < dev->num_threads; i++) {
             vkDestroyCommandPool(dev->device, dev->compute_cmd_pools[i], NULL);
@@ -689,14 +814,7 @@ static void device_destroy(MtDevice *dev) {
         dev->compute_cmd_pools = NULL;
     }
 
-    if (dev->graphics_cmd_pools != dev->transfer_cmd_pools) {
-        for (uint32_t i = 0; i < dev->num_threads; i++) {
-            vkDestroyCommandPool(dev->device, dev->transfer_cmd_pools[i], NULL);
-        }
-        mt_free(dev->arena, dev->transfer_cmd_pools);
-        dev->transfer_cmd_pools = NULL;
-    }
-
+    // Destroy graphics command pools
     for (uint32_t i = 0; i < dev->num_threads; i++) {
         vkDestroyCommandPool(dev->device, dev->graphics_cmd_pools[i], NULL);
     }
@@ -718,11 +836,22 @@ static void device_destroy(MtDevice *dev) {
 // }}}
 
 static MtRenderer g_vulkan_renderer = (MtRenderer){
+    .device_begin_frame = begin_frame,
+    .destroy_device     = destroy_device,
+
     .allocate_cmd_buffers = allocate_cmd_buffers,
     .free_cmd_buffers     = free_cmd_buffers,
 
+    .create_fence  = create_fence,
+    .destroy_fence = destroy_fence,
+
+    .submit = submit,
+
     .create_buffer  = create_buffer,
     .destroy_buffer = destroy_buffer,
+
+    .map_buffer   = map_buffer,
+    .unmap_buffer = unmap_buffer,
 
     .create_image  = create_image,
     .destroy_image = destroy_image,
@@ -730,40 +859,42 @@ static MtRenderer g_vulkan_renderer = (MtRenderer){
     .create_sampler  = create_sampler,
     .destroy_sampler = destroy_sampler,
 
-    .map_buffer   = map_buffer,
-    .unmap_buffer = unmap_buffer,
-
-    .submit = submit,
+    .transfer_to_buffer = transfer_to_buffer,
+    .transfer_to_image  = transfer_to_image,
 
     .create_graphics_pipeline = create_graphics_pipeline,
     .create_compute_pipeline  = create_compute_pipeline,
     .destroy_pipeline         = destroy_pipeline,
 
-    .device_begin_frame = begin_frame,
-    .destroy_device     = device_destroy,
-
     .begin_cmd_buffer = begin_cmd_buffer,
     .end_cmd_buffer   = end_cmd_buffer,
 
-    .cmd_begin_render_pass = begin_render_pass,
-    .cmd_end_render_pass   = end_render_pass,
+    .cmd_copy_buffer_to_buffer = cmd_copy_buffer_to_buffer,
+    .cmd_copy_buffer_to_image  = cmd_copy_buffer_to_image,
+    .cmd_copy_image_to_buffer  = cmd_copy_image_to_buffer,
+    /* .cmd_copy_image_to_image   = cmd_copy_image_to_image, */
 
-    .cmd_set_viewport = set_viewport,
-    .cmd_set_scissor  = set_scissor,
+    .cmd_begin_render_pass = cmd_begin_render_pass,
+    .cmd_end_render_pass   = cmd_end_render_pass,
 
-    .cmd_bind_pipeline = bind_pipeline,
+    .cmd_set_viewport = cmd_set_viewport,
+    .cmd_set_scissor  = cmd_set_scissor,
 
-    .cmd_bind_uniform = bind_uniform,
-    .cmd_bind_image   = bind_image,
+    .cmd_bind_pipeline = cmd_bind_pipeline,
 
-    .cmd_bind_vertex_buffer = bind_vertex_buffer,
-    .cmd_bind_index_buffer  = bind_index_buffer,
+    .cmd_bind_uniform = cmd_bind_uniform,
+    .cmd_bind_image   = cmd_bind_image,
 
-    .cmd_bind_vertex_data = bind_vertex_data,
-    .cmd_bind_index_data  = bind_index_data,
+    .cmd_bind_vertex_buffer = cmd_bind_vertex_buffer,
+    .cmd_bind_index_buffer  = cmd_bind_index_buffer,
 
-    .cmd_draw         = draw,
-    .cmd_draw_indexed = draw_indexed,
+    .cmd_bind_vertex_data = cmd_bind_vertex_data,
+    .cmd_bind_index_data  = cmd_bind_index_data,
+
+    .cmd_draw         = cmd_draw,
+    .cmd_draw_indexed = cmd_draw_indexed,
+
+    .cmd_dispatch = cmd_dispatch,
 };
 
 MtDevice *
