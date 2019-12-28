@@ -313,6 +313,9 @@ static void pipeline_init_compute(
 }
 
 static void pipeline_destroy(MtDevice *dev, MtPipeline *pipeline) {
+    // TODO: destroy instances of this pipeline
+    // TODO: deallocate descriptor sets related to this pipeline
+
     shader_destroy(dev, &pipeline->shaders[0]);
     shader_destroy(dev, &pipeline->shaders[1]);
     mt_array_free(dev->arena, pipeline->shaders);
