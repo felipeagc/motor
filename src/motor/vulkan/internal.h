@@ -159,6 +159,7 @@ typedef struct MtCmdBuffer {
     MtRenderPass current_renderpass;
     uint32_t queue_type;
     Descriptor bound_descriptors[MAX_DESCRIPTOR_BINDINGS][MAX_DESCRIPTOR_SETS];
+    uint64_t bound_descriptor_set_hashes[MAX_DESCRIPTOR_SETS];
 } MtCmdBuffer;
 
 typedef struct MtBuffer {

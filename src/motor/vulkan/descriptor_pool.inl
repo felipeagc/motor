@@ -132,11 +132,7 @@ static VkDescriptorSet descriptor_pool_alloc(
     MtDevice *dev,
     DescriptorPool *p,
     Descriptor *descriptors,
-    uint32_t descriptor_count) {
-    XXH64_state_t state = {0};
-    XXH64_update(&state, descriptors, descriptor_count * sizeof(*descriptors));
-    uint64_t descriptors_hash = (uint64_t)XXH64_digest(&state);
-
+    uint64_t descriptors_hash) {
     for (uint32_t i = 0; i < mt_array_size(p->pools); i++) {
         VkDescriptorPool pool         = p->pools[i];
         uint32_t *allocated_set_count = &p->allocated_set_counts[i];
@@ -153,7 +149,7 @@ static VkDescriptorSet descriptor_pool_alloc(
                 // No sets available in this pool, so create a new pool
                 descriptor_pool_grow(dev, p);
                 return descriptor_pool_alloc(
-                    dev, p, descriptors, descriptor_count);
+                    dev, p, descriptors, descriptors_hash);
             }
 
             // Update existing descriptor set, because we haven't found any

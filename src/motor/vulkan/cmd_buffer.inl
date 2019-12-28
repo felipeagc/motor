@@ -1,24 +1,40 @@
-static void bind_descriptor_set(MtCmdBuffer *cb, uint32_t index) {
+static void bind_descriptor_sets(MtCmdBuffer *cb) {
     assert(cb->bound_pipeline_instance);
 
-    DescriptorPool *pool = &cb->bound_pipeline_instance->layout->pools[index];
+    for (uint32_t i = 0;
+         i < mt_array_size(cb->bound_pipeline_instance->layout->sets);
+         i++) {
+        uint32_t binding_count = mt_array_size(
+            cb->bound_pipeline_instance->layout->sets[i].bindings);
 
-    uint32_t binding_count = mt_array_size(
-        cb->bound_pipeline_instance->layout->sets[index].bindings);
+        XXH64_state_t state = {0};
+        XXH64_update(
+            &state,
+            cb->bound_descriptors[i],
+            binding_count * sizeof(*cb->bound_descriptors[i]));
+        uint64_t descriptors_hash = (uint64_t)XXH64_digest(&state);
 
-    VkDescriptorSet descriptor_set = descriptor_pool_alloc(
-        cb->dev, pool, cb->bound_descriptors[index], binding_count);
-    assert(descriptor_set);
+        if (cb->bound_descriptor_set_hashes[i] != descriptors_hash) {
+            cb->bound_descriptor_set_hashes[i] = descriptors_hash;
 
-    vkCmdBindDescriptorSets(
-        cb->cmd_buffer,
-        cb->bound_pipeline_instance->bind_point,
-        cb->bound_pipeline_instance->layout->layout,
-        index,
-        1,
-        &descriptor_set,
-        0,
-        NULL);
+            DescriptorPool *pool =
+                &cb->bound_pipeline_instance->layout->pools[i];
+
+            VkDescriptorSet descriptor_set = descriptor_pool_alloc(
+                cb->dev, pool, cb->bound_descriptors[i], descriptors_hash);
+            assert(descriptor_set);
+
+            vkCmdBindDescriptorSets(
+                cb->cmd_buffer,
+                cb->bound_pipeline_instance->bind_point,
+                cb->bound_pipeline_instance->layout->layout,
+                i,
+                1,
+                &descriptor_set,
+                0,
+                NULL);
+        }
+    }
 }
 
 static void set_viewport(
@@ -120,11 +136,15 @@ static void begin_cmd_buffer(MtCmdBuffer *cmd_buffer) {
     VK_CHECK(vkBeginCommandBuffer(cmd_buffer->cmd_buffer, &begin_info));
 }
 
-static void end_cmd_buffer(MtCmdBuffer *cmd_buffer) {
-    VK_CHECK(vkEndCommandBuffer(cmd_buffer->cmd_buffer));
+static void end_cmd_buffer(MtCmdBuffer *cb) {
+    VK_CHECK(vkEndCommandBuffer(cb->cmd_buffer));
+    memset(
+        cb->bound_descriptor_set_hashes,
+        0,
+        sizeof(cb->bound_descriptor_set_hashes));
 }
 
-static void set_uniform(
+static void bind_uniform(
     MtCmdBuffer *cb, void *data, size_t size, uint32_t set, uint32_t binding) {
     assert(MT_LENGTH(cb->bound_descriptors) > set);
     assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
@@ -156,31 +176,6 @@ static void bind_image(
     cb->bound_descriptors[set][binding].image.imageLayout = image->layout;
     cb->bound_descriptors[set][binding].image.sampler     = sampler->sampler;
 }
-
-/* static void bind_descriptor_set(MtCmdBuffer *cb, uint32_t set) { */
-/*     assert(cb->bound_pipeline); */
-
-/*     DSAllocator *set_allocator = cb->bound_pipeline->layout->set_allocator;
- */
-
-/*     uint32_t binding_count = */
-/*         mt_array_size(cb->bound_pipeline->layout->sets[set].bindings); */
-
-/*     VkDescriptorSet descriptor_set = ds_allocator_allocate( */
-/*         set_allocator, set, cb->bound_descriptors[set], binding_count); */
-
-/*     assert(descriptor_set); */
-
-/*     vkCmdBindDescriptorSets( */
-/*         cb->cmd_buffer, */
-/*         cb->bound_pipeline->bind_point, */
-/*         cb->bound_pipeline->layout->layout, */
-/*         set, */
-/*         1, */
-/*         &descriptor_set, */
-/*         0, */
-/*         NULL); */
-/* } */
 
 static void
 bind_vertex_buffer(MtCmdBuffer *cb, MtBuffer *buffer, size_t offset) {
@@ -223,10 +218,12 @@ static void bind_index_data(
 
 static void
 draw(MtCmdBuffer *cb, uint32_t vertex_count, uint32_t instance_count) {
+    bind_descriptor_sets(cb);
     vkCmdDraw(cb->cmd_buffer, vertex_count, instance_count, 0, 0);
 }
 
 static void
 draw_indexed(MtCmdBuffer *cb, uint32_t index_count, uint32_t instance_count) {
+    bind_descriptor_sets(cb);
     vkCmdDrawIndexed(cb->cmd_buffer, index_count, instance_count, 0, 0, 0);
 }

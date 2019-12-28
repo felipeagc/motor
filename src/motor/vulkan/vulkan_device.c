@@ -751,11 +751,10 @@ static MtRenderer g_vulkan_renderer = (MtRenderer){
     .cmd_set_viewport = set_viewport,
     .cmd_set_scissor  = set_scissor,
 
-    .cmd_bind_pipeline       = bind_pipeline,
-    .cmd_bind_descriptor_set = bind_descriptor_set,
+    .cmd_bind_pipeline = bind_pipeline,
 
-    .cmd_set_uniform = set_uniform,
-    .cmd_bind_image  = bind_image,
+    .cmd_bind_uniform = bind_uniform,
+    .cmd_bind_image   = bind_image,
 
     .cmd_bind_vertex_buffer = bind_vertex_buffer,
     .cmd_bind_index_buffer  = bind_index_buffer,
