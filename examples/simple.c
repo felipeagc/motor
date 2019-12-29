@@ -3,6 +3,7 @@
 #include <motor/threads.h>
 #include <motor/window.h>
 #include <motor/util.h>
+#include <motor/math_types.h>
 #include <motor/vulkan/vulkan_device.h>
 #include <motor/vulkan/glfw_window.h>
 #include <stdio.h>
@@ -10,7 +11,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#include "gmath.h"
 
 static uint8_t *load_shader(MtArena *arena, const char *path, size_t *size) {
     FILE *f = fopen(path, "rb");

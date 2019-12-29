@@ -1,132 +1,32 @@
-#ifndef GMATH_H
-#define GMATH_H
+#pragma once
 
-#ifndef GMATH_DISABLE_SSE
-#if defined(__x86_64__) || defined(__i386__)
-#define GMATH_USE_SSE
-#endif
-#endif
-
-#if defined(_MSC_VER)
-#define GMATH_ALIGN(x) __declspec(align(x))
-#elif defined(__clang__)
-#define GMATH_ALIGN(x) __attribute__((aligned(x)))
-#elif defined(__GNUC__)
-#define GMATH_ALIGN(x) __attribute__((aligned(x)))
-#endif
-
+#include "math_types.h"
 #include <assert.h>
-#include <math.h>
-#ifdef GMATH_USE_SSE
-#include <xmmintrin.h>
-#endif
 
-#define GMATH_INLINE static inline
-
-#define GMATH_PI 3.14159265358979323846f
-
-#define V2(x, y) ((Vec2){x, y})
-#define V3(x, y, z) ((Vec3){x, y, z})
-#define V4(x, y, z, w) ((Vec4){x, y, z, w})
-
-#define RAD(degrees) (degrees * (GMATH_PI / 180.0f))
-#define DEG(radians) (radians / (GMATH_PI / 180.0f))
-
-/*
- * gmath types
- */
-
-typedef union Vec2 {
-    struct {
-        float x, y;
-    };
-    struct {
-        float r, g;
-    };
-    float v[2];
-} Vec2;
-
-typedef union Vec3 {
-    struct {
-        float x, y, z;
-    };
-    struct {
-        float r, g, b;
-    };
-    struct {
-        Vec2 xy;
-    };
-    float v[3];
-} Vec3;
-
-typedef union GMATH_ALIGN(16) Vec4 {
-    struct {
-        union {
-            Vec3 xyz;
-            struct {
-                float x, y, z;
-            };
-        };
-        float w;
-    };
-
-    struct {
-        union {
-            Vec3 rgb;
-            struct {
-                float r, g, b;
-            };
-        };
-        float a;
-    };
-
-    struct {
-        Vec2 xy;
-    };
-
-    float v[4];
-} Vec4;
-
-typedef union GMATH_ALIGN(16) Mat4 {
-    float cols[4][4];
-    float elems[16];
-    Vec4 v[4];
-#ifdef GMATH_USE_SSE
-    __m128 sse_cols[4];
-#endif
-} Mat4;
-
-typedef union Quat {
-    struct {
-        float x, y, z, w;
-    };
-    struct {
-        Vec3 xyz;
-    };
-} Quat;
+#define MT_MATH_INLINE static inline
 
 /*
  * Vec2 functions
  */
 
-GMATH_INLINE Vec2 v2_zero() { return (Vec2){0.0f, 0.0f}; }
+MT_MATH_INLINE Vec2 v2_zero() { return (Vec2){0.0f, 0.0f}; }
 
-GMATH_INLINE Vec2 v2_one() { return (Vec2){1.0f, 1.0f}; }
+MT_MATH_INLINE Vec2 v2_one() { return (Vec2){1.0f, 1.0f}; }
 
 /*
  * Vec3 functions
  */
 
-GMATH_INLINE Vec3 v3_zero() { return (Vec3){0.0f, 0.0f, 0.0f}; }
+MT_MATH_INLINE Vec3 v3_zero() { return (Vec3){0.0f, 0.0f, 0.0f}; }
 
-GMATH_INLINE Vec3 v3_one() { return (Vec3){1.0f, 1.0f, 1.0f}; }
+MT_MATH_INLINE Vec3 v3_one() { return (Vec3){1.0f, 1.0f, 1.0f}; }
 
-GMATH_INLINE float v3_mag(Vec3 vec) {
+MT_MATH_INLINE float v3_mag(Vec3 vec) {
     return sqrtf((vec.x * vec.x) + (vec.y * vec.y) + (vec.z * vec.z));
 }
 
 // TESTED
-GMATH_INLINE Vec3 v3_add(Vec3 left, Vec3 right) {
+MT_MATH_INLINE Vec3 v3_add(Vec3 left, Vec3 right) {
     Vec3 result;
     result.x = left.x + right.x;
     result.y = left.y + right.y;
@@ -135,7 +35,7 @@ GMATH_INLINE Vec3 v3_add(Vec3 left, Vec3 right) {
 }
 
 // TODO: test
-GMATH_INLINE Vec3 v3_adds(Vec3 left, float right) {
+MT_MATH_INLINE Vec3 v3_adds(Vec3 left, float right) {
     Vec3 result;
     result.x = left.x + right;
     result.y = left.y + right;
@@ -144,7 +44,7 @@ GMATH_INLINE Vec3 v3_adds(Vec3 left, float right) {
 }
 
 // TODO: test
-GMATH_INLINE Vec3 v3_sub(Vec3 left, Vec3 right) {
+MT_MATH_INLINE Vec3 v3_sub(Vec3 left, Vec3 right) {
     Vec3 result;
     result.x = left.x - right.x;
     result.y = left.y - right.y;
@@ -153,7 +53,7 @@ GMATH_INLINE Vec3 v3_sub(Vec3 left, Vec3 right) {
 }
 
 // TODO: test
-GMATH_INLINE Vec3 v3_subs(Vec3 left, float right) {
+MT_MATH_INLINE Vec3 v3_subs(Vec3 left, float right) {
     Vec3 result;
     result.x = left.x - right;
     result.y = left.y - right;
@@ -162,7 +62,7 @@ GMATH_INLINE Vec3 v3_subs(Vec3 left, float right) {
 }
 
 // TESTED
-GMATH_INLINE Vec3 v3_mul(Vec3 left, Vec3 right) {
+MT_MATH_INLINE Vec3 v3_mul(Vec3 left, Vec3 right) {
     Vec3 result;
     result.x = left.x * right.x;
     result.y = left.y * right.y;
@@ -171,7 +71,7 @@ GMATH_INLINE Vec3 v3_mul(Vec3 left, Vec3 right) {
 }
 
 // TODO: test
-GMATH_INLINE Vec3 v3_muls(Vec3 left, float right) {
+MT_MATH_INLINE Vec3 v3_muls(Vec3 left, float right) {
     Vec3 result;
     result.x = left.x * right;
     result.y = left.y * right;
@@ -180,7 +80,7 @@ GMATH_INLINE Vec3 v3_muls(Vec3 left, float right) {
 }
 
 // TODO: test
-GMATH_INLINE Vec3 v3_div(Vec3 left, Vec3 right) {
+MT_MATH_INLINE Vec3 v3_div(Vec3 left, Vec3 right) {
     Vec3 result;
     result.x = left.x / right.x;
     result.y = left.y / right.y;
@@ -189,7 +89,7 @@ GMATH_INLINE Vec3 v3_div(Vec3 left, Vec3 right) {
 }
 
 // TODO: test
-GMATH_INLINE Vec3 v3_divs(Vec3 left, float right) {
+MT_MATH_INLINE Vec3 v3_divs(Vec3 left, float right) {
     Vec3 result;
     result.x = left.x / right;
     result.y = left.y / right;
@@ -197,17 +97,17 @@ GMATH_INLINE Vec3 v3_divs(Vec3 left, float right) {
     return result;
 }
 
-GMATH_INLINE float v3_distance(Vec3 left, Vec3 right) {
+MT_MATH_INLINE float v3_distance(Vec3 left, Vec3 right) {
     return v3_mag(v3_sub(left, right));
 }
 
 // TESTED
-GMATH_INLINE float v3_dot(Vec3 left, Vec3 right) {
+MT_MATH_INLINE float v3_dot(Vec3 left, Vec3 right) {
     return (left.x * right.x) + (left.y * right.y) + (left.z * right.z);
 }
 
 // TODO: test
-GMATH_INLINE Vec3 v3_cross(Vec3 left, Vec3 right) {
+MT_MATH_INLINE Vec3 v3_cross(Vec3 left, Vec3 right) {
     Vec3 result;
     result.x = (left.y * right.z) - (left.z * right.y);
     result.y = (left.z * right.x) - (left.x * right.z);
@@ -218,7 +118,7 @@ GMATH_INLINE Vec3 v3_cross(Vec3 left, Vec3 right) {
 // TODO: test
 // TODO: make compatible with glm
 // TODO: test with zero norm vector
-GMATH_INLINE Vec3 v3_normalize(Vec3 vec) {
+MT_MATH_INLINE Vec3 v3_normalize(Vec3 vec) {
     Vec3 result = vec;
     float norm  = sqrtf(v3_dot(vec, vec));
     if (norm != 0.0f) {
@@ -231,14 +131,14 @@ GMATH_INLINE Vec3 v3_normalize(Vec3 vec) {
  * Vec4 functions
  */
 
-GMATH_INLINE Vec4 v4_zero() { return (Vec4){0.0f, 0.0f, 0.0f, 0.0f}; }
+MT_MATH_INLINE Vec4 v4_zero() { return (Vec4){0.0f, 0.0f, 0.0f, 0.0f}; }
 
-GMATH_INLINE Vec4 v4_one() { return (Vec4){1.0f, 1.0f, 1.0f, 1.0f}; }
+MT_MATH_INLINE Vec4 v4_one() { return (Vec4){1.0f, 1.0f, 1.0f, 1.0f}; }
 
 // TESTED
-GMATH_INLINE Vec4 v4_add(Vec4 left, Vec4 right) {
+MT_MATH_INLINE Vec4 v4_add(Vec4 left, Vec4 right) {
     Vec4 result;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     _mm_store_ps(
         (float *)&result,
         _mm_add_ps(_mm_load_ps((float *)&left), _mm_load_ps((float *)&right)));
@@ -252,9 +152,9 @@ GMATH_INLINE Vec4 v4_add(Vec4 left, Vec4 right) {
 }
 
 // TESTED
-GMATH_INLINE Vec4 v4_mul(Vec4 left, Vec4 right) {
+MT_MATH_INLINE Vec4 v4_mul(Vec4 left, Vec4 right) {
     Vec4 result;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     _mm_store_ps(
         (float *)&result,
         _mm_mul_ps(_mm_load_ps((float *)&left), _mm_load_ps((float *)&right)));
@@ -267,14 +167,14 @@ GMATH_INLINE Vec4 v4_mul(Vec4 left, Vec4 right) {
     return result;
 }
 
-GMATH_INLINE Vec4 v4_muls(Vec4 left, float right) {
+MT_MATH_INLINE Vec4 v4_muls(Vec4 left, float right) {
     return v4_mul(left, (Vec4){right, right, right, right});
 }
 
 // TESTED
-GMATH_INLINE float v4_dot(Vec4 left, Vec4 right) {
+MT_MATH_INLINE float v4_dot(Vec4 left, Vec4 right) {
     float result;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     __m128 rone = _mm_mul_ps(*((__m128 *)&left), *((__m128 *)&right));
     __m128 rtwo = _mm_shuffle_ps(rone, rone, _MM_SHUFFLE(2, 3, 0, 1));
     rone        = _mm_add_ps(rone, rtwo);
@@ -293,7 +193,7 @@ GMATH_INLINE float v4_dot(Vec4 left, Vec4 right) {
  */
 
 // TESTED
-GMATH_INLINE Mat4 mat4_zero() {
+MT_MATH_INLINE Mat4 mat4_zero() {
     return (Mat4){{
         {0, 0, 0, 0},
         {0, 0, 0, 0},
@@ -303,7 +203,7 @@ GMATH_INLINE Mat4 mat4_zero() {
 }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_diagonal(float f) {
+MT_MATH_INLINE Mat4 mat4_diagonal(float f) {
     return (Mat4){{
         {f, 0, 0, 0},
         {0, f, 0, 0},
@@ -313,12 +213,12 @@ GMATH_INLINE Mat4 mat4_diagonal(float f) {
 }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_identity() { return mat4_diagonal(1.0f); }
+MT_MATH_INLINE Mat4 mat4_identity() { return mat4_diagonal(1.0f); }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_transpose(Mat4 mat) {
+MT_MATH_INLINE Mat4 mat4_transpose(Mat4 mat) {
     Mat4 result = mat;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     _MM_TRANSPOSE4_PS(
         result.sse_cols[0],
         result.sse_cols[1],
@@ -345,9 +245,9 @@ GMATH_INLINE Mat4 mat4_transpose(Mat4 mat) {
 }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_add(Mat4 left, Mat4 right) {
+MT_MATH_INLINE Mat4 mat4_add(Mat4 left, Mat4 right) {
     Mat4 result;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     result.sse_cols[0] = _mm_add_ps(left.sse_cols[0], right.sse_cols[0]);
     result.sse_cols[1] = _mm_add_ps(left.sse_cols[1], right.sse_cols[1]);
     result.sse_cols[2] = _mm_add_ps(left.sse_cols[2], right.sse_cols[2]);
@@ -361,9 +261,9 @@ GMATH_INLINE Mat4 mat4_add(Mat4 left, Mat4 right) {
 }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_sub(Mat4 left, Mat4 right) {
+MT_MATH_INLINE Mat4 mat4_sub(Mat4 left, Mat4 right) {
     Mat4 result;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     result.sse_cols[0] = _mm_sub_ps(left.sse_cols[0], right.sse_cols[0]);
     result.sse_cols[1] = _mm_sub_ps(left.sse_cols[1], right.sse_cols[1]);
     result.sse_cols[2] = _mm_sub_ps(left.sse_cols[2], right.sse_cols[2]);
@@ -377,9 +277,9 @@ GMATH_INLINE Mat4 mat4_sub(Mat4 left, Mat4 right) {
 }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_muls(Mat4 left, float right) {
+MT_MATH_INLINE Mat4 mat4_muls(Mat4 left, float right) {
     Mat4 result;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     __m128 sse_scalar  = _mm_load_ps1(&right);
     result.sse_cols[0] = _mm_mul_ps(left.sse_cols[0], sse_scalar);
     result.sse_cols[1] = _mm_mul_ps(left.sse_cols[1], sse_scalar);
@@ -394,9 +294,9 @@ GMATH_INLINE Mat4 mat4_muls(Mat4 left, float right) {
 }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_divs(Mat4 left, float right) {
+MT_MATH_INLINE Mat4 mat4_divs(Mat4 left, float right) {
     Mat4 result;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     __m128 sse_scalar  = _mm_load_ps1(&right);
     result.sse_cols[0] = _mm_div_ps(left.sse_cols[0], sse_scalar);
     result.sse_cols[1] = _mm_div_ps(left.sse_cols[1], sse_scalar);
@@ -411,9 +311,9 @@ GMATH_INLINE Mat4 mat4_divs(Mat4 left, float right) {
 }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_mul(Mat4 left, Mat4 right) {
+MT_MATH_INLINE Mat4 mat4_mul(Mat4 left, Mat4 right) {
     Mat4 result;
-#ifdef GMATH_USE_SSE
+#ifdef MT_MATH_USE_SSE
     for (int i = 0; i < 4; i++) {
         __m128 brod1 = _mm_set1_ps(left.elems[4 * i + 0]);
         __m128 brod2 = _mm_set1_ps(left.elems[4 * i + 1]);
@@ -442,7 +342,7 @@ GMATH_INLINE Mat4 mat4_mul(Mat4 left, Mat4 right) {
 }
 
 // TODO: test
-GMATH_INLINE Vec4 mat4_mulv(Mat4 left, Vec4 right) {
+MT_MATH_INLINE Vec4 mat4_mulv(Mat4 left, Vec4 right) {
     // TODO: SIMD version
 
     Vec4 result;
@@ -460,7 +360,7 @@ GMATH_INLINE Vec4 mat4_mulv(Mat4 left, Vec4 right) {
 }
 
 // TESTED
-GMATH_INLINE Mat4 mat4_inverse(Mat4 mat) {
+MT_MATH_INLINE Mat4 mat4_inverse(Mat4 mat) {
     // TODO: SIMD version
 
     Mat4 inv = {0};
@@ -523,7 +423,7 @@ GMATH_INLINE Mat4 mat4_inverse(Mat4 mat) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Mat4
+MT_MATH_INLINE Mat4
 mat4_perspective(float fovy, float aspect_ratio, float znear, float zfar) {
     Mat4 result = mat4_zero();
 
@@ -539,7 +439,7 @@ mat4_perspective(float fovy, float aspect_ratio, float znear, float zfar) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Mat4 mat4_look_at(Vec3 eye, Vec3 center, Vec3 up) {
+MT_MATH_INLINE Mat4 mat4_look_at(Vec3 eye, Vec3 center, Vec3 up) {
     Vec3 f = v3_normalize(v3_sub(center, eye));
     Vec3 s = v3_normalize(v3_cross(f, up));
     Vec3 u = v3_cross(s, f);
@@ -566,7 +466,7 @@ GMATH_INLINE Mat4 mat4_look_at(Vec3 eye, Vec3 center, Vec3 up) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Quat mat4_to_quat(Mat4 mat) {
+MT_MATH_INLINE Quat mat4_to_quat(Mat4 mat) {
     Quat result;
     float trace = mat.cols[0][0] + mat.cols[1][1] + mat.cols[2][2];
     if (trace > 0.0f) {
@@ -605,7 +505,7 @@ GMATH_INLINE Quat mat4_to_quat(Mat4 mat) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Mat4 mat4_translate(Mat4 mat, Vec3 translation) {
+MT_MATH_INLINE Mat4 mat4_translate(Mat4 mat, Vec3 translation) {
     Mat4 result = mat;
     result.cols[3][0] += translation.x;
     result.cols[3][1] += translation.y;
@@ -614,7 +514,7 @@ GMATH_INLINE Mat4 mat4_translate(Mat4 mat, Vec3 translation) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Mat4 mat4_scale(Mat4 mat, Vec3 scale) {
+MT_MATH_INLINE Mat4 mat4_scale(Mat4 mat, Vec3 scale) {
     Mat4 result = mat;
     result.cols[0][0] *= scale.x;
     result.cols[1][1] *= scale.y;
@@ -623,7 +523,7 @@ GMATH_INLINE Mat4 mat4_scale(Mat4 mat, Vec3 scale) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Mat4 mat4_rotate(Mat4 mat, float angle, Vec3 axis) {
+MT_MATH_INLINE Mat4 mat4_rotate(Mat4 mat, float angle, Vec3 axis) {
     float c = cosf(angle);
     float s = sinf(angle);
 
@@ -668,13 +568,13 @@ GMATH_INLINE Mat4 mat4_rotate(Mat4 mat, float angle, Vec3 axis) {
  */
 
 // TESTED: compatible with glm
-GMATH_INLINE float quat_dot(Quat left, Quat right) {
+MT_MATH_INLINE float quat_dot(Quat left, Quat right) {
     return (left.x * right.x) + (left.y * right.y) + (left.z * right.z) +
            (left.w * right.w);
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Quat quat_normalize(Quat left) {
+MT_MATH_INLINE Quat quat_normalize(Quat left) {
     float length = sqrtf(quat_dot(left, left));
     if (length <= 0.0f) {
         return (Quat){0.0f, 0.0f, 0.0f, 1.0f};
@@ -687,7 +587,7 @@ GMATH_INLINE Quat quat_normalize(Quat left) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Quat quat_from_axis_angle(Vec3 axis, float angle) {
+MT_MATH_INLINE Quat quat_from_axis_angle(Vec3 axis, float angle) {
     float s = sinf(angle / 2.0f);
     Quat result;
     result.x = axis.x * s;
@@ -698,7 +598,7 @@ GMATH_INLINE Quat quat_from_axis_angle(Vec3 axis, float angle) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE void quat_to_axis_angle(Quat quat, Vec3 *axis, float *angle) {
+MT_MATH_INLINE void quat_to_axis_angle(Quat quat, Vec3 *axis, float *angle) {
     quat    = quat_normalize(quat);
     *angle  = 2.0f * acosf(quat.w);
     float s = sqrtf(1.0f - quat.w * quat.w);
@@ -714,7 +614,7 @@ GMATH_INLINE void quat_to_axis_angle(Quat quat, Vec3 *axis, float *angle) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Quat quat_conjugate(Quat q) {
+MT_MATH_INLINE Quat quat_conjugate(Quat q) {
     Quat result;
     result.w = q.w;
     result.x = -q.x;
@@ -724,7 +624,7 @@ GMATH_INLINE Quat quat_conjugate(Quat q) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Mat4 quat_to_mat4(Quat quat) {
+MT_MATH_INLINE Mat4 quat_to_mat4(Quat quat) {
     Mat4 result = mat4_identity();
 
     float xx = quat.x * quat.x;
@@ -753,7 +653,7 @@ GMATH_INLINE Mat4 quat_to_mat4(Quat quat) {
 }
 
 // TESTED: compatible with glm
-GMATH_INLINE Quat quat_look_at(Vec3 direction, Vec3 up) {
+MT_MATH_INLINE Quat quat_look_at(Vec3 direction, Vec3 up) {
     float m[3][3] = {
         {0, 0, 0},
         {0, 0, 0},
@@ -835,21 +735,19 @@ GMATH_INLINE Quat quat_look_at(Vec3 direction, Vec3 up) {
  * misc functions
  */
 
-GMATH_INLINE Vec3 v3_lerp(Vec3 v1, Vec3 Vec2, float t) {
+MT_MATH_INLINE Vec3 v3_lerp(Vec3 v1, Vec3 Vec2, float t) {
     return v3_add(v1, v3_muls(v3_sub(Vec2, v1), t));
 }
 
-GMATH_INLINE float lerp(float v1, float Vec2, float t) {
+MT_MATH_INLINE float lerp(float v1, float Vec2, float t) {
     return (1 - t) * v1 + t * Vec2;
 }
 
-GMATH_INLINE float
+MT_MATH_INLINE float
 remap(float n, float start1, float stop1, float start2, float stop2) {
     return ((n - start1) / (stop1 - start1)) * (stop2 - start2) + start2;
 }
 
-GMATH_INLINE float clamp(float value, float min_val, float max_val) {
+MT_MATH_INLINE float clamp(float value, float min_val, float max_val) {
     return fminf(fmaxf(value, min_val), max_val);
 }
-
-#endif
