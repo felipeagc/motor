@@ -751,6 +751,8 @@ static void window_destroy(MtWindow *window) {
 
     VK_CHECK(vkDeviceWaitIdle(dev->device));
 
+    free_cmd_buffers(window);
+
     destroy_resizables(window);
 
     for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {

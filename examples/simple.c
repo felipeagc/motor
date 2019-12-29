@@ -113,8 +113,6 @@ int main(int argc, char *argv[]) {
     uint16_t indices[6] = {2, 1, 0, 0, 3, 2};
 
     while (!window.vt->should_close(window.inst)) {
-        mt_render.device_begin_frame(dev);
-
         window_system.vt->poll_events();
 
         MtEvent event;
@@ -138,8 +136,7 @@ int main(int argc, char *argv[]) {
         mt_render.cmd_bind_index_data(
             cb, indices, sizeof(indices), MT_INDEX_TYPE_UINT16);
         mt_render.cmd_bind_image(cb, image, sampler, 0, 0);
-        mt_render.cmd_bind_uniform(
-            cb, &(Vec3){1.0f, 1.0f, 1.0f}, sizeof(Vec3), 0, 1);
+        mt_render.cmd_bind_uniform(cb, &V3(1, 1, 1), sizeof(Vec3), 0, 1);
         mt_render.cmd_draw_indexed(cb, MT_LENGTH(indices), 1);
 
         mt_render.cmd_end_render_pass(cb);

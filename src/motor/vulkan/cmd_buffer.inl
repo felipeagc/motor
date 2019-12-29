@@ -12,6 +12,10 @@ static void end_cmd_buffer(MtCmdBuffer *cb) {
         cb->bound_descriptor_set_hashes,
         0,
         sizeof(cb->bound_descriptor_set_hashes));
+
+    buffer_block_reset(&cb->ubo_block);
+    buffer_block_reset(&cb->vbo_block);
+    buffer_block_reset(&cb->ibo_block);
 }
 
 static void image_barrier(
@@ -426,18 +430,21 @@ static void cmd_bind_uniform(
     assert(MT_LENGTH(cb->bound_descriptors) > set);
     assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
 
-    MtBuffer *buffer;
-    size_t offset;
-    void *memory = buffer_allocator_allocate(
-        &cb->dev->ubo_allocator, size, &buffer, &offset);
-    assert(memory);
-    assert(buffer);
+    if (cb->ubo_block.mapping == NULL || cb->ubo_block.size < size) {
+        buffer_pool_recycle(&cb->dev->ubo_pool, &cb->ubo_block);
+        cb->ubo_block = buffer_pool_request_block(&cb->dev->ubo_pool, size);
+    }
 
-    memcpy(memory, data, size);
+    BufferBlockAllocation allocation =
+        buffer_block_allocate(&cb->ubo_block, size);
+    assert(allocation.mapping);
 
-    cb->bound_descriptors[set][binding].buffer.buffer = buffer->buffer;
-    cb->bound_descriptors[set][binding].buffer.offset = offset;
-    cb->bound_descriptors[set][binding].buffer.range  = size;
+    memcpy(allocation.mapping, data, size);
+
+    cb->bound_descriptors[set][binding].buffer.buffer =
+        cb->ubo_block.buffer->buffer;
+    cb->bound_descriptors[set][binding].buffer.offset = allocation.offset;
+    cb->bound_descriptors[set][binding].buffer.range  = allocation.padded_size;
 }
 
 static void cmd_bind_image(
@@ -469,28 +476,35 @@ static void cmd_bind_index_buffer(
 }
 
 static void cmd_bind_vertex_data(MtCmdBuffer *cb, void *data, size_t size) {
-    MtBuffer *buffer = NULL;
-    size_t offset    = 0;
-    void *memory     = buffer_allocator_allocate(
-        &cb->dev->vbo_allocator, size, &buffer, &offset);
-    assert(memory);
-    memcpy(memory, data, size);
+    if (cb->vbo_block.mapping == NULL || cb->vbo_block.size < size) {
+        buffer_pool_recycle(&cb->dev->vbo_pool, &cb->vbo_block);
+        cb->vbo_block = buffer_pool_request_block(&cb->dev->vbo_pool, size);
+    }
 
-    assert(buffer);
-    cmd_bind_vertex_buffer(cb, buffer, offset);
+    BufferBlockAllocation allocation =
+        buffer_block_allocate(&cb->vbo_block, size);
+    assert(allocation.mapping);
+
+    memcpy(allocation.mapping, data, size);
+
+    cmd_bind_vertex_buffer(cb, cb->vbo_block.buffer, allocation.offset);
 }
 
 static void cmd_bind_index_data(
     MtCmdBuffer *cb, void *data, size_t size, MtIndexType index_type) {
-    MtBuffer *buffer = NULL;
-    size_t offset    = 0;
-    void *memory     = buffer_allocator_allocate(
-        &cb->dev->ibo_allocator, size, &buffer, &offset);
-    assert(memory);
-    memcpy(memory, data, size);
+    if (cb->ibo_block.mapping == NULL || cb->ibo_block.size < size) {
+        buffer_pool_recycle(&cb->dev->ibo_pool, &cb->ibo_block);
+        cb->ibo_block = buffer_pool_request_block(&cb->dev->ibo_pool, size);
+    }
 
-    assert(buffer);
-    cmd_bind_index_buffer(cb, buffer, index_type, offset);
+    BufferBlockAllocation allocation =
+        buffer_block_allocate(&cb->ibo_block, size);
+    assert(allocation.mapping);
+
+    memcpy(allocation.mapping, data, size);
+
+    cmd_bind_index_buffer(
+        cb, cb->ibo_block.buffer, index_type, allocation.offset);
 }
 
 static void

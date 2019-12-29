@@ -191,7 +191,6 @@ typedef struct MtImageCopyView {
 } MtImageCopyView;
 
 typedef struct MtRenderer {
-    void (*device_begin_frame)(MtDevice *);
     void (*destroy_device)(MtDevice *);
 
     void (*allocate_cmd_buffers)(

@@ -33,22 +33,29 @@ typedef struct MtWindowSystem {
         VkInstance instance, VkPhysicalDevice device, uint32_t queuefamily);
 } MtWindowSystem;
 
-typedef struct BufferAllocatorPage {
-    MtBuffer *buffer;
-    MtDynamicBitset in_use;
-    size_t part_size;
-    struct BufferAllocatorPage *next;
-    void *mapping;
-    uint32_t last_index;
-} BufferAllocatorPage;
+typedef struct BufferBlockAllocation {
+    uint8_t *mapping;
+    size_t offset;
+    size_t padded_size;
+} BufferBlockAllocation;
 
-typedef struct BufferAllocator {
+typedef struct BufferBlock {
+    MtBuffer *buffer;
+    size_t offset;
+    size_t alignment;
+    size_t spill_size;
+    size_t size;
+    uint8_t *mapping;
+} BufferBlock;
+
+typedef struct BufferPool {
     MtDevice *dev;
-    uint32_t current_frame;
-    size_t page_size;
-    BufferAllocatorPage base_pages[FRAMES_IN_FLIGHT];
+    size_t block_size;
+    size_t alignment;
+    size_t spill_size;
     MtBufferUsage usage;
-} BufferAllocator;
+    /*array*/ BufferBlock *blocks;
+} BufferPool;
 
 typedef struct MtDevice {
     MtArena *arena;
@@ -83,9 +90,9 @@ typedef struct MtDevice {
     MtHashMap pipeline_layout_map;
     MtHashMap pipeline_map;
 
-    BufferAllocator ubo_allocator;
-    BufferAllocator vbo_allocator;
-    BufferAllocator ibo_allocator;
+    BufferPool ubo_pool;
+    BufferPool vbo_pool;
+    BufferPool ibo_pool;
 } MtDevice;
 
 typedef struct MtRenderPass {
@@ -164,6 +171,10 @@ typedef struct MtCmdBuffer {
     uint32_t queue_type;
     Descriptor bound_descriptors[MAX_DESCRIPTOR_BINDINGS][MAX_DESCRIPTOR_SETS];
     uint64_t bound_descriptor_set_hashes[MAX_DESCRIPTOR_SETS];
+
+    BufferBlock ubo_block;
+    BufferBlock vbo_block;
+    BufferBlock ibo_block;
 } MtCmdBuffer;
 
 typedef struct MtBuffer {

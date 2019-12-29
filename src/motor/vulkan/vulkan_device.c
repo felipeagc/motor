@@ -456,7 +456,6 @@ static void find_supported_depth_format(MtDevice *dev) {
 }
 
 static void create_command_pools(MtDevice *dev) {
-
     dev->graphics_cmd_pools =
         mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
 
@@ -502,12 +501,6 @@ static void create_command_pools(MtDevice *dev) {
 // }}}
 
 // Device functions {{{
-static void begin_frame(MtDevice *dev) {
-    buffer_allocator_begin_frame(&dev->ubo_allocator);
-    buffer_allocator_begin_frame(&dev->vbo_allocator);
-    buffer_allocator_begin_frame(&dev->ibo_allocator);
-}
-
 static void allocate_cmd_buffers(
     MtDevice *dev,
     MtQueueType queue_type,
@@ -584,6 +577,9 @@ static void free_cmd_buffers(
     vkFreeCommandBuffers(dev->device, pool, count, command_buffers);
 
     for (uint32_t i = 0; i < count; i++) {
+        buffer_pool_recycle(&dev->ubo_pool, &cmd_buffers[i]->ubo_block);
+        buffer_pool_recycle(&dev->vbo_pool, &cmd_buffers[i]->vbo_block);
+        buffer_pool_recycle(&dev->ibo_pool, &cmd_buffers[i]->ibo_block);
         mt_free(dev->arena, cmd_buffers[i]);
     }
 
@@ -644,41 +640,6 @@ static void submit(MtDevice *dev, MtCmdBuffer *cmd_buffer, MtFence *fence) {
         vk_fence = fence->fence;
     }
     VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, vk_fence));
-}
-
-static MtPipeline *create_graphics_pipeline(
-    MtDevice *dev,
-    uint8_t *vertex_code,
-    size_t vertex_code_size,
-    uint8_t *fragment_code,
-    size_t fragment_code_size,
-    MtGraphicsPipelineCreateInfo *create_info) {
-    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
-
-    pipeline_init_graphics(
-        dev,
-        pipeline,
-        vertex_code,
-        vertex_code_size,
-        fragment_code,
-        fragment_code_size,
-        create_info);
-
-    return pipeline;
-}
-
-static MtPipeline *
-create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
-    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
-
-    pipeline_init_compute(dev, pipeline, code, code_size);
-
-    return pipeline;
-}
-
-static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
-    pipeline_destroy(dev, pipeline);
-    mt_free(dev->arena, pipeline);
 }
 
 static void transfer_to_buffer(
@@ -772,9 +733,9 @@ static void destroy_device(MtDevice *dev) {
     MtArena *arena = dev->arena;
     vkDeviceWaitIdle(dev->device);
 
-    buffer_allocator_destroy(&dev->ubo_allocator);
-    buffer_allocator_destroy(&dev->vbo_allocator);
-    buffer_allocator_destroy(&dev->ibo_allocator);
+    buffer_pool_destroy(&dev->ubo_pool);
+    buffer_pool_destroy(&dev->vbo_pool);
+    buffer_pool_destroy(&dev->ibo_pool);
 
     for (uint32_t i = 0; i < dev->pipeline_map.size; i++) {
         if (dev->pipeline_map.keys[i] != MT_HASH_UNUSED) {
@@ -836,8 +797,7 @@ static void destroy_device(MtDevice *dev) {
 // }}}
 
 static MtRenderer g_vulkan_renderer = (MtRenderer){
-    .device_begin_frame = begin_frame,
-    .destroy_device     = destroy_device,
+    .destroy_device = destroy_device,
 
     .allocate_cmd_buffers = allocate_cmd_buffers,
     .free_cmd_buffers     = free_cmd_buffers,
@@ -929,12 +889,32 @@ mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtArena *arena) {
     mt_hash_init(&dev->pipeline_layout_map, 51, dev->arena);
     mt_hash_init(&dev->pipeline_map, 51, dev->arena);
 
-    buffer_allocator_init(
-        &dev->ubo_allocator, dev, 1 << 15, MT_BUFFER_USAGE_UNIFORM);
-    buffer_allocator_init(
-        &dev->vbo_allocator, dev, 1 << 15, MT_BUFFER_USAGE_VERTEX);
-    buffer_allocator_init(
-        &dev->ibo_allocator, dev, 1 << 15, MT_BUFFER_USAGE_INDEX);
+    buffer_pool_init(
+        dev,
+        &dev->ubo_pool,
+        256 * 1024, /*block size*/
+        MT_MAX(
+            16u,
+            dev->physical_device_properties.limits
+                .minUniformBufferOffsetAlignment), /*alignment*/
+        16 * 1024,                                 /* max UBO size */
+        MT_BUFFER_USAGE_UNIFORM);
+
+    buffer_pool_init(
+        dev,
+        &dev->vbo_pool,
+        4 * 1024, /*block size*/
+        16,       /*alignment*/
+        0,        /* max UBO size */
+        MT_BUFFER_USAGE_VERTEX);
+
+    buffer_pool_init(
+        dev,
+        &dev->ibo_pool,
+        4 * 1024, /*block size*/
+        16,       /*alignment*/
+        0,        /* max UBO size */
+        MT_BUFFER_USAGE_INDEX);
 
     return dev;
 }

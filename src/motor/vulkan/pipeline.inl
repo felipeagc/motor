@@ -254,14 +254,14 @@ static void pipeline_layout_destroy(MtDevice *dev, PipelineLayout *l) {
     mt_array_free(dev->arena, l->sets);
 }
 
-static void pipeline_init_graphics(
+static MtPipeline *create_graphics_pipeline(
     MtDevice *dev,
-    MtPipeline *pipeline,
     uint8_t *vertex_code,
     size_t vertex_code_size,
     uint8_t *fragment_code,
     size_t fragment_code_size,
     MtGraphicsPipelineCreateInfo *ci) {
+    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
     memset(pipeline, 0, sizeof(*pipeline));
 
     if (ci->line_width == 0.0f ||
@@ -297,10 +297,13 @@ static void pipeline_init_graphics(
     }
 
     pipeline->hash = (uint64_t)XXH64_digest(&state);
+
+    return pipeline;
 }
 
-static void pipeline_init_compute(
-    MtDevice *dev, MtPipeline *pipeline, uint8_t *code, size_t code_size) {
+static MtPipeline *
+create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
+    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
     memset(pipeline, 0, sizeof(*pipeline));
 
     mt_array_pushn(dev->arena, pipeline->shaders, 1);
@@ -310,15 +313,19 @@ static void pipeline_init_compute(
     XXH64_state_t state = {0};
     XXH64_update(&state, code, code_size);
     pipeline->hash = (uint64_t)XXH64_digest(&state);
+
+    return pipeline;
 }
 
-static void pipeline_destroy(MtDevice *dev, MtPipeline *pipeline) {
+static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
     // TODO: destroy instances of this pipeline
     // TODO: deallocate descriptor sets related to this pipeline
 
-    shader_destroy(dev, &pipeline->shaders[0]);
-    shader_destroy(dev, &pipeline->shaders[1]);
+    for (uint32_t i = 0; i < mt_array_size(pipeline->shaders); i++) {
+        shader_destroy(dev, &pipeline->shaders[i]);
+    }
     mt_array_free(dev->arena, pipeline->shaders);
+    mt_free(dev->arena, pipeline);
 }
 
 static PipelineLayout *
