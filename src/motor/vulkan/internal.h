@@ -88,7 +88,6 @@ typedef struct MtDevice {
     VkCommandPool *transfer_cmd_pools;
 
     MtHashMap pipeline_layout_map;
-    MtHashMap pipeline_map;
 
     BufferPool ubo_pool;
     BufferPool vbo_pool;
@@ -141,12 +140,16 @@ typedef struct PipelineLayout {
 
     /*array*/ SetInfo *sets;
     /*array*/ VkPushConstantRange *push_constants;
+
+    uint64_t hash;
+    uint32_t ref_count;
 } PipelineLayout;
 
 typedef struct PipelineInstance {
-    VkPipeline pipeline;
-    PipelineLayout *layout;
+    VkPipeline vk_pipeline;
+    MtPipeline *pipeline;
     VkPipelineBindPoint bind_point;
+    uint64_t hash;
 } PipelineInstance;
 
 typedef struct MtPipeline {
@@ -154,6 +157,8 @@ typedef struct MtPipeline {
     MtGraphicsPipelineCreateInfo create_info;
     /*array*/ Shader *shaders;
     uint64_t hash;
+    PipelineLayout *layout;
+    MtHashMap instances;
 } MtPipeline;
 
 typedef struct MtFence {

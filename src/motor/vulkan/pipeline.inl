@@ -188,12 +188,11 @@ static void shader_destroy(MtDevice *dev, Shader *shader) {
     mt_array_free(dev->arena, shader->push_constants);
 }
 
-static void pipeline_layout_init(
+static PipelineLayout *create_pipeline_layout(
     MtDevice *dev,
-    PipelineLayout *l,
     CombinedSetLayouts *combined,
     VkPipelineBindPoint bind_point) {
-    memset(l, 0, sizeof(*l));
+    PipelineLayout *l = mt_calloc(dev->arena, sizeof(PipelineLayout));
 
     l->bind_point = bind_point;
 
@@ -237,9 +236,11 @@ static void pipeline_layout_init(
         dev->device, &pipeline_layout_info, NULL, &l->layout));
 
     mt_array_free(dev->arena, set_layouts);
+
+    return l;
 }
 
-static void pipeline_layout_destroy(MtDevice *dev, PipelineLayout *l) {
+static void destroy_pipeline_layout(MtDevice *dev, PipelineLayout *l) {
     VK_CHECK(vkDeviceWaitIdle(dev->device));
 
     for (uint32_t i = 0; i < mt_array_size(l->pools); i++) {
@@ -252,80 +253,8 @@ static void pipeline_layout_destroy(MtDevice *dev, PipelineLayout *l) {
     SetInfo *set;
     mt_array_foreach(set, l->sets) { mt_array_free(dev->arena, set->bindings); }
     mt_array_free(dev->arena, l->sets);
-}
 
-static MtPipeline *create_graphics_pipeline(
-    MtDevice *dev,
-    uint8_t *vertex_code,
-    size_t vertex_code_size,
-    uint8_t *fragment_code,
-    size_t fragment_code_size,
-    MtGraphicsPipelineCreateInfo *ci) {
-    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
-    memset(pipeline, 0, sizeof(*pipeline));
-
-    if (ci->line_width == 0.0f ||
-        memcmp(&(uint32_t){0}, &ci->line_width, sizeof(uint32_t)) == 0) {
-        ci->line_width = 1.0f;
-    }
-
-    pipeline->create_info = *ci;
-    mt_array_pushn(dev->arena, pipeline->shaders, 2);
-
-    shader_init(dev, &pipeline->shaders[0], vertex_code, vertex_code_size);
-    shader_init(dev, &pipeline->shaders[1], fragment_code, fragment_code_size);
-
-    XXH64_state_t state = {0};
-
-    XXH64_update(&state, vertex_code, vertex_code_size);
-    XXH64_update(&state, fragment_code, fragment_code_size);
-
-    XXH64_update(&state, &ci->blending, sizeof(ci->blending));
-    XXH64_update(&state, &ci->depth_test, sizeof(ci->depth_test));
-    XXH64_update(&state, &ci->depth_write, sizeof(ci->depth_write));
-    XXH64_update(&state, &ci->depth_bias, sizeof(ci->depth_bias));
-    XXH64_update(&state, &ci->cull_mode, sizeof(ci->cull_mode));
-    XXH64_update(&state, &ci->front_face, sizeof(ci->front_face));
-    XXH64_update(&state, &ci->line_width, sizeof(ci->line_width));
-
-    XXH64_update(&state, &ci->vertex_stride, sizeof(ci->vertex_stride));
-    for (uint32_t i = 0; i < ci->vertex_attribute_count; i++) {
-        XXH64_update(
-            &state,
-            &ci->vertex_attributes[i],
-            sizeof(ci->vertex_attributes[i]));
-    }
-
-    pipeline->hash = (uint64_t)XXH64_digest(&state);
-
-    return pipeline;
-}
-
-static MtPipeline *
-create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
-    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
-    memset(pipeline, 0, sizeof(*pipeline));
-
-    mt_array_pushn(dev->arena, pipeline->shaders, 1);
-
-    shader_init(dev, &pipeline->shaders[0], code, code_size);
-
-    XXH64_state_t state = {0};
-    XXH64_update(&state, code, code_size);
-    pipeline->hash = (uint64_t)XXH64_digest(&state);
-
-    return pipeline;
-}
-
-static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
-    // TODO: destroy instances of this pipeline
-    // TODO: deallocate descriptor sets related to this pipeline
-
-    for (uint32_t i = 0; i < mt_array_size(pipeline->shaders); i++) {
-        shader_destroy(dev, &pipeline->shaders[i]);
-    }
-    mt_array_free(dev->arena, pipeline->shaders);
-    mt_free(dev->arena, pipeline);
+    mt_free(dev->arena, l);
 }
 
 static PipelineLayout *
@@ -340,8 +269,8 @@ request_pipeline_layout(MtDevice *dev, MtPipeline *pipeline) {
         return layout;
     }
 
-    layout = mt_alloc(dev->arena, sizeof(PipelineLayout));
-    pipeline_layout_init(dev, layout, &combined, pipeline->bind_point);
+    layout       = create_pipeline_layout(dev, &combined, pipeline->bind_point);
+    layout->hash = hash;
 
     combined_set_layouts_destroy(&combined, dev->arena);
 
@@ -354,7 +283,7 @@ static void create_graphics_pipeline_instance(
     MtRenderPass *render_pass,
     MtPipeline *pipeline) {
     instance->bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    instance->layout     = request_pipeline_layout(dev, pipeline);
+    instance->pipeline   = pipeline;
 
     MtGraphicsPipelineCreateInfo *options = &pipeline->create_info;
 
@@ -523,7 +452,7 @@ static void create_graphics_pipeline_instance(
         .pDepthStencilState  = &depth_stencil,
         .pColorBlendState    = &color_blending,
         .pDynamicState       = &dynamic_state,
-        .layout              = instance->layout->layout,
+        .layout              = instance->pipeline->layout->layout,
         .renderPass          = render_pass->renderpass,
         .subpass             = 0,
         .basePipelineHandle  = VK_NULL_HANDLE,
@@ -536,7 +465,7 @@ static void create_graphics_pipeline_instance(
         1,
         &pipeline_info,
         NULL,
-        &instance->pipeline));
+        &instance->vk_pipeline));
 
     mt_array_free(dev->arena, attributes);
     mt_array_free(dev->arena, stages);
@@ -545,7 +474,7 @@ static void create_graphics_pipeline_instance(
 static void create_compute_pipeline_instance(
     MtDevice *dev, PipelineInstance *instance, MtPipeline *pipeline) {
     instance->bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
-    instance->layout     = request_pipeline_layout(dev, pipeline);
+    instance->pipeline   = pipeline;
 
     VkPipelineShaderStageCreateInfo shader_stage = {
         .stage               = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -557,7 +486,7 @@ static void create_compute_pipeline_instance(
     VkComputePipelineCreateInfo create_info = {
         .sType              = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .stage              = shader_stage,
-        .layout             = instance->layout->layout,
+        .layout             = instance->pipeline->layout->layout,
         .basePipelineHandle = VK_NULL_HANDLE,
         .basePipelineIndex  = 0,
     };
@@ -568,7 +497,7 @@ static void create_compute_pipeline_instance(
         1,
         &create_info,
         NULL,
-        &instance->pipeline));
+        &instance->vk_pipeline));
 }
 
 static PipelineInstance *request_graphics_pipeline_instance(
@@ -578,25 +507,130 @@ static PipelineInstance *request_graphics_pipeline_instance(
     XXH64_update(&state, &render_pass->hash, sizeof(render_pass->hash));
     uint64_t hash = (uint64_t)XXH64_digest(&state);
 
-    PipelineInstance *instance = mt_hash_get_ptr(&dev->pipeline_map, hash);
+    PipelineInstance *instance = mt_hash_get_ptr(&pipeline->instances, hash);
     if (instance) return instance;
 
-    instance = mt_alloc(dev->arena, sizeof(PipelineInstance));
-
+    instance       = mt_alloc(dev->arena, sizeof(PipelineInstance));
+    instance->hash = hash;
     create_graphics_pipeline_instance(dev, instance, render_pass, pipeline);
-
-    return mt_hash_set_ptr(&dev->pipeline_map, hash, instance);
+    return mt_hash_set_ptr(&pipeline->instances, instance->hash, instance);
 }
 
 static PipelineInstance *
 request_compute_pipeline_instance(MtDevice *dev, MtPipeline *pipeline) {
     PipelineInstance *instance =
-        mt_hash_get_ptr(&dev->pipeline_map, pipeline->hash);
+        mt_hash_get_ptr(&pipeline->instances, pipeline->hash);
     if (instance) return instance;
 
-    instance = mt_alloc(dev->arena, sizeof(PipelineInstance));
+    instance       = mt_alloc(dev->arena, sizeof(PipelineInstance));
+    instance->hash = pipeline->hash;
 
     create_compute_pipeline_instance(dev, instance, pipeline);
+    return mt_hash_set_ptr(&pipeline->instances, instance->hash, instance);
+}
 
-    return mt_hash_set_ptr(&dev->pipeline_map, pipeline->hash, instance);
+static void
+destroy_pipeline_instance(MtDevice *dev, PipelineInstance *instance) {
+    vkDestroyPipeline(dev->device, instance->vk_pipeline, NULL);
+    mt_free(dev->arena, instance);
+}
+
+static MtPipeline *create_graphics_pipeline(
+    MtDevice *dev,
+    uint8_t *vertex_code,
+    size_t vertex_code_size,
+    uint8_t *fragment_code,
+    size_t fragment_code_size,
+    MtGraphicsPipelineCreateInfo *ci) {
+    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
+    memset(pipeline, 0, sizeof(*pipeline));
+
+    if (ci->line_width == 0.0f ||
+        memcmp(&(uint32_t){0}, &ci->line_width, sizeof(uint32_t)) == 0) {
+        ci->line_width = 1.0f;
+    }
+
+    pipeline->create_info = *ci;
+    mt_array_pushn(dev->arena, pipeline->shaders, 2);
+
+    shader_init(dev, &pipeline->shaders[0], vertex_code, vertex_code_size);
+    shader_init(dev, &pipeline->shaders[1], fragment_code, fragment_code_size);
+
+    XXH64_state_t state = {0};
+
+    XXH64_update(&state, vertex_code, vertex_code_size);
+    XXH64_update(&state, fragment_code, fragment_code_size);
+
+    XXH64_update(&state, &ci->blending, sizeof(ci->blending));
+    XXH64_update(&state, &ci->depth_test, sizeof(ci->depth_test));
+    XXH64_update(&state, &ci->depth_write, sizeof(ci->depth_write));
+    XXH64_update(&state, &ci->depth_bias, sizeof(ci->depth_bias));
+    XXH64_update(&state, &ci->cull_mode, sizeof(ci->cull_mode));
+    XXH64_update(&state, &ci->front_face, sizeof(ci->front_face));
+    XXH64_update(&state, &ci->line_width, sizeof(ci->line_width));
+
+    XXH64_update(&state, &ci->vertex_stride, sizeof(ci->vertex_stride));
+    for (uint32_t i = 0; i < ci->vertex_attribute_count; i++) {
+        XXH64_update(
+            &state,
+            &ci->vertex_attributes[i],
+            sizeof(ci->vertex_attributes[i]));
+    }
+
+    pipeline->hash = (uint64_t)XXH64_digest(&state);
+
+    pipeline->layout = request_pipeline_layout(dev, pipeline);
+    pipeline->layout->ref_count++;
+
+    mt_hash_init(&pipeline->instances, 5, dev->arena);
+
+    return pipeline;
+}
+
+static MtPipeline *
+create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
+    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
+    memset(pipeline, 0, sizeof(*pipeline));
+
+    mt_array_pushn(dev->arena, pipeline->shaders, 1);
+
+    shader_init(dev, &pipeline->shaders[0], code, code_size);
+
+    XXH64_state_t state = {0};
+    XXH64_update(&state, code, code_size);
+    pipeline->hash = (uint64_t)XXH64_digest(&state);
+
+    pipeline->layout = request_pipeline_layout(dev, pipeline);
+    pipeline->layout->ref_count++;
+
+    mt_hash_init(&pipeline->instances, 5, dev->arena);
+
+    return pipeline;
+}
+
+static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
+    for (uint32_t i = 0; i < pipeline->instances.size; i++) {
+        if (pipeline->instances.keys[i] != MT_HASH_UNUSED) {
+            destroy_pipeline_instance(
+                dev, (PipelineInstance *)pipeline->instances.values[i]);
+        }
+    }
+    mt_hash_destroy(&pipeline->instances);
+
+    for (uint32_t i = 0; i < mt_array_size(pipeline->shaders); i++) {
+        shader_destroy(dev, &pipeline->shaders[i]);
+    }
+    mt_array_free(dev->arena, pipeline->shaders);
+
+    for (uint32_t i = 0; i < mt_array_size(pipeline->layout->pools); i++) {
+        descriptor_pool_reset(dev, &pipeline->layout->pools[i]);
+    }
+
+    pipeline->layout->ref_count--;
+    if (pipeline->layout->ref_count == 0) {
+        mt_hash_remove(&dev->pipeline_layout_map, pipeline->layout->hash);
+        destroy_pipeline_layout(dev, pipeline->layout);
+    }
+
+    mt_free(dev->arena, pipeline);
 }

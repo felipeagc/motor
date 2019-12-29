@@ -168,10 +168,10 @@ static void bind_descriptor_sets(MtCmdBuffer *cb) {
     assert(cb->bound_pipeline_instance);
 
     for (uint32_t i = 0;
-         i < mt_array_size(cb->bound_pipeline_instance->layout->sets);
+         i < mt_array_size(cb->bound_pipeline_instance->pipeline->layout->sets);
          i++) {
         uint32_t binding_count = mt_array_size(
-            cb->bound_pipeline_instance->layout->sets[i].bindings);
+            cb->bound_pipeline_instance->pipeline->layout->sets[i].bindings);
 
         XXH64_state_t state = {0};
         XXH64_update(
@@ -184,7 +184,7 @@ static void bind_descriptor_sets(MtCmdBuffer *cb) {
             cb->bound_descriptor_set_hashes[i] = descriptors_hash;
 
             DescriptorPool *pool =
-                &cb->bound_pipeline_instance->layout->pools[i];
+                &cb->bound_pipeline_instance->pipeline->layout->pools[i];
 
             VkDescriptorSet descriptor_set = descriptor_pool_alloc(
                 cb->dev, pool, cb->bound_descriptors[i], descriptors_hash);
@@ -193,7 +193,7 @@ static void bind_descriptor_sets(MtCmdBuffer *cb) {
             vkCmdBindDescriptorSets(
                 cb->cmd_buffer,
                 cb->bound_pipeline_instance->bind_point,
-                cb->bound_pipeline_instance->layout->layout,
+                cb->bound_pipeline_instance->pipeline->layout->layout,
                 i,
                 1,
                 &descriptor_set,
@@ -366,7 +366,7 @@ static void cmd_bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline) {
         vkCmdBindPipeline(
             cb->cmd_buffer,
             cb->bound_pipeline_instance->bind_point,
-            cb->bound_pipeline_instance->pipeline);
+            cb->bound_pipeline_instance->vk_pipeline);
     } break;
 
     case VK_PIPELINE_BIND_POINT_COMPUTE: {
@@ -376,7 +376,7 @@ static void cmd_bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline) {
         vkCmdBindPipeline(
             cb->cmd_buffer,
             cb->bound_pipeline_instance->bind_point,
-            cb->bound_pipeline_instance->pipeline);
+            cb->bound_pipeline_instance->vk_pipeline);
     } break;
     }
 }

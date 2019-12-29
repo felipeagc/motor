@@ -170,6 +170,12 @@ static VkDescriptorSet descriptor_pool_alloc(
     assert(0);
 }
 
+static void descriptor_pool_reset(MtDevice *dev, DescriptorPool *p) {
+    for (uint32_t i = 0; i < mt_array_size(p->allocated_set_counts); i++) {
+        p->allocated_set_counts[i] = 0;
+    }
+}
+
 static void descriptor_pool_destroy(MtDevice *dev, DescriptorPool *p) {
     for (uint32_t i = 0; i < mt_array_size(p->pools); i++) {
         vkDestroyDescriptorPool(dev->device, p->pools[i], NULL);

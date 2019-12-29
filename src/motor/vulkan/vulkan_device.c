@@ -737,25 +737,6 @@ static void destroy_device(MtDevice *dev) {
     buffer_pool_destroy(&dev->vbo_pool);
     buffer_pool_destroy(&dev->ibo_pool);
 
-    for (uint32_t i = 0; i < dev->pipeline_map.size; i++) {
-        if (dev->pipeline_map.keys[i] != MT_HASH_UNUSED) {
-            PipelineInstance *instance =
-                (PipelineInstance *)dev->pipeline_map.values[i];
-            vkDestroyPipeline(dev->device, instance->pipeline, NULL);
-            mt_free(dev->arena, instance);
-        }
-    }
-
-    for (uint32_t i = 0; i < dev->pipeline_layout_map.size; i++) {
-        if (dev->pipeline_layout_map.keys[i] != MT_HASH_UNUSED) {
-            PipelineLayout *layout =
-                (PipelineLayout *)dev->pipeline_layout_map.values[i];
-            pipeline_layout_destroy(dev, layout);
-            mt_free(dev->arena, layout);
-        }
-    }
-
-    mt_hash_destroy(&dev->pipeline_map);
     mt_hash_destroy(&dev->pipeline_layout_map);
 
     // Destroy transfer command pools
@@ -887,7 +868,6 @@ mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtArena *arena) {
     create_command_pools(dev);
 
     mt_hash_init(&dev->pipeline_layout_map, 51, dev->arena);
-    mt_hash_init(&dev->pipeline_map, 51, dev->arena);
 
     buffer_pool_init(
         dev,
@@ -905,7 +885,7 @@ mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtArena *arena) {
         &dev->vbo_pool,
         4 * 1024, /*block size*/
         16,       /*alignment*/
-        0,        /* max UBO size */
+        0,
         MT_BUFFER_USAGE_VERTEX);
 
     buffer_pool_init(
@@ -913,7 +893,7 @@ mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtArena *arena) {
         &dev->ibo_pool,
         4 * 1024, /*block size*/
         16,       /*alignment*/
-        0,        /* max UBO size */
+        0,
         MT_BUFFER_USAGE_INDEX);
 
     return dev;
