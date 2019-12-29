@@ -10,4 +10,7 @@
 
 #define MT_LENGTH(array) (sizeof(array) / sizeof((array)[0]))
 
+#define MT_MAX(a, b) (a > b) ? a : b
+#define MT_MIN(a, b) (a > b) ? b : a
+
 #define MT_INLINE static inline

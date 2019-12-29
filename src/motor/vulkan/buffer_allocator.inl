@@ -1,144 +1,92 @@
-static void buffer_page_init(
-    BufferAllocatorPage *page,
-    BufferAllocator *allocator,
-    size_t page_size,
+static void buffer_pool_init(
+    MtDevice *dev,
+    BufferPool *pool,
+    size_t block_size,
+    size_t alignment,
+    size_t spill_size,
     MtBufferUsage usage) {
-    memset(page, 0, sizeof(*page));
+    memset(pool, 0, sizeof(*pool));
+    pool->dev        = dev;
+    pool->block_size = block_size;
+    pool->alignment  = alignment;
+    pool->spill_size = spill_size;
+    pool->usage      = usage;
+}
 
-    VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(allocator->dev->physical_device, &properties);
+static void buffer_block_destroy(BufferPool *pool, BufferBlock *block) {
+    unmap_buffer(pool->dev, block->buffer);
+    destroy_buffer(pool->dev, block->buffer);
+}
 
-    page->part_size = properties.limits.minUniformBufferOffsetAlignment;
+static void buffer_pool_destroy(BufferPool *pool) {
+    for (uint32_t i = 0; i < mt_array_size(pool->blocks); i++) {
+        buffer_block_destroy(pool, &pool->blocks[i]);
+    }
+}
 
-    size_t part_count = page_size / page->part_size;
+static void buffer_pool_recycle(BufferPool *pool, BufferBlock *block) {
+    if (block->mapping != NULL) {
+        mt_array_push(pool->dev->arena, pool->blocks, *block);
+    }
+    memset(block, 0, sizeof(*block));
+}
 
-    mt_dynamic_bitset_init(&page->in_use, part_count, allocator->dev->arena);
+static BufferBlock buffer_pool_allocate_block(BufferPool *pool, size_t size) {
+    BufferBlock block = {0};
+    block.size        = size;
+    block.offset      = 0;
+    block.alignment   = pool->alignment;
+    block.spill_size  = pool->spill_size;
 
-    page->buffer = create_buffer(
-        allocator->dev,
+    block.buffer = create_buffer(
+        pool->dev,
         &(MtBufferCreateInfo){
-            .size   = page_size,
-            .usage  = usage,
+            .size   = size,
+            .usage  = pool->usage,
             .memory = MT_BUFFER_MEMORY_HOST,
         });
-    assert(page->buffer);
 
-    page->mapping = map_buffer(allocator->dev, page->buffer);
+    block.mapping = map_buffer(pool->dev, block.buffer);
+
+    return block;
 }
 
-static void
-buffer_page_destroy(BufferAllocatorPage *page, BufferAllocator *allocator) {
-    if (page->next) {
-        buffer_page_destroy(page->next, allocator);
-        mt_free(allocator->dev->arena, page->next);
-    }
+static BufferBlock
+buffer_pool_request_block(BufferPool *pool, size_t minimum_size) {
+    if (minimum_size > pool->block_size || mt_array_size(pool->blocks) == 0) {
+        // Allocate new block
+        return buffer_pool_allocate_block(
+            pool, MT_MAX(minimum_size, pool->block_size));
+    } else {
+        // Use existing block
 
-    unmap_buffer(allocator->dev, page->buffer);
+        // Pop last block from blocks
+        BufferBlock block = *mt_array_pop(pool->blocks);
+        block.offset      = 0;
 
-    destroy_buffer(allocator->dev, page->buffer);
-    mt_dynamic_bitset_destroy(&page->in_use, allocator->dev->arena);
-}
-
-static void buffer_page_begin_frame(BufferAllocatorPage *page) {
-    mt_dynamic_bitset_clear(&page->in_use);
-    page->last_index = 0;
-}
-
-static void *buffer_page_allocate(
-    BufferAllocatorPage *page,
-    size_t size,
-    MtBuffer **out_buffer,
-    size_t *out_offset) {
-    if (size <= page->buffer->size) {
-        size_t required_parts = (size + page->part_size - 1) / page->part_size;
-        for (uint32_t i = page->last_index;
-             i <= page->in_use.nbits - required_parts;
-             i++) {
-            if (page->in_use.nbits <= i + required_parts) {
-                break;
-            }
-
-            bool good = true;
-            for (uint32_t j = i; j < i + required_parts; j++) {
-                if (mt_bitset_get(&page->in_use, j)) {
-                    good = false;
-                    break;
-                }
-            }
-
-            if (good) {
-                *out_buffer = page->buffer;
-                *out_offset = i * page->part_size;
-
-                for (uint32_t j = i; j < i + required_parts; j++) {
-                    mt_bitset_enable(&page->in_use, j);
-                }
-
-                page->last_index = i + (uint32_t)required_parts;
-
-                return page->mapping + (i * page->part_size);
-            }
-        }
-    }
-
-    return NULL;
-}
-
-static void buffer_allocator_init(
-    BufferAllocator *allocator,
-    MtDevice *dev,
-    size_t page_size,
-    MtBufferUsage usage) {
-    allocator->usage     = usage;
-    allocator->dev       = dev;
-    allocator->page_size = page_size;
-
-    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
-        buffer_page_init(
-            &allocator->base_pages[i], allocator, page_size, usage);
+        return block;
     }
 }
 
-static void buffer_allocator_destroy(BufferAllocator *allocator) {
-    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
-        buffer_page_destroy(&allocator->base_pages[i], allocator);
-    }
-}
+static BufferBlockAllocation
+buffer_block_allocate(BufferBlock *block, size_t allocate_size) {
+    BufferBlockAllocation allocation = {0};
 
-static void buffer_allocator_begin_frame(BufferAllocator *allocator) {
-    allocator->current_frame =
-        (allocator->current_frame + 1) % FRAMES_IN_FLIGHT;
+    size_t aligned_offset =
+        (block->offset + block->alignment - 1) & ~(block->alignment - 1);
+    if (aligned_offset + allocate_size <= block->size) {
+        uint8_t *ret  = block->mapping + aligned_offset;
+        block->offset = aligned_offset + allocate_size;
 
-    BufferAllocatorPage *page =
-        &allocator->base_pages[allocator->current_frame];
-    while (page) {
-        buffer_page_begin_frame(page);
-        page = page->next;
-    }
-}
+        size_t padded_size = MT_MAX(allocate_size, block->spill_size);
+        padded_size        = MT_MIN(padded_size, block->size - aligned_offset);
 
-static void *buffer_allocator_allocate(
-    BufferAllocator *allocator,
-    size_t size,
-    MtBuffer **buffer,
-    size_t *offset) {
-    BufferAllocatorPage *page =
-        &allocator->base_pages[allocator->current_frame];
-    while (page) {
-        void *memory = buffer_page_allocate(page, size, buffer, offset);
-        if (memory) return memory;
-        if (!page->next) break;
-        page = page->next;
+        allocation.mapping     = ret;
+        allocation.offset      = aligned_offset;
+        allocation.padded_size = padded_size;
     }
 
-    assert(!page->next);
-
-    size_t new_page_size = allocator->page_size;
-    if (size > new_page_size) new_page_size = size * 2;
-
-    page->next = mt_alloc(allocator->dev->arena, sizeof(BufferAllocatorPage));
-    buffer_page_init(page->next, allocator, new_page_size, allocator->usage);
-    page = page->next;
-
-    return buffer_page_allocate(page, size, buffer, offset);
+    return allocation;
 }
+
+static void buffer_block_reset(BufferBlock *block) { block->offset = 0; }
