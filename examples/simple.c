@@ -65,11 +65,11 @@ int main(int argc, char *argv[]) {
     uint8_t *vertex_code = NULL, *fragment_code = NULL;
     size_t vertex_code_size = 0, fragment_code_size = 0;
 
-    vertex_code =
-        load_shader(&arena, "../shaders/test.vert.spv", &vertex_code_size);
+    vertex_code = load_shader(
+        &arena, "../shaders/build/test.vert.spv", &vertex_code_size);
     assert(vertex_code);
-    fragment_code =
-        load_shader(&arena, "../shaders/test.frag.spv", &fragment_code_size);
+    fragment_code = load_shader(
+        &arena, "../shaders/build/test.frag.spv", &fragment_code_size);
     assert(fragment_code);
 
     MtPipeline *pipeline = mt_render.create_graphics_pipeline(
