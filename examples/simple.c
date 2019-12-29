@@ -2,6 +2,7 @@
 #include <motor/renderer.h>
 #include <motor/threads.h>
 #include <motor/window.h>
+#include <motor/util.h>
 #include <motor/vulkan/vulkan_device.h>
 #include <motor/vulkan/glfw_window.h>
 #include <stdio.h>
@@ -9,6 +10,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "gmath.h"
 
 static uint8_t *load_shader(MtArena *arena, const char *path, size_t *size) {
     FILE *f = fopen(path, "rb");
@@ -26,6 +28,12 @@ static uint8_t *load_shader(MtArena *arena, const char *path, size_t *size) {
     return code;
 }
 
+typedef struct Vertex {
+    Vec3 pos;
+    Vec3 normal;
+    Vec2 tex_coords;
+} Vertex;
+
 int main(int argc, char *argv[]) {
     MtArena arena;
     mt_arena_init(&arena, 1 << 14);
@@ -39,6 +47,7 @@ int main(int argc, char *argv[]) {
     MtIWindow window;
     mt_glfw_vulkan_window_init(&window, dev, 800, 600, "Hello", &arena);
 
+    stbi_set_flip_vertically_on_load(true);
     int32_t w, h, num_channels;
     uint8_t *image_data =
         stbi_load("../assets/test.png", &w, &h, &num_channels, 4);
@@ -51,16 +60,18 @@ int main(int argc, char *argv[]) {
             .format = MT_FORMAT_RGBA8_UNORM,
         });
 
-    free(image_data);
-
     mt_render.transfer_to_image(
         dev,
         &(MtImageCopyView){.image = image},
         (uint32_t)(num_channels * w * h),
         image_data);
 
-    MtSampler *sampler =
-        mt_render.create_sampler(dev, &(MtSamplerCreateInfo){});
+    free(image_data);
+
+    MtSampler *sampler = mt_render.create_sampler(
+        dev,
+        &(MtSamplerCreateInfo){.min_filter = MT_FILTER_NEAREST,
+                               .mag_filter = MT_FILTER_NEAREST});
 
     uint8_t *vertex_code = NULL, *fragment_code = NULL;
     size_t vertex_code_size = 0, fragment_code_size = 0;
@@ -81,7 +92,25 @@ int main(int argc, char *argv[]) {
         &(MtGraphicsPipelineCreateInfo){
             .cull_mode  = MT_CULL_MODE_NONE,
             .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
+            .vertex_attributes =
+                (const MtVertexAttribute[]){
+                    {.format = MT_FORMAT_RGB32_SFLOAT, .offset = 0},
+                    {.format = MT_FORMAT_RGB32_SFLOAT,
+                     .offset = sizeof(float) * 3},
+                    {.format = MT_FORMAT_RG32_SFLOAT,
+                     .offset = sizeof(float) * 6}},
+            .vertex_attribute_count = 3,
+            .vertex_stride          = sizeof(Vertex),
         });
+
+    Vertex vertices[4] = {
+        {{0.5f, -0.5f, 0.0f}, {}, {1.0f, 1.0f}},  // Top right
+        {{0.5f, 0.5f, 0.0f}, {}, {1.0f, 0.0f}},   // Bottom right
+        {{-0.5f, 0.5f, 0.0f}, {}, {0.0f, 0.0f}},  // Bottom left
+        {{-0.5f, -0.5f, 0.0f}, {}, {0.0f, 1.0f}}, // Top left
+    };
+
+    uint16_t indices[6] = {2, 1, 0, 0, 3, 2};
 
     while (!window.vt->should_close(window.inst)) {
         mt_render.device_begin_frame(dev);
@@ -105,8 +134,13 @@ int main(int argc, char *argv[]) {
             cb, window.vt->get_render_pass(window.inst));
 
         mt_render.cmd_bind_pipeline(cb, pipeline);
-        mt_render.cmd_bind_uniform(cb, &(float){0.5f}, sizeof(float), 0, 0);
-        mt_render.cmd_draw(cb, 3, 1);
+        mt_render.cmd_bind_vertex_data(cb, vertices, sizeof(vertices));
+        mt_render.cmd_bind_index_data(
+            cb, indices, sizeof(indices), MT_INDEX_TYPE_UINT16);
+        mt_render.cmd_bind_image(cb, image, sampler, 0, 0);
+        mt_render.cmd_bind_uniform(
+            cb, &(Vec3){1.0f, 1.0f, 1.0f}, sizeof(Vec3), 0, 1);
+        mt_render.cmd_draw_indexed(cb, MT_LENGTH(indices), 1);
 
         mt_render.cmd_end_render_pass(cb);
 

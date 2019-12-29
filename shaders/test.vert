@@ -1,11 +1,15 @@
 #version 450
 
-const vec3[3] verts = {
-  vec3(0.5f, 0.5f, 0.0f),
-  vec3(-0.5f, 0.5f, 0.0f),
-  vec3(-0.5f, -0.5f, 0.0f)
-};
+layout (location = 0) in vec3 pos;
+layout (location = 1) in vec3 normal;
+layout (location = 2) in vec2 tex_coords;
+
+layout (location = 0) out vec3 normal0;
+layout (location = 1) out vec2 tex_coords0;
 
 void main() {
-  gl_Position = vec4(verts[gl_VertexIndex], 1.0f);
+    normal0 = normal;
+    tex_coords0 = tex_coords;
+
+    gl_Position = vec4(pos, 1.0f);
 }
