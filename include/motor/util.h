@@ -9,3 +9,5 @@
 #endif
 
 #define MT_LENGTH(array) (sizeof(array) / sizeof((array)[0]))
+
+#define MT_INLINE static inline
