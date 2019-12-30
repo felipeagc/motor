@@ -1,7 +1,7 @@
 #include "../../include/motor/hashmap.h"
 
 #include <string.h>
-#include "../../include/motor/arena.h"
+#include "../../include/motor/allocator.h"
 
 static void hash_grow(MtHashMap *map) {
     uint32_t old_size     = map->size;
@@ -9,8 +9,8 @@ static void hash_grow(MtHashMap *map) {
     uintptr_t *old_values = map->values;
 
     map->size   = old_size * 2;
-    map->keys   = mt_alloc(map->arena, sizeof(*map->keys) * map->size);
-    map->values = mt_alloc(map->arena, sizeof(*map->values) * map->size);
+    map->keys   = mt_alloc(map->alloc, sizeof(*map->keys) * map->size);
+    map->values = mt_alloc(map->alloc, sizeof(*map->values) * map->size);
     memset(map->keys, 0xff, sizeof(*map->keys) * map->size);
 
     for (uint32_t i = 0; i < old_size; i++) {
@@ -19,18 +19,18 @@ static void hash_grow(MtHashMap *map) {
         }
     }
 
-    mt_free(map->arena, old_keys);
-    mt_free(map->arena, old_values);
+    mt_free(map->alloc, old_keys);
+    mt_free(map->alloc, old_values);
 }
 
-void mt_hash_init(MtHashMap *map, uint32_t size, MtArena *arena) {
+void mt_hash_init(MtHashMap *map, uint32_t size, MtAllocator *alloc) {
     memset(map, 0, sizeof(*map));
 
     map->size  = size;
-    map->arena = arena;
+    map->alloc = alloc;
 
-    map->keys   = mt_alloc(map->arena, sizeof(*map->keys) * map->size);
-    map->values = mt_alloc(map->arena, sizeof(*map->values) * map->size);
+    map->keys   = mt_alloc(map->alloc, sizeof(*map->keys) * map->size);
+    map->values = mt_alloc(map->alloc, sizeof(*map->values) * map->size);
 
     memset(map->keys, 0xff, sizeof(*map->keys) * map->size);
 }
@@ -103,6 +103,6 @@ void mt_hash_remove(MtHashMap *map, uint64_t key) {
 }
 
 void mt_hash_destroy(MtHashMap *map) {
-    mt_free(map->arena, map->keys);
-    mt_free(map->arena, map->values);
+    mt_free(map->alloc, map->keys);
+    mt_free(map->alloc, map->values);
 }

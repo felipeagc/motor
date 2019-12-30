@@ -6,7 +6,7 @@
 
 #include "../xxhash.h"
 #include "../../../include/motor/util.h"
-#include "../../../include/motor/arena.h"
+#include "../../../include/motor/allocator.h"
 #include "../../../include/motor/window.h"
 
 #include "internal.h"
@@ -67,7 +67,7 @@ static bool check_validation_layer_support(MtDevice *device) {
     vkEnumerateInstanceLayerProperties(&layer_count, NULL);
 
     VkLayerProperties *available_layers =
-        mt_alloc(device->arena, sizeof(VkLayerProperties) * layer_count);
+        mt_alloc(device->alloc, sizeof(VkLayerProperties) * layer_count);
     vkEnumerateInstanceLayerProperties(&layer_count, available_layers);
 
     for (uint32_t l = 0; l < MT_LENGTH(VALIDATION_LAYERS); l++) {
@@ -83,12 +83,12 @@ static bool check_validation_layer_support(MtDevice *device) {
         }
 
         if (!layer_found) {
-            mt_free(device->arena, available_layers);
+            mt_free(device->alloc, available_layers);
             return false;
         }
     }
 
-    mt_free(device->arena, available_layers);
+    mt_free(device->alloc, available_layers);
     return true;
 }
 
@@ -125,7 +125,7 @@ static void create_instance(MtDevice *dev) {
     uint32_t extension_count = 0;
     if (MT_LENGTH(INSTANCE_EXTENSIONS) > 0) {
         extension_count = MT_LENGTH(INSTANCE_EXTENSIONS);
-        extensions = mt_alloc(dev->arena, sizeof(char *) * extension_count);
+        extensions = mt_alloc(dev->alloc, sizeof(char *) * extension_count);
         memcpy(
             extensions,
             INSTANCE_EXTENSIONS,
@@ -141,7 +141,7 @@ static void create_instance(MtDevice *dev) {
 
         extension_count += window_extension_count;
         extensions = mt_realloc(
-            dev->arena, extensions, sizeof(char *) * extension_count);
+            dev->alloc, extensions, sizeof(char *) * extension_count);
 
         memcpy(
             &extensions[extension_count - window_extension_count],
@@ -156,7 +156,7 @@ static void create_instance(MtDevice *dev) {
 
     volkLoadInstance(dev->instance);
 
-    mt_free(dev->arena, extensions);
+    mt_free(dev->alloc, extensions);
 }
 
 static void create_debug_messenger(MtDevice *dev) {
@@ -188,7 +188,7 @@ find_queue_families(MtDevice *dev, VkPhysicalDevice physical_device) {
         physical_device, &queue_family_count, NULL);
 
     VkQueueFamilyProperties *queue_families = mt_calloc(
-        dev->arena, sizeof(VkQueueFamilyProperties) * queue_family_count);
+        dev->alloc, sizeof(VkQueueFamilyProperties) * queue_family_count);
 
     vkGetPhysicalDeviceQueueFamilyProperties(
         physical_device, &queue_family_count, queue_families);
@@ -221,7 +221,7 @@ find_queue_families(MtDevice *dev, VkPhysicalDevice physical_device) {
         if (are_indices_complete(dev, &indices)) break;
     }
 
-    mt_free(dev->arena, queue_families);
+    mt_free(dev->alloc, queue_families);
     return indices;
 }
 
@@ -232,7 +232,7 @@ static bool check_device_extension_support(
         physical_device, NULL, &extension_count, NULL);
 
     VkExtensionProperties *available_extensions =
-        mt_alloc(dev->arena, sizeof(VkExtensionProperties) * extension_count);
+        mt_alloc(dev->alloc, sizeof(VkExtensionProperties) * extension_count);
 
     vkEnumerateDeviceExtensionProperties(
         physical_device, NULL, &extension_count, available_extensions);
@@ -253,7 +253,7 @@ static bool check_device_extension_support(
         if (!found) found_all = false;
     }
 
-    mt_free(dev->arena, available_extensions);
+    mt_free(dev->alloc, available_extensions);
     return found_all;
 }
 
@@ -277,7 +277,7 @@ static void pick_physical_device(MtDevice *dev) {
     }
 
     VkPhysicalDevice *devices =
-        mt_alloc(dev->arena, sizeof(VkPhysicalDevice) * device_count);
+        mt_alloc(dev->alloc, sizeof(VkPhysicalDevice) * device_count);
     vkEnumeratePhysicalDevices(dev->instance, &device_count, devices);
 
     for (uint32_t i = 0; i < device_count; i++) {
@@ -296,7 +296,7 @@ static void pick_physical_device(MtDevice *dev) {
     vkGetPhysicalDeviceProperties(
         dev->physical_device, &dev->physical_device_properties);
 
-    mt_free(dev->arena, devices);
+    mt_free(dev->alloc, devices);
 }
 
 static void create_device(MtDevice *dev) {
@@ -457,7 +457,7 @@ static void find_supported_depth_format(MtDevice *dev) {
 
 static void create_command_pools(MtDevice *dev) {
     dev->graphics_cmd_pools =
-        mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
+        mt_alloc(dev->alloc, sizeof(VkCommandPool) * dev->num_threads);
 
     for (uint32_t i = 0; i < dev->num_threads; i++) {
         VkCommandPoolCreateInfo create_info = {
@@ -472,7 +472,7 @@ static void create_command_pools(MtDevice *dev) {
     dev->compute_cmd_pools = dev->graphics_cmd_pools;
     if (dev->indices.graphics != dev->indices.compute) {
         dev->compute_cmd_pools =
-            mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
+            mt_alloc(dev->alloc, sizeof(VkCommandPool) * dev->num_threads);
 
         for (uint32_t i = 0; i < dev->num_threads; i++) {
             VkCommandPoolCreateInfo create_info = {
@@ -486,7 +486,7 @@ static void create_command_pools(MtDevice *dev) {
     }
 
     dev->transfer_cmd_pools =
-        mt_alloc(dev->arena, sizeof(VkCommandPool) * dev->num_threads);
+        mt_alloc(dev->alloc, sizeof(VkCommandPool) * dev->num_threads);
     for (uint32_t i = 0; i < dev->num_threads; i++) {
         VkCommandPoolCreateInfo create_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -523,7 +523,7 @@ static void allocate_cmd_buffers(
     assert(pool);
 
     VkCommandBuffer *command_buffers =
-        mt_alloc(dev->arena, sizeof(VkCommandBuffer) * count);
+        mt_alloc(dev->alloc, sizeof(VkCommandBuffer) * count);
 
     VkCommandBufferAllocateInfo alloc_info = {
         .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -536,14 +536,14 @@ static void allocate_cmd_buffers(
         vkAllocateCommandBuffers(dev->device, &alloc_info, command_buffers));
 
     for (uint32_t i = 0; i < count; i++) {
-        cmd_buffers[i] = mt_alloc(dev->arena, sizeof(*cmd_buffers[i]));
+        cmd_buffers[i] = mt_alloc(dev->alloc, sizeof(*cmd_buffers[i]));
         memset(cmd_buffers[i], 0, sizeof(*cmd_buffers[i]));
         cmd_buffers[i]->dev        = dev;
         cmd_buffers[i]->cmd_buffer = command_buffers[i];
         cmd_buffers[i]->queue_type = queue_type;
     }
 
-    mt_free(dev->arena, command_buffers);
+    mt_free(dev->alloc, command_buffers);
 }
 
 static void free_cmd_buffers(
@@ -568,7 +568,7 @@ static void free_cmd_buffers(
     assert(pool);
 
     VkCommandBuffer *command_buffers =
-        mt_alloc(dev->arena, sizeof(VkCommandBuffer) * count);
+        mt_alloc(dev->alloc, sizeof(VkCommandBuffer) * count);
 
     for (uint32_t i = 0; i < count; i++) {
         command_buffers[i] = cmd_buffers[i]->cmd_buffer;
@@ -580,14 +580,14 @@ static void free_cmd_buffers(
         buffer_pool_recycle(&dev->ubo_pool, &cmd_buffers[i]->ubo_block);
         buffer_pool_recycle(&dev->vbo_pool, &cmd_buffers[i]->vbo_block);
         buffer_pool_recycle(&dev->ibo_pool, &cmd_buffers[i]->ibo_block);
-        mt_free(dev->arena, cmd_buffers[i]);
+        mt_free(dev->alloc, cmd_buffers[i]);
     }
 
-    mt_free(dev->arena, command_buffers);
+    mt_free(dev->alloc, command_buffers);
 }
 
 static MtFence *create_fence(MtDevice *dev) {
-    MtFence *fence = mt_alloc(dev->arena, sizeof(MtFence));
+    MtFence *fence = mt_alloc(dev->alloc, sizeof(MtFence));
 
     VkFenceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -598,7 +598,7 @@ static MtFence *create_fence(MtDevice *dev) {
 
 static void destroy_fence(MtDevice *dev, MtFence *fence) {
     vkDestroyFence(dev->device, fence->fence, NULL);
-    mt_free(dev->arena, fence);
+    mt_free(dev->alloc, fence);
 }
 
 static void wait_for_fence(MtDevice *dev, MtFence *fence) {
@@ -734,7 +734,7 @@ static void device_wait_idle(MtDevice *dev) {
 }
 
 static void destroy_device(MtDevice *dev) {
-    MtArena *arena = dev->arena;
+    MtAllocator *alloc = dev->alloc;
     VK_CHECK(vkDeviceWaitIdle(dev->device));
 
     buffer_pool_destroy(&dev->ubo_pool);
@@ -747,7 +747,7 @@ static void destroy_device(MtDevice *dev) {
     for (uint32_t i = 0; i < dev->num_threads; i++) {
         vkDestroyCommandPool(dev->device, dev->transfer_cmd_pools[i], NULL);
     }
-    mt_free(dev->arena, dev->transfer_cmd_pools);
+    mt_free(dev->alloc, dev->transfer_cmd_pools);
     dev->transfer_cmd_pools = NULL;
 
     // Destroy compute command pools if they're not the same as the graphics
@@ -756,7 +756,7 @@ static void destroy_device(MtDevice *dev) {
         for (uint32_t i = 0; i < dev->num_threads; i++) {
             vkDestroyCommandPool(dev->device, dev->compute_cmd_pools[i], NULL);
         }
-        mt_free(dev->arena, dev->compute_cmd_pools);
+        mt_free(dev->alloc, dev->compute_cmd_pools);
         dev->compute_cmd_pools = NULL;
     }
 
@@ -764,7 +764,7 @@ static void destroy_device(MtDevice *dev) {
     for (uint32_t i = 0; i < dev->num_threads; i++) {
         vkDestroyCommandPool(dev->device, dev->graphics_cmd_pools[i], NULL);
     }
-    mt_free(dev->arena, dev->graphics_cmd_pools);
+    mt_free(dev->alloc, dev->graphics_cmd_pools);
     dev->graphics_cmd_pools = NULL;
 
     vmaDestroyAllocator(dev->gpu_allocator);
@@ -777,7 +777,7 @@ static void destroy_device(MtDevice *dev) {
 
     vkDestroyInstance(dev->instance, NULL);
 
-    mt_free(arena, dev);
+    mt_free(alloc, dev);
 }
 // }}}
 
@@ -843,13 +843,13 @@ static MtRenderer g_vulkan_renderer = (MtRenderer){
     .cmd_dispatch = cmd_dispatch,
 };
 
-MtDevice *
-mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtArena *arena) {
+MtDevice *mt_vulkan_device_init(
+    MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc) {
     mt_render = g_vulkan_renderer;
 
-    MtDevice *dev = mt_calloc(arena, sizeof(MtDevice));
+    MtDevice *dev = mt_calloc(alloc, sizeof(MtDevice));
     dev->flags    = create_info->flags;
-    dev->arena    = arena;
+    dev->alloc    = alloc;
 
     dev->window_system = create_info->window_system->inst;
 
@@ -872,7 +872,7 @@ mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtArena *arena) {
 
     create_command_pools(dev);
 
-    mt_hash_init(&dev->pipeline_layout_map, 51, dev->arena);
+    mt_hash_init(&dev->pipeline_layout_map, 51, dev->alloc);
 
     buffer_pool_init(
         dev,

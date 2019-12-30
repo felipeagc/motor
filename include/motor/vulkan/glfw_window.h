@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-typedef struct MtArena MtArena;
+typedef struct MtAllocator MtAllocator;
 typedef struct MtDevice MtDevice;
 typedef struct MtIWindow MtIWindow;
 typedef struct MtIWindowSystem MtIWindowSystem;
@@ -15,4 +15,4 @@ void mt_glfw_vulkan_window_init(
     uint32_t width,
     uint32_t height,
     const char *title,
-    MtArena *arena);
+    MtAllocator *alloc);

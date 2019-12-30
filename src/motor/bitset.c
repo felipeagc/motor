@@ -1,14 +1,14 @@
 #include "../../include/motor/bitset.h"
 
-#include "../../include/motor/arena.h"
+#include "../../include/motor/allocator.h"
 
 void mt_dynamic_bitset_init(
-    MtDynamicBitset *bitset, uint32_t nbits, MtArena *arena) {
+    MtDynamicBitset *bitset, uint32_t nbits, MtAllocator *alloc) {
     bitset->nbits = nbits;
-    bitset->bytes = mt_alloc(arena, (bitset->nbits + 7) / 8);
+    bitset->bytes = mt_alloc(alloc, (bitset->nbits + 7) / 8);
     mt_dynamic_bitset_clear(bitset);
 }
 
-void mt_dynamic_bitset_destroy(MtDynamicBitset *bitset, MtArena *arena) {
-    mt_free(arena, bitset->bytes);
+void mt_dynamic_bitset_destroy(MtDynamicBitset *bitset, MtAllocator *alloc) {
+    mt_free(alloc, bitset->bytes);
 }

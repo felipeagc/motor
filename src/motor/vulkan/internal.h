@@ -58,7 +58,7 @@ typedef struct BufferPool {
 } BufferPool;
 
 typedef struct MtDevice {
-    MtArena *arena;
+    MtAllocator *alloc;
 
     MtVulkanDeviceFlags flags;
     MtWindowSystem *window_system;

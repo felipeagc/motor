@@ -1,5 +1,5 @@
 static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci) {
-    MtSampler *sampler = mt_calloc(dev->arena, sizeof(MtSampler));
+    MtSampler *sampler = mt_calloc(dev->alloc, sizeof(MtSampler));
 
     if (ci->max_lod == 0.0f ||
         memcmp(&(uint32_t){0}, &ci->max_lod, sizeof(uint32_t)) == 0) {
@@ -52,5 +52,5 @@ static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci) {
 
 static void destroy_sampler(MtDevice *dev, MtSampler *sampler) {
     if (sampler->sampler) vkDestroySampler(dev->device, sampler->sampler, NULL);
-    mt_free(dev->arena, sampler);
+    mt_free(dev->alloc, sampler);
 }

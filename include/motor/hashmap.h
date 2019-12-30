@@ -5,16 +5,16 @@
 #define MT_HASH_UNUSED UINT64_MAX
 #define MT_HASH_NOT_FOUND UINT64_MAX
 
-typedef struct MtArena MtArena;
+typedef struct MtAllocator MtAllocator;
 
 typedef struct MtHashMap {
-    MtArena *arena;
+    MtAllocator *alloc;
     uint64_t *keys;
     uintptr_t *values;
     uint32_t size;
 } MtHashMap;
 
-void mt_hash_init(MtHashMap *map, uint32_t size, MtArena *arena);
+void mt_hash_init(MtHashMap *map, uint32_t size, MtAllocator *alloc);
 
 void mt_hash_clear(MtHashMap *map);
 

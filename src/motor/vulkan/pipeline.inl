@@ -8,7 +8,7 @@ typedef struct CombinedSetLayouts {
 } CombinedSetLayouts;
 
 static void combined_set_layouts_init(
-    CombinedSetLayouts *c, MtPipeline *pipeline, MtArena *arena) {
+    CombinedSetLayouts *c, MtPipeline *pipeline, MtAllocator *alloc) {
     memset(c, 0, sizeof(*c));
 
     uint32_t pc_count = 0;
@@ -19,7 +19,7 @@ static void combined_set_layouts_init(
     }
 
     if (pc_count > 0) {
-        mt_array_pushn_zeroed(arena, c->push_constants, pc_count);
+        mt_array_pushn_zeroed(alloc, c->push_constants, pc_count);
 
         uint32_t pc_index = 0;
         Shader *shader;
@@ -43,7 +43,7 @@ static void combined_set_layouts_init(
     }
 
     if (set_count > 0) {
-        mt_array_pushn_zeroed(arena, c->sets, set_count);
+        mt_array_pushn_zeroed(alloc, c->sets, set_count);
 
         Shader *shader;
         mt_array_foreach(shader, pipeline->shaders) {
@@ -67,7 +67,7 @@ static void combined_set_layouts_init(
 
                     if (!binding) {
                         binding = mt_array_push(
-                            arena,
+                            alloc,
                             set->bindings,
                             (VkDescriptorSetLayoutBinding){});
                         binding->binding = sbinding->binding;
@@ -100,13 +100,13 @@ static void combined_set_layouts_init(
 }
 
 static void
-combined_set_layouts_destroy(CombinedSetLayouts *c, MtArena *arena) {
+combined_set_layouts_destroy(CombinedSetLayouts *c, MtAllocator *alloc) {
     for (SetInfo *info = c->sets; info != c->sets + mt_array_size(c->sets);
          info++) {
-        mt_array_free(arena, info->bindings);
+        mt_array_free(alloc, info->bindings);
     }
-    mt_array_free(arena, c->sets);
-    mt_array_free(arena, c->push_constants);
+    mt_array_free(alloc, c->sets);
+    mt_array_free(alloc, c->push_constants);
 }
 
 static void
@@ -132,7 +132,7 @@ shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size) {
 
     if (reflect_mod.descriptor_set_count > 0) {
         mt_array_pushn_zeroed(
-            dev->arena, shader->sets, reflect_mod.descriptor_set_count);
+            dev->alloc, shader->sets, reflect_mod.descriptor_set_count);
 
         for (uint32_t i = 0; i < reflect_mod.descriptor_set_count; i++) {
             SpvReflectDescriptorSet *rset = &reflect_mod.descriptor_sets[i];
@@ -140,7 +140,7 @@ shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size) {
             SetInfo *set = &shader->sets[i];
             set->index   = rset->set;
             mt_array_pushn_zeroed(
-                dev->arena, set->bindings, rset->binding_count);
+                dev->alloc, set->bindings, rset->binding_count);
 
             for (uint32_t b = 0; b < mt_array_size(set->bindings); b++) {
                 VkDescriptorSetLayoutBinding *binding = &set->bindings[b];
@@ -157,7 +157,7 @@ shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size) {
     if (reflect_mod.push_constant_block_count > 0) {
         // Push constants
         mt_array_pushn_zeroed(
-            dev->arena,
+            dev->alloc,
             shader->push_constants,
             reflect_mod.push_constant_block_count);
 
@@ -181,36 +181,36 @@ static void shader_destroy(MtDevice *dev, Shader *shader) {
 
     SetInfo *set_info;
     mt_array_foreach(set_info, shader->sets) {
-        mt_array_free(dev->arena, set_info->bindings);
+        mt_array_free(dev->alloc, set_info->bindings);
     }
 
-    mt_array_free(dev->arena, shader->sets);
-    mt_array_free(dev->arena, shader->push_constants);
+    mt_array_free(dev->alloc, shader->sets);
+    mt_array_free(dev->alloc, shader->push_constants);
 }
 
 static PipelineLayout *create_pipeline_layout(
     MtDevice *dev,
     CombinedSetLayouts *combined,
     VkPipelineBindPoint bind_point) {
-    PipelineLayout *l = mt_calloc(dev->arena, sizeof(PipelineLayout));
+    PipelineLayout *l = mt_calloc(dev->alloc, sizeof(PipelineLayout));
 
     l->bind_point = bind_point;
 
     mt_array_pushn(
-        dev->arena, l->push_constants, mt_array_size(combined->push_constants));
+        dev->alloc, l->push_constants, mt_array_size(combined->push_constants));
     memcpy(
         l->push_constants,
         combined->push_constants,
         mt_array_size(combined->push_constants) *
             sizeof(*combined->push_constants));
 
-    mt_array_pushn_zeroed(dev->arena, l->sets, mt_array_size(combined->sets));
+    mt_array_pushn_zeroed(dev->alloc, l->sets, mt_array_size(combined->sets));
 
     SetInfo *set;
     for (uint32_t i = 0; i < mt_array_size(l->sets); i++) {
         SetInfo *cset = &combined->sets[i];
         mt_array_pushn(
-            dev->arena, l->sets[i].bindings, mt_array_size(cset->bindings));
+            dev->alloc, l->sets[i].bindings, mt_array_size(cset->bindings));
         memcpy(
             l->sets[i].bindings,
             cset->bindings,
@@ -218,10 +218,10 @@ static PipelineLayout *create_pipeline_layout(
     }
 
     VkDescriptorSetLayout *set_layouts = NULL;
-    mt_array_pushn_zeroed(dev->arena, l->pools, mt_array_size(l->sets));
+    mt_array_pushn_zeroed(dev->alloc, l->pools, mt_array_size(l->sets));
     for (uint32_t i = 0; i < mt_array_size(l->pools); i++) {
         descriptor_pool_init(dev, &l->pools[i], l, i);
-        mt_array_push(dev->arena, set_layouts, l->pools[i].set_layout);
+        mt_array_push(dev->alloc, set_layouts, l->pools[i].set_layout);
     }
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {
@@ -235,7 +235,7 @@ static PipelineLayout *create_pipeline_layout(
     VK_CHECK(vkCreatePipelineLayout(
         dev->device, &pipeline_layout_info, NULL, &l->layout));
 
-    mt_array_free(dev->arena, set_layouts);
+    mt_array_free(dev->alloc, set_layouts);
 
     return l;
 }
@@ -246,33 +246,33 @@ static void destroy_pipeline_layout(MtDevice *dev, PipelineLayout *l) {
     for (uint32_t i = 0; i < mt_array_size(l->pools); i++) {
         descriptor_pool_destroy(dev, &l->pools[i]);
     }
-    mt_array_free(dev->arena, l->pools);
+    mt_array_free(dev->alloc, l->pools);
 
     vkDestroyPipelineLayout(dev->device, l->layout, NULL);
 
     SetInfo *set;
-    mt_array_foreach(set, l->sets) { mt_array_free(dev->arena, set->bindings); }
-    mt_array_free(dev->arena, l->sets);
+    mt_array_foreach(set, l->sets) { mt_array_free(dev->alloc, set->bindings); }
+    mt_array_free(dev->alloc, l->sets);
 
-    mt_free(dev->arena, l);
+    mt_free(dev->alloc, l);
 }
 
 static PipelineLayout *
 request_pipeline_layout(MtDevice *dev, MtPipeline *pipeline) {
     CombinedSetLayouts combined;
-    combined_set_layouts_init(&combined, pipeline, dev->arena);
+    combined_set_layouts_init(&combined, pipeline, dev->alloc);
     uint64_t hash = combined.hash;
 
     PipelineLayout *layout = mt_hash_get_ptr(&dev->pipeline_layout_map, hash);
     if (layout) {
-        combined_set_layouts_destroy(&combined, dev->arena);
+        combined_set_layouts_destroy(&combined, dev->alloc);
         return layout;
     }
 
     layout       = create_pipeline_layout(dev, &combined, pipeline->bind_point);
     layout->hash = hash;
 
-    combined_set_layouts_destroy(&combined, dev->arena);
+    combined_set_layouts_destroy(&combined, dev->alloc);
 
     return mt_hash_set_ptr(&dev->pipeline_layout_map, hash, layout);
 }
@@ -288,7 +288,7 @@ static void create_graphics_pipeline_instance(
     MtGraphicsPipelineCreateInfo *options = &pipeline->create_info;
 
     VkPipelineShaderStageCreateInfo *stages = NULL;
-    mt_array_pushn(dev->arena, stages, mt_array_size(pipeline->shaders));
+    mt_array_pushn(dev->alloc, stages, mt_array_size(pipeline->shaders));
     for (uint32_t i = 0; i < mt_array_size(pipeline->shaders); i++) {
         stages[i] = (VkPipelineShaderStageCreateInfo){
             .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -316,7 +316,7 @@ static void create_graphics_pipeline_instance(
 
     VkVertexInputAttributeDescription *attributes = NULL;
     if (options->vertex_attribute_count > 0) {
-        mt_array_pushn(dev->arena, attributes, options->vertex_attribute_count);
+        mt_array_pushn(dev->alloc, attributes, options->vertex_attribute_count);
 
         for (uint32_t i = 0; i < options->vertex_attribute_count; i++) {
             attributes[i] = (VkVertexInputAttributeDescription){
@@ -467,8 +467,8 @@ static void create_graphics_pipeline_instance(
         NULL,
         &instance->vk_pipeline));
 
-    mt_array_free(dev->arena, attributes);
-    mt_array_free(dev->arena, stages);
+    mt_array_free(dev->alloc, attributes);
+    mt_array_free(dev->alloc, stages);
 }
 
 static void create_compute_pipeline_instance(
@@ -510,7 +510,7 @@ static PipelineInstance *request_graphics_pipeline_instance(
     PipelineInstance *instance = mt_hash_get_ptr(&pipeline->instances, hash);
     if (instance) return instance;
 
-    instance       = mt_alloc(dev->arena, sizeof(PipelineInstance));
+    instance       = mt_alloc(dev->alloc, sizeof(PipelineInstance));
     instance->hash = hash;
     create_graphics_pipeline_instance(dev, instance, render_pass, pipeline);
     return mt_hash_set_ptr(&pipeline->instances, instance->hash, instance);
@@ -522,7 +522,7 @@ request_compute_pipeline_instance(MtDevice *dev, MtPipeline *pipeline) {
         mt_hash_get_ptr(&pipeline->instances, pipeline->hash);
     if (instance) return instance;
 
-    instance       = mt_alloc(dev->arena, sizeof(PipelineInstance));
+    instance       = mt_alloc(dev->alloc, sizeof(PipelineInstance));
     instance->hash = pipeline->hash;
 
     create_compute_pipeline_instance(dev, instance, pipeline);
@@ -533,7 +533,7 @@ static void
 destroy_pipeline_instance(MtDevice *dev, PipelineInstance *instance) {
     VK_CHECK(vkDeviceWaitIdle(dev->device));
     vkDestroyPipeline(dev->device, instance->vk_pipeline, NULL);
-    mt_free(dev->arena, instance);
+    mt_free(dev->alloc, instance);
 }
 
 static MtPipeline *create_graphics_pipeline(
@@ -543,7 +543,7 @@ static MtPipeline *create_graphics_pipeline(
     uint8_t *fragment_code,
     size_t fragment_code_size,
     MtGraphicsPipelineCreateInfo *ci) {
-    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
+    MtPipeline *pipeline = mt_alloc(dev->alloc, sizeof(MtPipeline));
     memset(pipeline, 0, sizeof(*pipeline));
 
     if (ci->line_width == 0.0f ||
@@ -553,12 +553,12 @@ static MtPipeline *create_graphics_pipeline(
 
     pipeline->create_info                   = *ci;
     pipeline->create_info.vertex_attributes = mt_alloc(
-        dev->arena, sizeof(MtVertexAttribute) * ci->vertex_attribute_count);
+        dev->alloc, sizeof(MtVertexAttribute) * ci->vertex_attribute_count);
     memcpy(
         pipeline->create_info.vertex_attributes,
         ci->vertex_attributes,
         sizeof(MtVertexAttribute) * ci->vertex_attribute_count);
-    mt_array_pushn(dev->arena, pipeline->shaders, 2);
+    mt_array_pushn(dev->alloc, pipeline->shaders, 2);
 
     shader_init(dev, &pipeline->shaders[0], vertex_code, vertex_code_size);
     shader_init(dev, &pipeline->shaders[1], fragment_code, fragment_code_size);
@@ -589,17 +589,17 @@ static MtPipeline *create_graphics_pipeline(
     pipeline->layout = request_pipeline_layout(dev, pipeline);
     pipeline->layout->ref_count++;
 
-    mt_hash_init(&pipeline->instances, 5, dev->arena);
+    mt_hash_init(&pipeline->instances, 5, dev->alloc);
 
     return pipeline;
 }
 
 static MtPipeline *
 create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
-    MtPipeline *pipeline = mt_alloc(dev->arena, sizeof(MtPipeline));
+    MtPipeline *pipeline = mt_alloc(dev->alloc, sizeof(MtPipeline));
     memset(pipeline, 0, sizeof(*pipeline));
 
-    mt_array_pushn(dev->arena, pipeline->shaders, 1);
+    mt_array_pushn(dev->alloc, pipeline->shaders, 1);
 
     shader_init(dev, &pipeline->shaders[0], code, code_size);
 
@@ -610,14 +610,14 @@ create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
     pipeline->layout = request_pipeline_layout(dev, pipeline);
     pipeline->layout->ref_count++;
 
-    mt_hash_init(&pipeline->instances, 5, dev->arena);
+    mt_hash_init(&pipeline->instances, 5, dev->alloc);
 
     return pipeline;
 }
 
 static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
     if (pipeline->create_info.vertex_attributes) {
-        mt_free(dev->arena, pipeline->create_info.vertex_attributes);
+        mt_free(dev->alloc, pipeline->create_info.vertex_attributes);
     }
 
     for (uint32_t i = 0; i < pipeline->instances.size; i++) {
@@ -631,7 +631,7 @@ static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
     for (uint32_t i = 0; i < mt_array_size(pipeline->shaders); i++) {
         shader_destroy(dev, &pipeline->shaders[i]);
     }
-    mt_array_free(dev->arena, pipeline->shaders);
+    mt_array_free(dev->alloc, pipeline->shaders);
 
     for (uint32_t i = 0; i < mt_array_size(pipeline->layout->pools); i++) {
         descriptor_pool_reset(dev, &pipeline->layout->pools[i]);
@@ -643,5 +643,5 @@ static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
         destroy_pipeline_layout(dev, pipeline->layout);
     }
 
-    mt_free(dev->arena, pipeline);
+    mt_free(dev->alloc, pipeline);
 }

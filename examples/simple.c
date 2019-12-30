@@ -1,3 +1,4 @@
+#include <motor/allocator.h>
 #include <motor/arena.h>
 #include <motor/renderer.h>
 #include <motor/threads.h>
@@ -13,7 +14,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-static uint8_t *load_shader(MtArena *arena, const char *path, size_t *size) {
+static uint8_t *
+load_shader(MtAllocator *alloc, const char *path, size_t *size) {
     FILE *f = fopen(path, "rb");
     if (!f) return NULL;
 
@@ -21,7 +23,7 @@ static uint8_t *load_shader(MtArena *arena, const char *path, size_t *size) {
     *size = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    uint8_t *code = mt_alloc(arena, *size);
+    uint8_t *code = mt_alloc(alloc, *size);
     fread(code, *size, 1, f);
 
     fclose(f);
@@ -39,7 +41,7 @@ static const char *VERT_PATH = "../shaders/build/test.vert.spv";
 static const char *FRAG_PATH = "../shaders/build/test.frag.spv";
 
 typedef struct Game {
-    MtArena arena;
+    MtAllocator alloc;
     MtIWindowSystem window_system;
     MtIWindow window;
     MtDevice *dev;
@@ -52,19 +54,19 @@ typedef struct Game {
 } Game;
 
 void game_init(Game *g) {
-    mt_arena_init(&g->arena, 1 << 16);
+    mt_arena_init(&g->alloc, 1 << 16);
 
     mt_glfw_vulkan_init(&g->window_system);
 
     g->dev = mt_vulkan_device_init(
         &(MtVulkanDeviceCreateInfo){.window_system = &g->window_system},
-        &g->arena);
+        &g->alloc);
 
     mt_glfw_vulkan_window_init(
-        &g->window, g->dev, 800, 600, "Hello", &g->arena);
+        &g->window, g->dev, 800, 600, "Hello", &g->alloc);
 
     g->watcher = mt_file_watcher_create(
-        &g->arena, MT_FILE_WATCHER_EVENT_MODIFY, "../shaders");
+        &g->alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../shaders");
 
     stbi_set_flip_vertically_on_load(true);
     int32_t w, h, num_channels;
@@ -95,9 +97,9 @@ void game_init(Game *g) {
     uint8_t *vertex_code = NULL, *fragment_code = NULL;
     size_t vertex_code_size = 0, fragment_code_size = 0;
 
-    vertex_code = load_shader(&g->arena, VERT_PATH, &vertex_code_size);
+    vertex_code = load_shader(&g->alloc, VERT_PATH, &vertex_code_size);
     assert(vertex_code);
-    fragment_code = load_shader(&g->arena, FRAG_PATH, &fragment_code_size);
+    fragment_code = load_shader(&g->alloc, FRAG_PATH, &fragment_code_size);
     assert(fragment_code);
 
     g->pipeline = mt_render.create_graphics_pipeline(
@@ -120,8 +122,8 @@ void game_init(Game *g) {
             .vertex_stride          = sizeof(Vertex),
         });
 
-    mt_free(&g->arena, vertex_code);
-    mt_free(&g->arena, fragment_code);
+    mt_free(&g->alloc, vertex_code);
+    mt_free(&g->alloc, fragment_code);
 }
 
 void game_destroy(Game *g) {
@@ -136,7 +138,7 @@ void game_destroy(Game *g) {
 
     mt_file_watcher_destroy(g->watcher);
 
-    mt_arena_destroy(&g->arena);
+    mt_arena_destroy(&g->alloc);
 }
 
 void recreate_pipeline(Game *g) {
@@ -145,9 +147,9 @@ void recreate_pipeline(Game *g) {
     uint8_t *vertex_code = NULL, *fragment_code = NULL;
     size_t vertex_code_size = 0, fragment_code_size = 0;
 
-    vertex_code = load_shader(&g->arena, VERT_PATH, &vertex_code_size);
+    vertex_code = load_shader(&g->alloc, VERT_PATH, &vertex_code_size);
     assert(vertex_code);
-    fragment_code = load_shader(&g->arena, FRAG_PATH, &fragment_code_size);
+    fragment_code = load_shader(&g->alloc, FRAG_PATH, &fragment_code_size);
     assert(fragment_code);
 
     g->pipeline = mt_render.create_graphics_pipeline(
@@ -170,8 +172,8 @@ void recreate_pipeline(Game *g) {
             .vertex_stride          = sizeof(Vertex),
         });
 
-    mt_free(&g->arena, vertex_code);
-    mt_free(&g->arena, fragment_code);
+    mt_free(&g->alloc, vertex_code);
+    mt_free(&g->alloc, fragment_code);
 }
 
 int main(int argc, char *argv[]) {
