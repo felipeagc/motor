@@ -15,7 +15,7 @@
 #include "conversions.inl"
 #include "hashing.inl"
 #include "buffer.inl"
-#include "buffer_allocator.inl"
+#include "buffer_pool.inl"
 #include "descriptor_pool.inl"
 #include "pipeline.inl"
 #include "image.inl"

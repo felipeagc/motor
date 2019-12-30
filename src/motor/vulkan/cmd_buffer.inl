@@ -430,10 +430,7 @@ static void cmd_bind_uniform(
     assert(MT_LENGTH(cb->bound_descriptors) > set);
     assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
 
-    if (cb->ubo_block.mapping == NULL || cb->ubo_block.size < size) {
-        buffer_pool_recycle(&cb->dev->ubo_pool, &cb->ubo_block);
-        cb->ubo_block = buffer_pool_request_block(&cb->dev->ubo_pool, size);
-    }
+    ensure_buffer_block(&cb->dev->ubo_pool, &cb->ubo_block, size);
 
     BufferBlockAllocation allocation =
         buffer_block_allocate(&cb->ubo_block, size);
@@ -476,10 +473,7 @@ static void cmd_bind_index_buffer(
 }
 
 static void cmd_bind_vertex_data(MtCmdBuffer *cb, void *data, size_t size) {
-    if (cb->vbo_block.mapping == NULL || cb->vbo_block.size < size) {
-        buffer_pool_recycle(&cb->dev->vbo_pool, &cb->vbo_block);
-        cb->vbo_block = buffer_pool_request_block(&cb->dev->vbo_pool, size);
-    }
+    ensure_buffer_block(&cb->dev->vbo_pool, &cb->vbo_block, size);
 
     BufferBlockAllocation allocation =
         buffer_block_allocate(&cb->vbo_block, size);
@@ -492,10 +486,7 @@ static void cmd_bind_vertex_data(MtCmdBuffer *cb, void *data, size_t size) {
 
 static void cmd_bind_index_data(
     MtCmdBuffer *cb, void *data, size_t size, MtIndexType index_type) {
-    if (cb->ibo_block.mapping == NULL || cb->ibo_block.size < size) {
-        buffer_pool_recycle(&cb->dev->ibo_pool, &cb->ibo_block);
-        cb->ibo_block = buffer_pool_request_block(&cb->dev->ibo_pool, size);
-    }
+    ensure_buffer_block(&cb->dev->ibo_pool, &cb->ibo_block, size);
 
     BufferBlockAllocation allocation =
         buffer_block_allocate(&cb->ibo_block, size);
