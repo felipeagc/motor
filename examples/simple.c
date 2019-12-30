@@ -197,6 +197,7 @@ int main(int argc, char *argv[]) {
                     recreate_pipeline(&game);
                 }
             } break;
+            default: break;
             }
         }
 
@@ -208,6 +209,7 @@ int main(int argc, char *argv[]) {
             case MT_EVENT_WINDOW_CLOSED: {
                 printf("Closed\n");
             } break;
+            default: break;
             }
         }
 

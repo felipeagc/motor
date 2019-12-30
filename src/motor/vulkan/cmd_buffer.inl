@@ -378,6 +378,8 @@ static void cmd_bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline) {
             cb->bound_pipeline_instance->bind_point,
             cb->bound_pipeline_instance->vk_pipeline);
     } break;
+
+    default: assert(0);
     }
 }
 

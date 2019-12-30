@@ -210,7 +210,7 @@ find_queue_families(MtDevice *dev, VkPhysicalDevice physical_device) {
             indices.compute = i;
         }
 
-        if (!dev->flags & MT_DEVICE_HEADLESS) {
+        if (!(dev->flags & MT_DEVICE_HEADLESS)) {
             if (queue_family->queueCount > 0 &&
                 dev->window_system->get_physical_device_presentation_support(
                     dev->instance, physical_device, i)) {
@@ -322,7 +322,7 @@ static void create_device(MtDevice *dev) {
             &queue_priority;
     }
 
-    if (!dev->flags & MT_DEVICE_HEADLESS) {
+    if (!(dev->flags & MT_DEVICE_HEADLESS)) {
         if (dev->indices.graphics != dev->indices.present) {
             queue_create_info_count++;
             queue_create_infos[queue_create_info_count - 1].sType =
@@ -362,7 +362,7 @@ static void create_device(MtDevice *dev) {
     create_info.ppEnabledLayerNames = VALIDATION_LAYERS;
 #endif
 
-    if (!dev->flags & MT_DEVICE_HEADLESS) {
+    if (!(dev->flags & MT_DEVICE_HEADLESS)) {
         create_info.enabledExtensionCount   = MT_LENGTH(DEVICE_EXTENSIONS);
         create_info.ppEnabledExtensionNames = DEVICE_EXTENSIONS;
     }
@@ -375,7 +375,7 @@ static void create_device(MtDevice *dev) {
     vkGetDeviceQueue(
         dev->device, dev->indices.transfer, 0, &dev->transfer_queue);
 
-    if (!dev->flags & MT_DEVICE_HEADLESS) {
+    if (!(dev->flags & MT_DEVICE_HEADLESS)) {
         vkGetDeviceQueue(
             dev->device, dev->indices.present, 0, &dev->present_queue);
     }

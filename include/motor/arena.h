@@ -20,4 +20,6 @@ void *mt_calloc(MtArena *arena, uint32_t size);
 
 void *mt_realloc(MtArena *arena, void *ptr, uint32_t size);
 
+char *mt_strdup(MtArena *arena, char *str);
+
 void mt_free(MtArena *arena, void *ptr);

@@ -226,6 +226,13 @@ void *mt_realloc(MtArena *arena, void *ptr, uint32_t size) {
     return new_ptr;
 }
 
+char *mt_strdup(MtArena *arena, char *str) {
+    size_t len = strlen(str);
+    char *s    = mt_alloc(arena, len + 1);
+    memcpy(s, str, len + 1);
+    return s;
+}
+
 void mt_free(MtArena *arena, void *ptr) {
     if (!ptr) return;
 
