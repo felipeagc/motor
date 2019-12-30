@@ -56,6 +56,7 @@ static MtIndexType index_type_from_vulkan(VkIndexType index_type) {
     switch (index_type) {
     case VK_INDEX_TYPE_UINT16: return MT_INDEX_TYPE_UINT16;
     case VK_INDEX_TYPE_UINT32: return MT_INDEX_TYPE_UINT32;
+    default: assert(0);
     }
 }
 
@@ -63,6 +64,7 @@ static VkIndexType index_type_to_vulkan(MtIndexType index_type) {
     switch (index_type) {
     case MT_INDEX_TYPE_UINT16: return VK_INDEX_TYPE_UINT16;
     case MT_INDEX_TYPE_UINT32: return VK_INDEX_TYPE_UINT32;
+    default: assert(0);
     }
 }
 
@@ -72,6 +74,7 @@ static MtCullMode cull_mode_from_vulkan(VkCullModeFlagBits cull_mode) {
     case VK_CULL_MODE_BACK_BIT: return MT_CULL_MODE_BACK;
     case VK_CULL_MODE_FRONT_BIT: return MT_CULL_MODE_FRONT;
     case VK_CULL_MODE_FRONT_AND_BACK: return MT_CULL_MODE_FRONT_AND_BACK;
+    default: assert(0);
     }
 }
 
@@ -81,6 +84,7 @@ static VkCullModeFlagBits cull_mode_to_vulkan(MtCullMode cull_mode) {
     case MT_CULL_MODE_BACK: return VK_CULL_MODE_BACK_BIT;
     case MT_CULL_MODE_FRONT: return VK_CULL_MODE_FRONT_BIT;
     case MT_CULL_MODE_FRONT_AND_BACK: return VK_CULL_MODE_FRONT_AND_BACK;
+    default: assert(0);
     }
 }
 
@@ -89,6 +93,7 @@ static MtFrontFace front_face_from_vulkan(VkFrontFace front_face) {
     case VK_FRONT_FACE_CLOCKWISE: return MT_FRONT_FACE_CLOCKWISE;
     case VK_FRONT_FACE_COUNTER_CLOCKWISE:
         return MT_FRONT_FACE_COUNTER_CLOCKWISE;
+    default: assert(0);
     }
 }
 
@@ -97,6 +102,7 @@ static VkFrontFace front_face_to_vulkan(MtFrontFace front_face) {
     case MT_FRONT_FACE_CLOCKWISE: return VK_FRONT_FACE_CLOCKWISE;
     case MT_FRONT_FACE_COUNTER_CLOCKWISE:
         return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    default: assert(0);
     }
 }
 
@@ -104,6 +110,7 @@ static MtFilter filter_from_vulkan(VkFilter value) {
     switch (value) {
     case VK_FILTER_LINEAR: return MT_FILTER_LINEAR;
     case VK_FILTER_NEAREST: return MT_FILTER_NEAREST;
+    default: assert(0);
     }
 }
 
@@ -111,6 +118,7 @@ static VkFilter filter_to_vulkan(MtFilter value) {
     switch (value) {
     case MT_FILTER_LINEAR: return VK_FILTER_LINEAR;
     case MT_FILTER_NEAREST: return VK_FILTER_NEAREST;
+    default: assert(0);
     }
 }
 
@@ -126,6 +134,7 @@ sampler_address_mode_from_vulkan(VkSamplerAddressMode value) {
         return MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     case VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE:
         return MT_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+    default: assert(0);
     }
 }
 
@@ -141,6 +150,7 @@ sampler_address_mode_to_vulkan(MtSamplerAddressMode value) {
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     case MT_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE:
         return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+    default: assert(0);
     }
 }
 
@@ -158,6 +168,7 @@ static MtBorderColor border_color_from_vulkan(VkBorderColor value) {
         return MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     case VK_BORDER_COLOR_INT_OPAQUE_WHITE:
         return MT_BORDER_COLOR_INT_OPAQUE_WHITE;
+    default: assert(0);
     }
 }
 
@@ -175,5 +186,6 @@ static VkBorderColor border_color_to_vulkan(MtBorderColor value) {
         return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     case MT_BORDER_COLOR_INT_OPAQUE_WHITE:
         return VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+    default: assert(0);
     }
 }

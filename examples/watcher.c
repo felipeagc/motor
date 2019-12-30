@@ -25,6 +25,7 @@ int main() {
             case MT_FILE_WATCHER_EVENT_REMOVE: {
                 printf("Removed\n");
             } break;
+            default: break;
             }
             if (e.src) printf("Source: %s\n", e.src);
             if (e.dst) printf("Destination: %s\n", e.dst);

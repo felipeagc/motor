@@ -100,7 +100,7 @@ static const char **get_instance_extensions(uint32_t *count) {
     return glfwGetRequiredInstanceExtensions(count);
 }
 
-static const int32_t get_physical_device_presentation_support(
+static int32_t get_physical_device_presentation_support(
     VkInstance instance, VkPhysicalDevice device, uint32_t queue_family) {
     return (int32_t)glfwGetPhysicalDevicePresentationSupport(
         instance, device, queue_family);
@@ -216,8 +216,8 @@ static VkSurfaceFormatKHR
 choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t count) {
     if (count == 1 && formats[0].format == VK_FORMAT_UNDEFINED) {
         VkSurfaceFormatKHR fmt = {
-            format : VK_FORMAT_B8G8R8A8_UNORM,
-            colorSpace : formats[0].colorSpace,
+            .format     = VK_FORMAT_B8G8R8A8_UNORM,
+            .colorSpace = formats[0].colorSpace,
         };
 
         return fmt;
@@ -636,7 +636,7 @@ static void free_cmd_buffers(MtWindow *window) {
  */
 
 static bool should_close(MtWindow *window) {
-    glfwWindowShouldClose(window->window);
+    return glfwWindowShouldClose(window->window);
 }
 
 static bool next_event(MtWindow *window, MtEvent *event) {

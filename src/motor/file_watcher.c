@@ -208,8 +208,7 @@ bool mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherEvent *out_event) {
                     if (move_src != 0x0) {
                         // ... this is a new pair of a move, so the last one was
                         // move "outside" the current watch ...
-                        char *src = mt_alloc(w->arena, strlen(move_src) + 1);
-                        strncpy(src, move_src, strlen(move_src) + 1);
+                        char *src            = mt_strdup(w->arena, move_src);
                         MtFileWatcherEvent e = {
                             MT_FILE_WATCHER_EVENT_MOVE, src, 0x0};
                         mt_array_push(w->arena, w->events, e);
@@ -231,8 +230,7 @@ bool mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherEvent *out_event) {
                         move_cookie = 0;
                     } else if (move_src != 0x0) {
                         // ... this is a "move to outside of watch" ...
-                        char *src = mt_alloc(w->arena, strlen(move_src) + 1);
-                        strncpy(src, move_src, strlen(move_src) + 1);
+                        char *src            = mt_strdup(w->arena, move_src);
                         MtFileWatcherEvent e = {
                             MT_FILE_WATCHER_EVENT_MOVE, src, 0x0};
                         mt_array_push(w->arena, w->events, e);
@@ -263,8 +261,7 @@ bool mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherEvent *out_event) {
         if (move_src) {
             // ... we have a "move to outside of watch" that was never closed
             // ...
-            char *src = mt_alloc(w->arena, strlen(move_src) + 1);
-            strncpy(src, move_src, strlen(move_src) + 1);
+            char *src            = mt_strdup(w->arena, move_src);
             MtFileWatcherEvent e = {MT_FILE_WATCHER_EVENT_MOVE, src, 0x0};
             mt_array_push(w->arena, w->events, e);
         }
