@@ -11,6 +11,7 @@ set(
 	MOTOR_SOURCES
 	src/motor/allocator.c
 	src/motor/arena.c
+	src/motor/bump_alloc.c
 	src/motor/renderer.c
 	src/motor/threads.c
 	src/motor/array.c
