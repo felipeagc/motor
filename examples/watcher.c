@@ -1,13 +1,14 @@
 #include <stdio.h>
+#include <motor/allocator.h>
 #include <motor/arena.h>
 #include <motor/file_watcher.h>
 
 int main() {
-    MtArena arena;
-    mt_arena_init(&arena, 1 << 16);
+    MtAllocator alloc;
+    mt_arena_init(&alloc, 1 << 16);
 
     MtFileWatcher *watcher = mt_file_watcher_create(
-        &arena, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
+        &alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
 
     while (1) {
         MtFileWatcherEvent e;
@@ -35,6 +36,6 @@ int main() {
 
     mt_file_watcher_destroy(watcher);
 
-    mt_arena_destroy(&arena);
+    mt_arena_destroy(&alloc);
     return 0;
 }

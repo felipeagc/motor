@@ -1,5 +1,5 @@
 static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
-    MtImage *image = mt_calloc(dev->arena, sizeof(MtImage));
+    MtImage *image = mt_calloc(dev->alloc, sizeof(MtImage));
 
     if (ci->depth == 0) {
         ci->depth = 1;
@@ -143,5 +143,5 @@ static void destroy_image(MtDevice *dev, MtImage *image) {
         vkDestroyImageView(dev->device, image->image_view, NULL);
     if (image->image)
         vmaDestroyImage(dev->gpu_allocator, image->image, image->allocation);
-    mt_free(dev->arena, image);
+    mt_free(dev->alloc, image);
 }

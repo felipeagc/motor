@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct MtArena MtArena;
+typedef struct MtAllocator MtAllocator;
 typedef struct MtDevice MtDevice;
 typedef struct MtIWindowSystem MtIWindowSystem;
 
@@ -19,4 +19,4 @@ typedef struct MtVulkanDeviceCreateInfo {
 } MtVulkanDeviceCreateInfo;
 
 MtDevice *
-mt_vulkan_device_init(MtVulkanDeviceCreateInfo *descriptor, MtArena *arena);
+mt_vulkan_device_init(MtVulkanDeviceCreateInfo *descriptor, MtAllocator *alloc);

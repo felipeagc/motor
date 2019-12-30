@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <string.h>
 
-typedef struct MtArena MtArena;
+typedef struct MtAllocator MtAllocator;
 
 #define MT_BITSET(size)                                                        \
     struct {                                                                   \
@@ -31,6 +31,6 @@ typedef struct MtDynamicBitset {
 } MtDynamicBitset;
 
 void mt_dynamic_bitset_init(
-    MtDynamicBitset *bitset, uint32_t nbits, MtArena *arena);
+    MtDynamicBitset *bitset, uint32_t nbits, MtAllocator *alloc);
 
-void mt_dynamic_bitset_destroy(MtDynamicBitset *bitset, MtArena *arena);
+void mt_dynamic_bitset_destroy(MtDynamicBitset *bitset, MtAllocator *alloc);

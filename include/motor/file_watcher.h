@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 
-typedef struct MtArena MtArena;
+typedef struct MtAllocator MtAllocator;
 typedef struct MtFileWatcher MtFileWatcher;
 
 typedef enum MtFileWatcherEventType {
@@ -27,7 +27,7 @@ typedef struct MtFileWatcherEvent {
 } MtFileWatcherEvent;
 
 MtFileWatcher *mt_file_watcher_create(
-    MtArena *arena, MtFileWatcherEventType types, const char *dir);
+    MtAllocator *alloc, MtFileWatcherEventType types, const char *dir);
 
 bool mt_file_watcher_poll(MtFileWatcher *watcher, MtFileWatcherEvent *event);
 

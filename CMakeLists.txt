@@ -9,6 +9,7 @@ add_subdirectory(thirdparty)
 
 set(
 	MOTOR_SOURCES
+	src/motor/allocator.c
 	src/motor/arena.c
 	src/motor/renderer.c
 	src/motor/threads.c

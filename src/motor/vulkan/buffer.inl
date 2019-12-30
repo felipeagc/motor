@@ -1,5 +1,5 @@
 static MtBuffer *create_buffer(MtDevice *dev, MtBufferCreateInfo *ci) {
-    MtBuffer *buffer = mt_alloc(dev->arena, sizeof(MtBuffer));
+    MtBuffer *buffer = mt_alloc(dev->alloc, sizeof(MtBuffer));
     assert(ci->size != 0);
 
     buffer->size   = ci->size;
@@ -74,7 +74,7 @@ static void destroy_buffer(MtDevice *dev, MtBuffer *buffer) {
         vmaDestroyBuffer(
             dev->gpu_allocator, buffer->buffer, buffer->allocation);
     }
-    mt_free(dev->arena, buffer);
+    mt_free(dev->alloc, buffer);
 }
 
 static void *map_buffer(MtDevice *dev, MtBuffer *buffer) {

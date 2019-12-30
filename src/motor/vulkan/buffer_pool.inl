@@ -26,7 +26,7 @@ static void buffer_pool_destroy(BufferPool *pool) {
 
 static void buffer_pool_recycle(BufferPool *pool, BufferBlock *block) {
     if (block->mapping != NULL) {
-        mt_array_push(pool->dev->arena, pool->blocks, *block);
+        mt_array_push(pool->dev->alloc, pool->blocks, *block);
     }
     memset(block, 0, sizeof(*block));
 }

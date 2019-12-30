@@ -10,7 +10,7 @@
 #include "../../../include/motor/renderer.h"
 #include "../../../include/motor/window.h"
 #include "../../../include/motor/util.h"
-#include "../../../include/motor/arena.h"
+#include "../../../include/motor/allocator.h"
 
 #define clamp(v, a, b) ((((v > b) ? b : v) < a) ? a : v)
 
@@ -20,7 +20,7 @@
 
 typedef struct MtWindow {
     MtDevice *dev;
-    MtArena *arena;
+    MtAllocator *alloc;
 
     GLFWwindow *window;
     VkSurfaceKHR surface;
@@ -184,7 +184,7 @@ static SwapchainSupport query_swapchain_support(MtWindow *window) {
         dev->physical_device, window->surface, &details.format_count, NULL);
     if (details.format_count != 0) {
         details.formats = mt_alloc(
-            window->arena, sizeof(VkSurfaceFormatKHR) * details.format_count);
+            window->alloc, sizeof(VkSurfaceFormatKHR) * details.format_count);
         vkGetPhysicalDeviceSurfaceFormatsKHR(
             dev->physical_device,
             window->surface,
@@ -200,7 +200,7 @@ static SwapchainSupport query_swapchain_support(MtWindow *window) {
         NULL);
     if (details.present_mode_count != 0) {
         details.present_modes = mt_alloc(
-            window->arena,
+            window->alloc,
             sizeof(VkPresentModeKHR) * details.present_mode_count);
         vkGetPhysicalDeviceSurfacePresentModesKHR(
             dev->physical_device,
@@ -360,7 +360,7 @@ static void create_swapchain(MtWindow *window) {
 
     vkGetSwapchainImagesKHR(dev->device, window->swapchain, &image_count, NULL);
     window->swapchain_images = mt_realloc(
-        window->arena, window->swapchain_images, sizeof(VkImage) * image_count);
+        window->alloc, window->swapchain_images, sizeof(VkImage) * image_count);
     vkGetSwapchainImagesKHR(
         dev->device, window->swapchain, &image_count, window->swapchain_images);
 
@@ -368,15 +368,15 @@ static void create_swapchain(MtWindow *window) {
     window->swapchain_image_format = surface_format.format;
     window->render_pass.extent     = extent;
 
-    mt_free(window->arena, swapchain_support.formats);
-    mt_free(window->arena, swapchain_support.present_modes);
+    mt_free(window->alloc, swapchain_support.formats);
+    mt_free(window->alloc, swapchain_support.present_modes);
 }
 
 static void create_swapchain_image_views(MtWindow *window) {
     MtDevice *dev = window->dev;
 
     window->swapchain_image_views = mt_realloc(
-        window->arena,
+        window->alloc,
         window->swapchain_image_views,
         sizeof(VkImageView) * window->swapchain_image_count);
 
@@ -537,7 +537,7 @@ static void create_framebuffers(MtWindow *window) {
     MtDevice *dev = window->dev;
 
     window->swapchain_framebuffers = mt_realloc(
-        window->arena,
+        window->alloc,
         window->swapchain_framebuffers,
         sizeof(VkFramebuffer) * window->swapchain_image_count);
 
@@ -808,11 +808,11 @@ void mt_glfw_vulkan_window_init(
     uint32_t width,
     uint32_t height,
     const char *title,
-    MtArena *arena) {
-    MtWindow *window = mt_calloc(arena, sizeof(MtWindow));
+    MtAllocator *alloc) {
+    MtWindow *window = mt_calloc(alloc, sizeof(MtWindow));
     window->window =
         glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
-    window->arena = arena;
+    window->alloc = alloc;
     window->dev   = dev;
 
     interface->vt   = &g_glfw_window_vt;

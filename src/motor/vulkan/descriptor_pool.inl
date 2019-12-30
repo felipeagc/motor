@@ -1,12 +1,12 @@
 static void descriptor_pool_grow(MtDevice *dev, DescriptorPool *p) {
     VkDescriptorPool *pool =
-        mt_array_push(dev->arena, p->pools, (VkDescriptorPool){0});
+        mt_array_push(dev->alloc, p->pools, (VkDescriptorPool){0});
     MtHashMap *hashmap =
-        mt_array_push(dev->arena, p->pool_hashmaps, (MtHashMap){0});
+        mt_array_push(dev->alloc, p->pool_hashmaps, (MtHashMap){0});
     uint32_t *allocated_set_count =
-        mt_array_push(dev->arena, p->allocated_set_counts, (uint32_t){0});
+        mt_array_push(dev->alloc, p->allocated_set_counts, (uint32_t){0});
 
-    mt_hash_init(hashmap, SETS_PER_PAGE * 2, dev->arena);
+    mt_hash_init(hashmap, SETS_PER_PAGE * 2, dev->alloc);
 
     *allocated_set_count = 0;
 
@@ -23,7 +23,7 @@ static void descriptor_pool_grow(MtDevice *dev, DescriptorPool *p) {
 
     // Allocate descriptor sets
     VkDescriptorSetLayout *set_layouts = NULL;
-    mt_array_pushn(dev->arena, set_layouts, SETS_PER_PAGE);
+    mt_array_pushn(dev->alloc, set_layouts, SETS_PER_PAGE);
     for (uint32_t i = 0; i < mt_array_size(set_layouts); i++) {
         set_layouts[i] = p->set_layout;
     }
@@ -35,11 +35,11 @@ static void descriptor_pool_grow(MtDevice *dev, DescriptorPool *p) {
         .pSetLayouts        = set_layouts,
     };
 
-    VkDescriptorSet **sets = mt_array_push(dev->arena, p->set_arrays, NULL);
-    mt_array_pushn(dev->arena, *sets, SETS_PER_PAGE);
+    VkDescriptorSet **sets = mt_array_push(dev->alloc, p->set_arrays, NULL);
+    mt_array_pushn(dev->alloc, *sets, SETS_PER_PAGE);
     VK_CHECK(vkAllocateDescriptorSets(dev->device, &alloc_info, *sets));
 
-    mt_array_free(dev->arena, set_layouts);
+    mt_array_free(dev->alloc, set_layouts);
 }
 
 static void descriptor_pool_init(
@@ -76,7 +76,7 @@ static void descriptor_pool_init(
                 .offset          = binding->binding * sizeof(Descriptor),
                 .stride          = sizeof(Descriptor),
             };
-            mt_array_push(dev->arena, entries, entry);
+            mt_array_push(dev->alloc, entries, entry);
         }
 
         VkDescriptorUpdateTemplateCreateInfo template_info = {
@@ -93,7 +93,7 @@ static void descriptor_pool_init(
         vkCreateDescriptorUpdateTemplate(
             dev->device, &template_info, NULL, &p->update_template);
 
-        mt_array_free(dev->arena, entries);
+        mt_array_free(dev->alloc, entries);
     }
 
     // Setup up pool sizes
@@ -112,7 +112,7 @@ static void descriptor_pool_init(
 
             if (!found_pool_size) {
                 found_pool_size = mt_array_push(
-                    dev->arena, p->pool_sizes, (VkDescriptorPoolSize){0});
+                    dev->alloc, p->pool_sizes, (VkDescriptorPoolSize){0});
 
                 found_pool_size->type            = binding->descriptorType;
                 found_pool_size->descriptorCount = 0;
@@ -180,21 +180,21 @@ static void descriptor_pool_destroy(MtDevice *dev, DescriptorPool *p) {
     for (uint32_t i = 0; i < mt_array_size(p->pools); i++) {
         vkDestroyDescriptorPool(dev->device, p->pools[i], NULL);
     }
-    mt_array_free(dev->arena, p->pools);
+    mt_array_free(dev->alloc, p->pools);
 
-    mt_array_free(dev->arena, p->allocated_set_counts);
+    mt_array_free(dev->alloc, p->allocated_set_counts);
 
     for (uint32_t i = 0; i < mt_array_size(p->pool_hashmaps); i++) {
         mt_hash_destroy(&p->pool_hashmaps[i]);
     }
-    mt_array_free(dev->arena, p->pool_hashmaps);
+    mt_array_free(dev->alloc, p->pool_hashmaps);
 
     for (uint32_t i = 0; i < mt_array_size(p->set_arrays); i++) {
-        mt_array_free(dev->arena, p->set_arrays[i]);
+        mt_array_free(dev->alloc, p->set_arrays[i]);
     }
-    mt_array_free(dev->arena, p->set_arrays);
+    mt_array_free(dev->alloc, p->set_arrays);
 
-    mt_array_free(dev->arena, p->pool_sizes);
+    mt_array_free(dev->alloc, p->pool_sizes);
 
     vkDestroyDescriptorSetLayout(dev->device, p->set_layout, NULL);
     vkDestroyDescriptorUpdateTemplate(dev->device, p->update_template, NULL);
