@@ -729,9 +729,13 @@ static void transfer_to_image(
     destroy_fence(dev, fence);
 }
 
+static void device_wait_idle(MtDevice *dev) {
+    VK_CHECK(vkDeviceWaitIdle(dev->device));
+}
+
 static void destroy_device(MtDevice *dev) {
     MtArena *arena = dev->arena;
-    vkDeviceWaitIdle(dev->device);
+    VK_CHECK(vkDeviceWaitIdle(dev->device));
 
     buffer_pool_destroy(&dev->ubo_pool);
     buffer_pool_destroy(&dev->vbo_pool);
@@ -778,7 +782,8 @@ static void destroy_device(MtDevice *dev) {
 // }}}
 
 static MtRenderer g_vulkan_renderer = (MtRenderer){
-    .destroy_device = destroy_device,
+    .destroy_device   = destroy_device,
+    .device_wait_idle = device_wait_idle,
 
     .allocate_cmd_buffers = allocate_cmd_buffers,
     .free_cmd_buffers     = free_cmd_buffers,
