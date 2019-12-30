@@ -90,3 +90,16 @@ buffer_block_allocate(BufferBlock *block, size_t allocate_size) {
 }
 
 static void buffer_block_reset(BufferBlock *block) { block->offset = 0; }
+
+MT_INLINE void ensure_buffer_block(
+    BufferPool *pool, BufferBlock *block, size_t allocate_size) {
+    size_t aligned_offset =
+        (block->offset + block->alignment - 1) & ~(block->alignment - 1);
+    if (block->mapping == NULL ||
+        block->size < aligned_offset + allocate_size) {
+        buffer_pool_recycle(pool, block);
+
+        *block =
+            buffer_pool_request_block(pool, aligned_offset + allocate_size);
+    }
+}
