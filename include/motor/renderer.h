@@ -192,6 +192,7 @@ typedef struct MtImageCopyView {
 
 typedef struct MtRenderer {
     void (*destroy_device)(MtDevice *);
+    void (*device_wait_idle)(MtDevice *);
 
     void (*allocate_cmd_buffers)(
         MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
