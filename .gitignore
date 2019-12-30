@@ -1,6 +1,2 @@
 build/
-*.spv
-*.png
-*.jpeg
-*.jpg
-*.ktx
+!shaders/build/

@@ -531,6 +531,7 @@ request_compute_pipeline_instance(MtDevice *dev, MtPipeline *pipeline) {
 
 static void
 destroy_pipeline_instance(MtDevice *dev, PipelineInstance *instance) {
+    VK_CHECK(vkDeviceWaitIdle(dev->device));
     vkDestroyPipeline(dev->device, instance->vk_pipeline, NULL);
     mt_free(dev->arena, instance);
 }
@@ -550,7 +551,13 @@ static MtPipeline *create_graphics_pipeline(
         ci->line_width = 1.0f;
     }
 
-    pipeline->create_info = *ci;
+    pipeline->create_info                   = *ci;
+    pipeline->create_info.vertex_attributes = mt_alloc(
+        dev->arena, sizeof(MtVertexAttribute) * ci->vertex_attribute_count);
+    memcpy(
+        pipeline->create_info.vertex_attributes,
+        ci->vertex_attributes,
+        sizeof(MtVertexAttribute) * ci->vertex_attribute_count);
     mt_array_pushn(dev->arena, pipeline->shaders, 2);
 
     shader_init(dev, &pipeline->shaders[0], vertex_code, vertex_code_size);
@@ -609,6 +616,10 @@ create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
 }
 
 static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
+    if (pipeline->create_info.vertex_attributes) {
+        mt_free(dev->arena, pipeline->create_info.vertex_attributes);
+    }
+
     for (uint32_t i = 0; i < pipeline->instances.size; i++) {
         if (pipeline->instances.keys[i] != MT_HASH_UNUSED) {
             destroy_pipeline_instance(
