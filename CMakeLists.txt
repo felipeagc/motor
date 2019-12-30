@@ -16,6 +16,7 @@ set(
 	src/motor/hashmap.c
 	src/motor/bitset.c
 	src/motor/xxhash.c
+	src/motor/file_watcher.c
 
 	src/motor/vulkan/glfw_window.c
 	src/motor/vulkan/vulkan_device.c
@@ -30,6 +31,9 @@ target_link_libraries(motor ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} glfw)
 
 add_executable(simple examples/simple.c)
 target_link_libraries(simple PUBLIC motor)
+
+add_executable(watcher examples/watcher.c)
+target_link_libraries(watcher PUBLIC motor)
 
 add_executable(arena_tests tests/arena_tests.c)
 target_link_libraries(arena_tests PUBLIC motor)
