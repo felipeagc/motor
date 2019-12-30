@@ -6,8 +6,8 @@ int main() {
     MtArena arena;
     mt_arena_init(&arena, 1 << 16);
 
-    MtFileWatcher *watcher =
-        mt_file_watcher_create(&arena, MT_FILE_WATCHER_EVENT_ALL, "../assets");
+    MtFileWatcher *watcher = mt_file_watcher_create(
+        &arena, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
 
     while (1) {
         MtFileWatcherEvent e;

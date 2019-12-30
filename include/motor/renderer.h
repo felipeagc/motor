@@ -75,7 +75,7 @@ typedef struct MtGraphicsPipelineCreateInfo {
     MtFrontFace front_face;
     float line_width;
 
-    const MtVertexAttribute *vertex_attributes;
+    MtVertexAttribute *vertex_attributes;
     uint32_t vertex_attribute_count;
     uint32_t vertex_stride;
 } MtGraphicsPipelineCreateInfo;
