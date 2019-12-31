@@ -19,7 +19,7 @@ static MtAssetVT g_image_asset_vt = {
     .destroy = (void *)image_asset_destroy,
 };
 
-MtImageAsset *
+MtIAsset *
 mt_image_asset_create(MtAssetManager *asset_manager, const char *path) {
     MtImageAsset *asset  = mt_alloc(asset_manager->alloc, sizeof(MtImageAsset));
     asset->asset_manager = asset_manager;
@@ -53,7 +53,5 @@ mt_image_asset_create(MtAssetManager *asset_manager, const char *path) {
     iasset.vt   = &g_image_asset_vt;
     iasset.inst = (MtAsset *)asset;
 
-    mt_asset_manager_add(asset_manager, iasset);
-
-    return asset;
+    return mt_asset_manager_add(asset_manager, iasset);
 }

@@ -3,6 +3,7 @@
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
 typedef struct MtAssetManager MtAssetManager;
+typedef struct MtIAsset MtIAsset;
 
 typedef struct MtImageAsset {
     MtAssetManager *asset_manager;
@@ -10,5 +11,5 @@ typedef struct MtImageAsset {
     MtSampler *sampler;
 } MtImageAsset;
 
-MtImageAsset *
+MtIAsset *
 mt_image_asset_create(MtAssetManager *asset_manager, const char *path);

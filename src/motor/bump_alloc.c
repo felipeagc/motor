@@ -1,6 +1,7 @@
 #include "../../include/motor/bump_alloc.h"
 #include "../../include/motor/allocator.h"
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 typedef struct BumpBlock {
@@ -70,7 +71,8 @@ static void *bump_realloc(BumpAllocator *alloc, void *ptr, uint64_t size) {
 
 void mt_bump_alloc_init(
     MtAllocator *alloc, uint64_t block_size, MtAllocator *parent_allocator) {
-    BumpAllocator *bump = mt_calloc(parent_allocator, sizeof(BumpAllocator));
+    BumpAllocator *bump = mt_alloc(parent_allocator, sizeof(BumpAllocator));
+    memset(bump, 0, sizeof(*bump));
 
     bump->parent_allocator = parent_allocator;
 

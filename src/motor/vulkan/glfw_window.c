@@ -809,7 +809,9 @@ void mt_glfw_vulkan_window_init(
     uint32_t height,
     const char *title,
     MtAllocator *alloc) {
-    MtWindow *window = mt_calloc(alloc, sizeof(MtWindow));
+    MtWindow *window = mt_alloc(alloc, sizeof(MtWindow));
+    memset(window, 0, sizeof(*window));
+
     window->window =
         glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
     window->alloc = alloc;

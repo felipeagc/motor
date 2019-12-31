@@ -13,6 +13,6 @@ typedef struct MtAssetManager {
 
 void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine);
 
-void mt_asset_manager_add(MtAssetManager *am, MtIAsset asset);
+MtIAsset *mt_asset_manager_add(MtAssetManager *am, MtIAsset asset);
 
 void mt_asset_manager_destroy(MtAssetManager *am);

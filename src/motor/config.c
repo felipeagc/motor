@@ -235,8 +235,10 @@ MtConfig *mt_config_parse(char *input, uint64_t input_size) {
     MtAllocator alloc;
     mt_arena_init(&alloc, 1 << 12);
 
-    MtConfig *config = mt_calloc(&alloc, sizeof(MtConfig));
-    config->alloc    = alloc;
+    MtConfig *config = mt_alloc(&alloc, sizeof(MtConfig));
+    memset(config, 0, sizeof(*config));
+
+    config->alloc = alloc;
 
     mt_bump_alloc_init(&config->bump, 1 << 12, &config->alloc);
     mt_str_builder_init(&config->sb, &config->alloc);

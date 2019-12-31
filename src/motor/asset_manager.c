@@ -11,8 +11,8 @@ void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine) {
     am->alloc  = &engine->alloc;
 }
 
-void mt_asset_manager_add(MtAssetManager *am, MtIAsset asset) {
-    mt_array_push(am->alloc, am->assets, asset);
+MtIAsset *mt_asset_manager_add(MtAssetManager *am, MtIAsset asset) {
+    return mt_array_push(am->alloc, am->assets, asset);
 }
 
 void mt_asset_manager_destroy(MtAssetManager *am) {

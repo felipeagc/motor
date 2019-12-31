@@ -1,5 +1,6 @@
 static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci) {
-    MtSampler *sampler = mt_calloc(dev->alloc, sizeof(MtSampler));
+    MtSampler *sampler = mt_alloc(dev->alloc, sizeof(MtSampler));
+    memset(sampler, 0, sizeof(*sampler));
 
     if (ci->max_lod == 0.0f ||
         memcmp(&(uint32_t){0}, &ci->max_lod, sizeof(uint32_t)) == 0) {
