@@ -35,14 +35,10 @@ typedef struct MtConfigEntry {
     MtConfigValue value;
 } MtConfigEntry;
 
-typedef struct MtConfig {
-    MtAllocator bump;
-    MtStringBuilder sb;
-    MtAllocator *alloc;
-    MtConfigObject root;
-} MtConfig;
+typedef struct MtConfig MtConfig;
 
-bool mt_config_parse(
-    MtConfig *config, MtAllocator *alloc, char *input, uint64_t input_size);
+MtConfig *mt_config_parse(char *input, uint64_t input_size);
+
+MtConfigObject *mt_config_get_root(MtConfig *config);
 
 void mt_config_destroy(MtConfig *config);

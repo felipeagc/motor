@@ -6,12 +6,13 @@
 #include <motor/util.h>
 #include <motor/math_types.h>
 #include <motor/file_watcher.h>
-#include <motor/vulkan/vulkan_device.h>
-#include <motor/vulkan/glfw_window.h>
+#include <motor/engine.h>
+#include <motor/assets/pipeline_asset.h>
+#include <motor/assets/image_asset.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 static uint8_t *
@@ -41,69 +42,34 @@ static const char *VERT_PATH = "../shaders/build/test.vert.spv";
 static const char *FRAG_PATH = "../shaders/build/test.frag.spv";
 
 typedef struct Game {
-    MtAllocator alloc;
-    MtIWindowSystem window_system;
-    MtIWindow window;
-    MtDevice *dev;
+    MtEngine engine;
 
     MtFileWatcher *watcher;
 
-    MtImage *image;
-    MtSampler *sampler;
+    MtImageAsset *image_asset;
     MtPipeline *pipeline;
 } Game;
 
 void game_init(Game *g) {
-    mt_arena_init(&g->alloc, 1 << 16);
+    mt_engine_init(&g->engine);
 
-    mt_glfw_vulkan_init(&g->window_system);
-
-    g->dev = mt_vulkan_device_init(
-        &(MtVulkanDeviceCreateInfo){.window_system = &g->window_system},
-        &g->alloc);
-
-    mt_glfw_vulkan_window_init(
-        &g->window, g->dev, 800, 600, "Hello", &g->alloc);
+    g->image_asset =
+        mt_image_asset_create(&g->engine.asset_manager, "../assets/test.png");
 
     g->watcher = mt_file_watcher_create(
-        &g->alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../shaders");
-
-    stbi_set_flip_vertically_on_load(true);
-    int32_t w, h, num_channels;
-    uint8_t *image_data =
-        stbi_load("../assets/test.png", &w, &h, &num_channels, 4);
-
-    g->image = mt_render.create_image(
-        g->dev,
-        &(MtImageCreateInfo){
-            .width  = (uint32_t)w,
-            .height = (uint32_t)h,
-            .format = MT_FORMAT_RGBA8_UNORM,
-        });
-
-    mt_render.transfer_to_image(
-        g->dev,
-        &(MtImageCopyView){.image = g->image},
-        (uint32_t)(num_channels * w * h),
-        image_data);
-
-    free(image_data);
-
-    g->sampler = mt_render.create_sampler(
-        g->dev,
-        &(MtSamplerCreateInfo){.min_filter = MT_FILTER_NEAREST,
-                               .mag_filter = MT_FILTER_NEAREST});
+        &g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../shaders");
 
     uint8_t *vertex_code = NULL, *fragment_code = NULL;
     size_t vertex_code_size = 0, fragment_code_size = 0;
 
-    vertex_code = load_shader(&g->alloc, VERT_PATH, &vertex_code_size);
+    vertex_code = load_shader(&g->engine.alloc, VERT_PATH, &vertex_code_size);
     assert(vertex_code);
-    fragment_code = load_shader(&g->alloc, FRAG_PATH, &fragment_code_size);
+    fragment_code =
+        load_shader(&g->engine.alloc, FRAG_PATH, &fragment_code_size);
     assert(fragment_code);
 
     g->pipeline = mt_render.create_graphics_pipeline(
-        g->dev,
+        g->engine.device,
         vertex_code,
         vertex_code_size,
         fragment_code,
@@ -122,38 +88,32 @@ void game_init(Game *g) {
             .vertex_stride          = sizeof(Vertex),
         });
 
-    mt_free(&g->alloc, vertex_code);
-    mt_free(&g->alloc, fragment_code);
+    mt_free(&g->engine.alloc, vertex_code);
+    mt_free(&g->engine.alloc, fragment_code);
 }
 
 void game_destroy(Game *g) {
-    mt_render.destroy_image(g->dev, g->image);
-    mt_render.destroy_sampler(g->dev, g->sampler);
-
-    mt_render.destroy_pipeline(g->dev, g->pipeline);
-
-    g->window.vt->destroy(g->window.inst);
-    mt_render.destroy_device(g->dev);
-    g->window_system.vt->destroy();
+    mt_render.destroy_pipeline(g->engine.device, g->pipeline);
 
     mt_file_watcher_destroy(g->watcher);
 
-    mt_arena_destroy(&g->alloc);
+    mt_engine_destroy(&g->engine);
 }
 
 void recreate_pipeline(Game *g) {
-    mt_render.destroy_pipeline(g->dev, g->pipeline);
+    mt_render.destroy_pipeline(g->engine.device, g->pipeline);
 
     uint8_t *vertex_code = NULL, *fragment_code = NULL;
     size_t vertex_code_size = 0, fragment_code_size = 0;
 
-    vertex_code = load_shader(&g->alloc, VERT_PATH, &vertex_code_size);
+    vertex_code = load_shader(&g->engine.alloc, VERT_PATH, &vertex_code_size);
     assert(vertex_code);
-    fragment_code = load_shader(&g->alloc, FRAG_PATH, &fragment_code_size);
+    fragment_code =
+        load_shader(&g->engine.alloc, FRAG_PATH, &fragment_code_size);
     assert(fragment_code);
 
     g->pipeline = mt_render.create_graphics_pipeline(
-        g->dev,
+        g->engine.device,
         vertex_code,
         vertex_code_size,
         fragment_code,
@@ -172,8 +132,8 @@ void recreate_pipeline(Game *g) {
             .vertex_stride          = sizeof(Vertex),
         });
 
-    mt_free(&g->alloc, vertex_code);
-    mt_free(&g->alloc, fragment_code);
+    mt_free(&g->engine.alloc, vertex_code);
+    mt_free(&g->engine.alloc, fragment_code);
 }
 
 int main(int argc, char *argv[]) {
@@ -189,7 +149,7 @@ int main(int argc, char *argv[]) {
 
     uint16_t indices[6] = {2, 1, 0, 0, 3, 2};
 
-    while (!game.window.vt->should_close(game.window.inst)) {
+    while (!game.engine.window.vt->should_close(game.engine.window.inst)) {
         MtFileWatcherEvent e;
         while (mt_file_watcher_poll(game.watcher, &e)) {
             switch (e.type) {
@@ -203,10 +163,11 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        game.window_system.vt->poll_events();
+        game.engine.window_system.vt->poll_events();
 
         MtEvent event;
-        while (game.window.vt->next_event(game.window.inst, &event)) {
+        while (game.engine.window.vt->next_event(
+            game.engine.window.inst, &event)) {
             switch (event.type) {
             case MT_EVENT_WINDOW_CLOSED: {
                 printf("Closed\n");
@@ -215,18 +176,21 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        MtCmdBuffer *cb = game.window.vt->begin_frame(game.window.inst);
+        MtCmdBuffer *cb =
+            game.engine.window.vt->begin_frame(game.engine.window.inst);
 
         mt_render.begin_cmd_buffer(cb);
 
         mt_render.cmd_begin_render_pass(
-            cb, game.window.vt->get_render_pass(game.window.inst));
+            cb,
+            game.engine.window.vt->get_render_pass(game.engine.window.inst));
 
         mt_render.cmd_bind_pipeline(cb, game.pipeline);
         mt_render.cmd_bind_vertex_data(cb, vertices, sizeof(vertices));
         mt_render.cmd_bind_index_data(
             cb, indices, sizeof(indices), MT_INDEX_TYPE_UINT16);
-        mt_render.cmd_bind_image(cb, game.image, game.sampler, 0, 0);
+        mt_render.cmd_bind_image(
+            cb, game.image_asset->image, game.image_asset->sampler, 0, 0);
         mt_render.cmd_bind_uniform(cb, &V3(1, 1, 1), sizeof(Vec3), 0, 1);
         mt_render.cmd_draw_indexed(cb, MT_LENGTH(indices), 1);
 
@@ -234,7 +198,7 @@ int main(int argc, char *argv[]) {
 
         mt_render.end_cmd_buffer(cb);
 
-        game.window.vt->end_frame(game.window.inst);
+        game.engine.window.vt->end_frame(game.engine.window.inst);
     }
 
     game_destroy(&game);
