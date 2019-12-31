@@ -23,6 +23,12 @@ char *mt_strdup(MtAllocator *alloc, char *str) {
     return s;
 }
 
+char *mt_strndup(MtAllocator *alloc, char *str, uint64_t num_bytes) {
+    char *s = alloc->realloc(alloc->inst, NULL, num_bytes);
+    strncpy(s, str, num_bytes);
+    return s;
+}
+
 void mt_free(MtAllocator *alloc, void *ptr) {
     alloc->realloc(alloc->inst, ptr, 0);
 }
