@@ -40,9 +40,6 @@ static void print_object(MtConfigObject *obj, uint32_t indent) {
 }
 
 int main() {
-    MtAllocator alloc;
-    mt_arena_init(&alloc, 1 << 16);
-
     FILE *f = fopen("../assets/test.config", "r");
     assert(f);
 
@@ -50,22 +47,22 @@ int main() {
     size_t input_size = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    char *input = mt_alloc(&alloc, input_size);
+    char *input = malloc(input_size);
     fread(input, input_size, 1, f);
 
     fclose(f);
 
-    MtConfig config;
-    if (!mt_config_parse(&config, &alloc, input, input_size)) {
+    MtConfig *config = mt_config_parse(input, input_size);
+    if (!config) {
         printf("Failed to parse\n");
         exit(1);
     }
 
-    print_object(&config.root, 0);
+    print_object(mt_config_get_root(config), 0);
 
-    mt_config_destroy(&config);
+    mt_config_destroy(config);
 
-    mt_arena_destroy(&alloc);
+    free(input);
 
     return 0;
 }

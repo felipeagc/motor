@@ -1,10 +1,18 @@
 #include "../../include/motor/config.h"
 
+#include "../../include/motor/arena.h"
 #include "../../include/motor/bump_alloc.h"
 #include "../../include/motor/array.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+
+struct MtConfig {
+    MtAllocator bump;
+    MtAllocator alloc;
+    MtStringBuilder sb;
+    MtConfigObject root;
+};
 
 typedef struct Parser {
     char *input;
@@ -77,7 +85,7 @@ static bool parse_object(Parser *p, MtConfigObject *obj) {
     bool res = true;
     MtConfigEntry entry;
     while (!is_at_end(p) && *p->c != '}' && (res = parse_entry(p, &entry))) {
-        mt_array_push(p->config->alloc, obj->entries, entry);
+        mt_array_push(&p->config->alloc, obj->entries, entry);
         if (!skip_whitespace1(p)) {
             return false;
         }
@@ -223,13 +231,15 @@ static bool parse_entry(Parser *p, MtConfigEntry *entry) {
     return false;
 }
 
-bool mt_config_parse(
-    MtConfig *config, MtAllocator *alloc, char *input, uint64_t input_size) {
-    memset(config, 0, sizeof(*config));
+MtConfig *mt_config_parse(char *input, uint64_t input_size) {
+    MtAllocator alloc;
+    mt_arena_init(&alloc, 1 << 12);
 
-    config->alloc = alloc;
-    mt_bump_alloc_init(&config->bump, 1 << 14, config->alloc);
-    mt_str_builder_init(&config->sb, config->alloc);
+    MtConfig *config = mt_calloc(&alloc, sizeof(MtConfig));
+    config->alloc    = alloc;
+
+    mt_bump_alloc_init(&config->bump, 1 << 12, &config->alloc);
+    mt_str_builder_init(&config->sb, &config->alloc);
 
     Parser parser     = {0};
     parser.input      = input;
@@ -242,16 +252,26 @@ bool mt_config_parse(
     bool res = true;
     MtConfigEntry entry;
     while (!is_at_end(&parser) && (res = parse_entry(&parser, &entry))) {
-        mt_array_push(config->alloc, config->root.entries, entry);
+        mt_array_push(&config->alloc, config->root.entries, entry);
         if (!skip_whitespace1(&parser)) {
             return false;
         }
     }
 
-    return res;
+    if (!res) {
+        mt_arena_destroy(&alloc);
+        return NULL;
+    }
+
+    return config;
 }
 
+MtConfigObject *mt_config_get_root(MtConfig *config) { return &config->root; }
+
 void mt_config_destroy(MtConfig *config) {
-    mt_bump_alloc_destroy(&config->bump);
-    mt_str_builder_destroy(&config->sb);
+    if (config) {
+        mt_str_builder_destroy(&config->sb);
+        mt_bump_alloc_destroy(&config->bump);
+        mt_arena_destroy(&config->alloc);
+    }
 }

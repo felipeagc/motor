@@ -21,6 +21,12 @@ set(
 	src/motor/file_watcher.c
 	src/motor/config.c
 	src/motor/string_builder.c
+	src/motor/engine.c
+	src/motor/asset_manager.c
+	src/motor/stb_image.c
+
+	src/motor/assets/image_asset.c
+	src/motor/assets/pipeline_asset.c
 
 	src/motor/vulkan/glfw_window.c
 	src/motor/vulkan/vulkan_device.c
