@@ -1,6 +1,6 @@
 static MtBuffer *create_buffer(MtDevice *dev, MtBufferCreateInfo *ci) {
     MtBuffer *buffer = mt_alloc(dev->alloc, sizeof(MtBuffer));
-    assert(ci->size != 0);
+    assert(ci->size > 0);
 
     buffer->size   = ci->size;
     buffer->usage  = ci->usage;

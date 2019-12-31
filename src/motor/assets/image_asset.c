@@ -1,27 +1,25 @@
 #include "../../../include/motor/assets/image_asset.h"
 
+#include "../../../include/motor/util.h"
 #include "../../../include/motor/allocator.h"
 #include "../../../include/motor/engine.h"
 #include "../../../include/motor/asset_manager.h"
 #include "../../../include/motor/renderer.h"
 #include "../stb_image.h"
 
-static void image_asset_destroy(MtImageAsset *asset) {
+static void asset_destroy(MtAsset *asset_) {
+    MtImageAsset *asset = (MtImageAsset *)asset_;
+    if (!asset) return;
+
     MtDevice *dev = asset->asset_manager->engine->device;
 
     mt_render.destroy_image(dev, asset->image);
     mt_render.destroy_sampler(dev, asset->sampler);
-
-    mt_free(asset->asset_manager->alloc, asset);
 }
 
-static MtAssetVT g_image_asset_vt = {
-    .destroy = (void *)image_asset_destroy,
-};
-
-MtIAsset *
-mt_image_asset_create(MtAssetManager *asset_manager, const char *path) {
-    MtImageAsset *asset  = mt_alloc(asset_manager->alloc, sizeof(MtImageAsset));
+static bool
+asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
+    MtImageAsset *asset  = (MtImageAsset *)asset_;
     asset->asset_manager = asset_manager;
 
     stbi_set_flip_vertically_on_load(true);
@@ -49,9 +47,21 @@ mt_image_asset_create(MtAssetManager *asset_manager, const char *path) {
         &(MtSamplerCreateInfo){.min_filter = MT_FILTER_NEAREST,
                                .mag_filter = MT_FILTER_NEAREST});
 
-    MtIAsset iasset;
-    iasset.vt   = &g_image_asset_vt;
-    iasset.inst = (MtAsset *)asset;
-
-    return mt_asset_manager_add(asset_manager, iasset);
+    return true;
 }
+
+static const char *g_extensions[] = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+};
+
+static MtAssetVT g_asset_vt = {
+    .name            = "Image",
+    .extensions      = g_extensions,
+    .extension_count = MT_LENGTH(g_extensions),
+    .size            = sizeof(MtImageAsset),
+    .init            = asset_init,
+    .destroy         = asset_destroy,
+};
+MtAssetVT *mt_image_asset_vt = &g_asset_vt;

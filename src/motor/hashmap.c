@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include "../../include/motor/allocator.h"
+#include "xxhash.h"
 
 static void hash_grow(MtHashMap *map) {
     uint32_t old_size     = map->size;
@@ -21,6 +22,10 @@ static void hash_grow(MtHashMap *map) {
 
     mt_free(map->alloc, old_keys);
     mt_free(map->alloc, old_values);
+}
+
+uint64_t mt_hash_str(const char *str) {
+    return (uint64_t)XXH64(str, strlen(str), 0);
 }
 
 void mt_hash_init(MtHashMap *map, uint32_t size, MtAllocator *alloc) {

@@ -1,9 +1,13 @@
-static void begin_cmd_buffer(MtCmdBuffer *cmd_buffer) {
+static void begin_cmd_buffer(MtCmdBuffer *cb) {
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
     };
-    VK_CHECK(vkBeginCommandBuffer(cmd_buffer->cmd_buffer, &begin_info));
+    VK_CHECK(vkBeginCommandBuffer(cb->cmd_buffer, &begin_info));
+
+    if (cb->vbo_block.mapping) {
+        assert(cb->vbo_block.buffer->buffer);
+    }
 }
 
 static void end_cmd_buffer(MtCmdBuffer *cb) {
@@ -16,6 +20,10 @@ static void end_cmd_buffer(MtCmdBuffer *cb) {
     buffer_block_reset(&cb->ubo_block);
     buffer_block_reset(&cb->vbo_block);
     buffer_block_reset(&cb->ibo_block);
+
+    if (cb->vbo_block.mapping) {
+        assert(cb->vbo_block.buffer->buffer);
+    }
 }
 
 static void image_barrier(
@@ -433,6 +441,7 @@ static void cmd_bind_uniform(
     assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
 
     ensure_buffer_block(&cb->dev->ubo_pool, &cb->ubo_block, size);
+    assert(cb->ubo_block.buffer->buffer);
 
     BufferBlockAllocation allocation =
         buffer_block_allocate(&cb->ubo_block, size);
@@ -476,6 +485,7 @@ static void cmd_bind_index_buffer(
 
 static void cmd_bind_vertex_data(MtCmdBuffer *cb, void *data, size_t size) {
     ensure_buffer_block(&cb->dev->vbo_pool, &cb->vbo_block, size);
+    assert(cb->vbo_block.buffer->buffer);
 
     BufferBlockAllocation allocation =
         buffer_block_allocate(&cb->vbo_block, size);
@@ -489,6 +499,7 @@ static void cmd_bind_vertex_data(MtCmdBuffer *cb, void *data, size_t size) {
 static void cmd_bind_index_data(
     MtCmdBuffer *cb, void *data, size_t size, MtIndexType index_type) {
     ensure_buffer_block(&cb->dev->ibo_pool, &cb->ibo_block, size);
+    assert(cb->ibo_block.buffer->buffer);
 
     BufferBlockAllocation allocation =
         buffer_block_allocate(&cb->ibo_block, size);

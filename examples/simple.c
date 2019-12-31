@@ -1,7 +1,5 @@
 #include <motor/allocator.h>
-#include <motor/arena.h>
 #include <motor/renderer.h>
-#include <motor/threads.h>
 #include <motor/window.h>
 #include <motor/util.h>
 #include <motor/math_types.h>
@@ -13,31 +11,11 @@
 #include <assert.h>
 #include <string.h>
 
-static uint8_t *
-load_shader(MtAllocator *alloc, const char *path, size_t *size) {
-    FILE *f = fopen(path, "rb");
-    if (!f) return NULL;
-
-    fseek(f, 0, SEEK_END);
-    *size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    uint8_t *code = mt_alloc(alloc, *size);
-    fread(code, *size, 1, f);
-
-    fclose(f);
-
-    return code;
-}
-
 typedef struct Vertex {
     Vec3 pos;
     Vec3 normal;
     Vec2 tex_coords;
 } Vertex;
-
-static const char *VERT_PATH = "../shaders/build/test.vert.spv";
-static const char *FRAG_PATH = "../shaders/build/test.frag.spv";
 
 typedef struct Game {
     MtEngine engine;
@@ -45,94 +23,27 @@ typedef struct Game {
     MtFileWatcher *watcher;
 
     MtImageAsset *image_asset;
-    MtPipeline *pipeline;
+    MtPipelineAsset *pipeline_asset;
 } Game;
 
 void game_init(Game *g) {
     mt_engine_init(&g->engine);
 
-    g->image_asset = (MtImageAsset *)mt_image_asset_create(
-                         &g->engine.asset_manager, "../assets/test.png")
-                         ->inst;
-
     g->watcher = mt_file_watcher_create(
-        &g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../shaders");
+        g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
 
-    uint8_t *vertex_code = NULL, *fragment_code = NULL;
-    size_t vertex_code_size = 0, fragment_code_size = 0;
+    g->image_asset = (MtImageAsset *)mt_asset_manager_load(
+        &g->engine.asset_manager, "../assets/test.png");
 
-    vertex_code = load_shader(&g->engine.alloc, VERT_PATH, &vertex_code_size);
-    assert(vertex_code);
-    fragment_code =
-        load_shader(&g->engine.alloc, FRAG_PATH, &fragment_code_size);
-    assert(fragment_code);
-
-    g->pipeline = mt_render.create_graphics_pipeline(
-        g->engine.device,
-        vertex_code,
-        vertex_code_size,
-        fragment_code,
-        fragment_code_size,
-        &(MtGraphicsPipelineCreateInfo){
-            .cull_mode  = MT_CULL_MODE_NONE,
-            .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
-            .vertex_attributes =
-                (MtVertexAttribute[]){
-                    {.format = MT_FORMAT_RGB32_SFLOAT, .offset = 0},
-                    {.format = MT_FORMAT_RGB32_SFLOAT,
-                     .offset = sizeof(float) * 3},
-                    {.format = MT_FORMAT_RG32_SFLOAT,
-                     .offset = sizeof(float) * 6}},
-            .vertex_attribute_count = 3,
-            .vertex_stride          = sizeof(Vertex),
-        });
-
-    mt_free(&g->engine.alloc, vertex_code);
-    mt_free(&g->engine.alloc, fragment_code);
+    g->pipeline_asset = (MtPipelineAsset *)mt_asset_manager_load(
+        &g->engine.asset_manager, "../assets/shaders/test.glsl");
+    assert(g->pipeline_asset);
 }
 
 void game_destroy(Game *g) {
-    mt_render.destroy_pipeline(g->engine.device, g->pipeline);
-
     mt_file_watcher_destroy(g->watcher);
 
     mt_engine_destroy(&g->engine);
-}
-
-void recreate_pipeline(Game *g) {
-    mt_render.destroy_pipeline(g->engine.device, g->pipeline);
-
-    uint8_t *vertex_code = NULL, *fragment_code = NULL;
-    size_t vertex_code_size = 0, fragment_code_size = 0;
-
-    vertex_code = load_shader(&g->engine.alloc, VERT_PATH, &vertex_code_size);
-    assert(vertex_code);
-    fragment_code =
-        load_shader(&g->engine.alloc, FRAG_PATH, &fragment_code_size);
-    assert(fragment_code);
-
-    g->pipeline = mt_render.create_graphics_pipeline(
-        g->engine.device,
-        vertex_code,
-        vertex_code_size,
-        fragment_code,
-        fragment_code_size,
-        &(MtGraphicsPipelineCreateInfo){
-            .cull_mode  = MT_CULL_MODE_NONE,
-            .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
-            .vertex_attributes =
-                (MtVertexAttribute[]){
-                    {.format = MT_FORMAT_RGB32_SFLOAT, .offset = 0},
-                    {.format = MT_FORMAT_RGB32_SFLOAT,
-                     .offset = sizeof(float) * 3},
-                    {.format = MT_FORMAT_RG32_SFLOAT,
-                     .offset = sizeof(float) * 6}},
-            .vertex_attribute_count = 3,
-            .vertex_stride          = sizeof(Vertex),
-        });
-
-    mt_free(&g->engine.alloc, vertex_code);
-    mt_free(&g->engine.alloc, fragment_code);
 }
 
 int main(int argc, char *argv[]) {
@@ -153,10 +64,7 @@ int main(int argc, char *argv[]) {
         while (mt_file_watcher_poll(game.watcher, &e)) {
             switch (e.type) {
             case MT_FILE_WATCHER_EVENT_MODIFY: {
-                if (strcmp(e.src, FRAG_PATH) == 0 ||
-                    strcmp(e.src, FRAG_PATH) == 0) {
-                    recreate_pipeline(&game);
-                }
+                mt_asset_manager_load(&game.engine.asset_manager, e.src);
             } break;
             default: break;
             }
@@ -184,7 +92,7 @@ int main(int argc, char *argv[]) {
             cb,
             game.engine.window.vt->get_render_pass(game.engine.window.inst));
 
-        mt_render.cmd_bind_pipeline(cb, game.pipeline);
+        mt_render.cmd_bind_pipeline(cb, game.pipeline_asset->pipeline);
         mt_render.cmd_bind_vertex_data(cb, vertices, sizeof(vertices));
         mt_render.cmd_bind_index_data(
             cb, indices, sizeof(indices), MT_INDEX_TYPE_UINT16);
