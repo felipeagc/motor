@@ -1,6 +1,7 @@
 #pragma once
 
 typedef struct MtPipeline MtPipeline;
+typedef struct MtIAsset MtIAsset;
 typedef struct MtAssetManager MtAssetManager;
 
 typedef struct MtPipelineAsset {
@@ -8,5 +9,5 @@ typedef struct MtPipelineAsset {
     MtPipeline *pipeline;
 } MtPipelineAsset;
 
-MtPipelineAsset *
+MtIAsset *
 mt_pipeline_asset_create(MtAssetManager *asset_manager, const char *path);

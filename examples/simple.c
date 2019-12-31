@@ -51,8 +51,9 @@ typedef struct Game {
 void game_init(Game *g) {
     mt_engine_init(&g->engine);
 
-    g->image_asset =
-        mt_image_asset_create(&g->engine.asset_manager, "../assets/test.png");
+    g->image_asset = (MtImageAsset *)mt_image_asset_create(
+                         &g->engine.asset_manager, "../assets/test.png")
+                         ->inst;
 
     g->watcher = mt_file_watcher_create(
         &g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../shaders");

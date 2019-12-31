@@ -91,8 +91,10 @@ static void watcher_recursive_add(
 
 MtFileWatcher *mt_file_watcher_create(
     MtAllocator *alloc, MtFileWatcherEventType types, const char *dir) {
-    MtFileWatcher *w = mt_calloc(alloc, sizeof(MtFileWatcher));
-    w->alloc         = alloc;
+    MtFileWatcher *w = mt_alloc(alloc, sizeof(MtFileWatcher));
+    memset(w, 0, sizeof(*w));
+
+    w->alloc = alloc;
 
     if (types & MT_FILE_WATCHER_EVENT_CREATE) w->watch_flags |= IN_CREATE;
     if (types & MT_FILE_WATCHER_EVENT_REMOVE) w->watch_flags |= IN_DELETE;

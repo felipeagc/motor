@@ -187,8 +187,12 @@ find_queue_families(MtDevice *dev, VkPhysicalDevice physical_device) {
     vkGetPhysicalDeviceQueueFamilyProperties(
         physical_device, &queue_family_count, NULL);
 
-    VkQueueFamilyProperties *queue_families = mt_calloc(
+    VkQueueFamilyProperties *queue_families = mt_alloc(
         dev->alloc, sizeof(VkQueueFamilyProperties) * queue_family_count);
+    memset(
+        queue_families,
+        0,
+        sizeof(VkQueueFamilyProperties) * queue_family_count);
 
     vkGetPhysicalDeviceQueueFamilyProperties(
         physical_device, &queue_family_count, queue_families);
@@ -847,9 +851,11 @@ MtDevice *mt_vulkan_device_init(
     MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc) {
     mt_render = g_vulkan_renderer;
 
-    MtDevice *dev = mt_calloc(alloc, sizeof(MtDevice));
-    dev->flags    = create_info->flags;
-    dev->alloc    = alloc;
+    MtDevice *dev = mt_alloc(alloc, sizeof(MtDevice));
+    memset(dev, 0, sizeof(*dev));
+
+    dev->flags = create_info->flags;
+    dev->alloc = alloc;
 
     dev->window_system = create_info->window_system->inst;
 

@@ -192,7 +192,8 @@ static PipelineLayout *create_pipeline_layout(
     MtDevice *dev,
     CombinedSetLayouts *combined,
     VkPipelineBindPoint bind_point) {
-    PipelineLayout *l = mt_calloc(dev->alloc, sizeof(PipelineLayout));
+    PipelineLayout *l = mt_alloc(dev->alloc, sizeof(PipelineLayout));
+    memset(l, 0, sizeof(*l));
 
     l->bind_point = bind_point;
 

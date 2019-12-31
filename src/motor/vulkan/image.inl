@@ -1,5 +1,6 @@
 static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
-    MtImage *image = mt_calloc(dev->alloc, sizeof(MtImage));
+    MtImage *image = mt_alloc(dev->alloc, sizeof(MtImage));
+    memset(image, 0, sizeof(*image));
 
     if (ci->depth == 0) {
         ci->depth = 1;
