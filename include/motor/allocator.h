@@ -15,4 +15,6 @@ void *mt_realloc(MtAllocator *alloc, void *ptr, uint64_t size);
 
 char *mt_strdup(MtAllocator *alloc, char *str);
 
+char *mt_strndup(MtAllocator *alloc, char *str, uint64_t num_bytes);
+
 void mt_free(MtAllocator *alloc, void *ptr);

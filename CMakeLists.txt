@@ -19,6 +19,8 @@ set(
 	src/motor/bitset.c
 	src/motor/xxhash.c
 	src/motor/file_watcher.c
+	src/motor/config.c
+	src/motor/string_builder.c
 
 	src/motor/vulkan/glfw_window.c
 	src/motor/vulkan/vulkan_device.c
@@ -36,6 +38,9 @@ target_link_libraries(simple PUBLIC motor)
 
 add_executable(watcher examples/watcher.c)
 target_link_libraries(watcher PUBLIC motor)
+
+add_executable(read_config examples/read_config.c)
+target_link_libraries(read_config PUBLIC motor)
 
 add_executable(arena_tests tests/arena_tests.c)
 target_link_libraries(arena_tests PUBLIC motor)
