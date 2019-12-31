@@ -2,17 +2,19 @@
 
 #include "asset_manager.h"
 #include "window.h"
-#include "allocator.h"
 
 typedef struct MtDevice MtDevice;
+typedef struct shaderc_compiler *shaderc_compiler_t;
 
 typedef struct MtEngine {
     MtDevice *device;
     MtIWindowSystem window_system;
     MtIWindow window;
 
-    MtAllocator alloc;
+    MtAllocator *alloc;
     MtAssetManager asset_manager;
+
+    shaderc_compiler_t compiler;
 } MtEngine;
 
 void mt_engine_init(MtEngine *engine);

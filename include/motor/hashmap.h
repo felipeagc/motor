@@ -14,6 +14,8 @@ typedef struct MtHashMap {
     uint32_t size;
 } MtHashMap;
 
+uint64_t mt_hash_str(const char *str);
+
 void mt_hash_init(MtHashMap *map, uint32_t size, MtAllocator *alloc);
 
 void mt_hash_clear(MtHashMap *map);

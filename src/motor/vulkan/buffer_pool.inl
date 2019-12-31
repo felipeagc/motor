@@ -26,6 +26,7 @@ static void buffer_pool_destroy(BufferPool *pool) {
 
 static void buffer_pool_recycle(BufferPool *pool, BufferBlock *block) {
     if (block->mapping != NULL) {
+        assert(block->buffer->buffer);
         mt_array_push(pool->dev->alloc, pool->blocks, *block);
     }
     memset(block, 0, sizeof(*block));
@@ -48,6 +49,8 @@ static BufferBlock buffer_pool_allocate_block(BufferPool *pool, size_t size) {
 
     block.mapping = map_buffer(pool->dev, block.buffer);
 
+    assert(block.buffer->buffer);
+
     return block;
 }
 
@@ -63,6 +66,7 @@ buffer_pool_request_block(BufferPool *pool, size_t minimum_size) {
         // Pop last block from blocks
         BufferBlock block = *mt_array_pop(pool->blocks);
         block.offset      = 0;
+        assert(block.buffer->buffer);
 
         return block;
     }
@@ -89,7 +93,12 @@ buffer_block_allocate(BufferBlock *block, size_t allocate_size) {
     return allocation;
 }
 
-static void buffer_block_reset(BufferBlock *block) { block->offset = 0; }
+static void buffer_block_reset(BufferBlock *block) {
+    if (block->mapping) {
+        block->offset = 0;
+        assert(block->buffer->buffer);
+    }
+}
 
 MT_INLINE void ensure_buffer_block(
     BufferPool *pool, BufferBlock *block, size_t allocate_size) {
@@ -101,5 +110,7 @@ MT_INLINE void ensure_buffer_block(
 
         *block =
             buffer_pool_request_block(pool, aligned_offset + allocate_size);
+
+        assert(block->buffer->buffer);
     }
 }

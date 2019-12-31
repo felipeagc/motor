@@ -1,6 +1,7 @@
 #pragma once
 
 #include "asset.h"
+#include "hashmap.h"
 
 typedef struct MtEngine MtEngine;
 typedef struct MtAllocator MtAllocator;
@@ -8,11 +9,14 @@ typedef struct MtAllocator MtAllocator;
 typedef struct MtAssetManager {
     MtEngine *engine;
     MtAllocator *alloc;
+    /*array*/ MtAssetVT **asset_types;
+
     /*array*/ MtIAsset *assets;
+    MtHashMap asset_map;
 } MtAssetManager;
 
 void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine);
 
-MtIAsset *mt_asset_manager_add(MtAssetManager *am, MtIAsset asset);
+MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path);
 
 void mt_asset_manager_destroy(MtAssetManager *am);
