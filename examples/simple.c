@@ -13,8 +13,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include "stb_image.h"
-
 static uint8_t *
 load_shader(MtAllocator *alloc, const char *path, size_t *size) {
     FILE *f = fopen(path, "rb");
