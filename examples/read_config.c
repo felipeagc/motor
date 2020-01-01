@@ -25,7 +25,7 @@ static void print_object(MtConfigObject *obj, uint32_t indent) {
             }
         } break;
         case MT_CONFIG_VALUE_INT: {
-            printf("%ld\n", entry->value.i64);
+            printf("%lld\n", entry->value.i64);
         } break;
         case MT_CONFIG_VALUE_FLOAT: {
             printf("%lf\n", entry->value.f64);
@@ -40,15 +40,16 @@ static void print_object(MtConfigObject *obj, uint32_t indent) {
 }
 
 int main() {
-    FILE *f = fopen("../assets/test.config", "r");
+    FILE *f = fopen("../assets/test.config", "rb");
     assert(f);
 
     fseek(f, 0, SEEK_END);
     size_t input_size = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    char *input = malloc(input_size);
-    fread(input, input_size, 1, f);
+    char *input = malloc(input_size + 1);
+    fread(input, 1, input_size, f);
+    input[input_size] = '\0';
 
     fclose(f);
 

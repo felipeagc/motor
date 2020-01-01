@@ -369,6 +369,9 @@ static char *build_full_path(MtFileWatcher *w, FILE_NOTIFY_INFORMATION *ev) {
         assert(ev->FileName[i] <= 255);
         res[w->watch_dir_len + 1 + i] =
             ev->FileName[i] > 255 ? '_' : (char)ev->FileName[i];
+        if (res[w->watch_dir_len + 1 + i] == '\\') {
+            res[w->watch_dir_len + 1 + i] = '/'; // switch slashes
+        }
     }
     res[length] = '\0';
     return res;
