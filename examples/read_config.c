@@ -25,7 +25,7 @@ static void print_object(MtConfigObject *obj, uint32_t indent) {
             }
         } break;
         case MT_CONFIG_VALUE_INT: {
-            printf("%lld\n", entry->value.i64);
+            printf("%ld\n", entry->value.i64);
         } break;
         case MT_CONFIG_VALUE_FLOAT: {
             printf("%lf\n", entry->value.f64);
