@@ -68,6 +68,21 @@ bool asset_init(
     MtConfigEntry *common_entry =
         mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
 
+    MtConfigEntry *blending_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("blending"));
+    MtConfigEntry *depth_test_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("depth_test"));
+    MtConfigEntry *depth_write_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("depth_write"));
+    MtConfigEntry *depth_bias_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("depth_bias"));
+    MtConfigEntry *cull_mode_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("cull_mode"));
+    MtConfigEntry *front_face_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("front_face"));
+    MtConfigEntry *line_width_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("line_width"));
+
     if (!vertex_entry || !fragment_entry) {
         goto failed;
     }
@@ -123,6 +138,99 @@ bool asset_init(
         goto failed;
     }
 
+    bool blending          = true;
+    bool depth_test        = true;
+    bool depth_write       = true;
+    bool depth_bias        = false;
+    MtFrontFace front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE;
+    MtCullMode cull_mode   = MT_CULL_MODE_NONE;
+    float line_width       = 1.0f;
+
+    if (blending_entry) {
+        if (blending_entry->value.type == MT_CONFIG_VALUE_BOOL) {
+            blending = blending_entry->value.boolean;
+        } else {
+            printf("Invalid pipeline blending type, wanted bool\n");
+            goto failed;
+        }
+    }
+
+    if (depth_test_entry) {
+        if (depth_test_entry->value.type == MT_CONFIG_VALUE_BOOL) {
+            depth_test = depth_test_entry->value.boolean;
+        } else {
+            printf("Invalid pipeline depth test type, wanted bool\n");
+            goto failed;
+        }
+    }
+
+    if (depth_write_entry) {
+        if (depth_write_entry->value.type == MT_CONFIG_VALUE_BOOL) {
+            depth_write = depth_write_entry->value.boolean;
+        } else {
+            printf("Invalid pipeline depth write type, wanted bool\n");
+            goto failed;
+        }
+    }
+
+    if (depth_bias_entry) {
+        if (depth_bias_entry->value.type == MT_CONFIG_VALUE_BOOL) {
+            depth_bias = depth_bias_entry->value.boolean;
+        } else {
+            printf("Invalid pipeline depth bias type, wanted bool\n");
+            goto failed;
+        }
+    }
+
+    if (front_face_entry) {
+        if (front_face_entry->value.type == MT_CONFIG_VALUE_STRING) {
+            if (strcmp(front_face_entry->value.string, "clockwise") == 0) {
+                front_face = MT_FRONT_FACE_CLOCKWISE;
+            } else if (
+                strcmp(front_face_entry->value.string, "counter_clockwise") ==
+                0) {
+                front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE;
+            } else {
+                printf(
+                    "Invalid pipeline front face: \"%s\"\n",
+                    front_face_entry->value.string);
+                goto failed;
+            }
+        } else {
+            printf("Invalid pipeline front face type, wanted string\n");
+            goto failed;
+        }
+    }
+
+    if (cull_mode_entry) {
+        if (cull_mode_entry->value.type == MT_CONFIG_VALUE_STRING) {
+            if (strcmp(cull_mode_entry->value.string, "none") == 0) {
+                cull_mode = MT_CULL_MODE_NONE;
+            } else if (strcmp(cull_mode_entry->value.string, "front") == 0) {
+                cull_mode = MT_CULL_MODE_FRONT;
+            } else if (strcmp(cull_mode_entry->value.string, "back") == 0) {
+                cull_mode = MT_CULL_MODE_BACK;
+            } else {
+                printf(
+                    "Invalid pipeline cull mode: \"%s\"\n",
+                    cull_mode_entry->value.string);
+                goto failed;
+            }
+        } else {
+            printf("Invalid pipeline cull mode type, wanted string\n");
+            goto failed;
+        }
+    }
+
+    if (line_width_entry) {
+        if (line_width_entry->value.type == MT_CONFIG_VALUE_FLOAT) {
+            line_width = (float)line_width_entry->value.f64;
+        } else {
+            printf("Invalid pipeline line width type, wanted float\n");
+            goto failed;
+        }
+    }
+
     asset->pipeline = mt_render.create_graphics_pipeline(
         asset_manager->engine->device,
         (uint8_t *)shaderc_result_get_bytes(vertex_result),
@@ -130,8 +238,8 @@ bool asset_init(
         (uint8_t *)shaderc_result_get_bytes(fragment_result),
         shaderc_result_get_length(fragment_result),
         &(MtGraphicsPipelineCreateInfo){
-            .cull_mode  = MT_CULL_MODE_NONE,
-            .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
+            .cull_mode  = cull_mode,
+            .front_face = front_face,
         });
 
     shaderc_compile_options_release(options);
