@@ -2,7 +2,7 @@ cull_mode: "back"
 front_face: "counter_clockwise"
 
 common: [[
-    const vec3 green = vec3(0.0f, 1.0f, 0.0f);
+    const vec3 green = vec3(1.0f, 1.0f, 1.0f);
 ]]
 
 vertex: [[

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <assert.h>
 
 struct MtConfig {
     MtAllocator *alloc;
@@ -13,13 +14,48 @@ struct MtConfig {
     MtConfigObject root;
 };
 
+typedef enum TokenType {
+    TOKEN_NEWLINE = 1,
+    TOKEN_COLON   = 2,
+
+    TOKEN_LCURLY = 3,
+    TOKEN_RCURLY = 4,
+
+    TOKEN_LBRACK = 5,
+    TOKEN_RBRACK = 6,
+
+    TOKEN_IDENT  = 7,
+    TOKEN_STRING = 8,
+    TOKEN_FLOAT  = 9,
+    TOKEN_INT    = 10,
+    TOKEN_TRUE   = 11,
+    TOKEN_FALSE  = 12,
+} TokenType;
+
+typedef struct Token {
+    TokenType type;
+    union {
+        char *string;
+        int64_t i64;
+        double f64;
+    };
+} Token;
+
 typedef struct Parser {
     char *input;
     uint64_t input_size;
-    char *c;
+    char *c; // current character
+
+    Token *tokens;
+    Token *t; // current token
+
     MtConfig *config;
     MtStringBuilder sb;
 } Parser;
+
+static bool p_is_at_end(Parser *p) {
+    return p->t >= (p->tokens + mt_array_size(p->tokens));
+}
 
 static bool is_alpha(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
@@ -30,49 +66,263 @@ static bool is_alphanum(char c) {
            (c >= '0' && c <= '9') || c == '_';
 }
 
-static bool is_at_end(Parser *p) {
+static bool is_numeric(char c) {
+    return ((c >= '0' && c <= '9') || c == '.' || c == '-');
+}
+
+static bool s_is_at_end(Parser *p) {
     return (uint64_t)(p->c - p->input) >= p->input_size || *p->c == '\0';
 }
 
-static bool skip_whitespace(Parser *p) {
-    while (!is_at_end(p) &&
-           (*p->c == ' ' || *p->c == '\t' || *p->c == '\n' || *p->c == '\r')) {
+static bool scan_multiline_string(Parser *p, Token *token) {
+    token->type = TOKEN_STRING;
+
+    if (s_is_at_end(p) || strncmp(p->c, "[[", 2) != 0) {
+        return false;
+    }
+    p->c += 2;
+
+    mt_str_builder_reset(&p->sb);
+    while (!s_is_at_end(p) && strncmp(p->c, "]]", 2) != 0) {
+        mt_str_builder_append_char(&p->sb, *p->c);
         p->c++;
+    }
+    token->string = mt_str_builder_build(&p->sb, &p->config->bump);
+
+    if (s_is_at_end(p) || strncmp(p->c, "]]", 2) != 0) {
+        return false;
+    }
+    p->c += 2;
+
+    return true;
+}
+
+static bool scan_string(Parser *p, Token *token) {
+    token->type = TOKEN_STRING;
+
+    if (s_is_at_end(p) || *p->c != '"') return false;
+    p->c++;
+
+    mt_str_builder_reset(&p->sb);
+    while (!s_is_at_end(p) && *p->c != '"') {
+        mt_str_builder_append_char(&p->sb, *p->c);
+        p->c++;
+    }
+    token->string = mt_str_builder_build(&p->sb, &p->config->bump);
+
+    if (s_is_at_end(p) || *p->c != '"') return false;
+    p->c++;
+
+    return true;
+}
+
+static bool scan_identifier(Parser *p, Token *token) {
+    char ident[128];
+    char *k = ident;
+    while (!s_is_at_end(p) && is_alphanum(*p->c)) {
+        *(k++) = *(p->c++);
+    }
+    *k = '\0';
+
+    if (strcmp(ident, "true") == 0) {
+        token->type = TOKEN_TRUE;
+        return true;
+    }
+
+    if (strcmp(ident, "false") == 0) {
+        token->type = TOKEN_FALSE;
+        return true;
+    }
+
+    token->type   = TOKEN_IDENT;
+    token->string = mt_strdup(&p->config->bump, ident);
+
+    return true;
+}
+
+static bool scan_number(Parser *p, Token *token) {
+    bool found_dot = false;
+
+    char str[48];
+    char *s = str;
+    while (!s_is_at_end(p) &&
+           ((*p->c >= '0' && *p->c <= '9') || *p->c == '-' || *p->c == '.')) {
+        if (*p->c == '.') found_dot = true;
+        *(s++) = *(p->c++);
+    }
+    *s = '\0';
+
+    if (found_dot) {
+        token->type = TOKEN_FLOAT;
+        token->f64  = strtod(str, NULL);
+    } else {
+        token->type = TOKEN_INT;
+        token->i64  = strtol(str, NULL, 10);
     }
 
     return true;
 }
 
-static bool skip_whitespace1(Parser *p) {
-    uint32_t spaces = 0;
-    while (!is_at_end(p) && ((*p->c) == ' ' || (*p->c) == '\t' ||
-                             (*p->c) == '\n' || (*p->c) == '\r')) {
-        spaces++;
+static bool scan_token(Parser *p) {
+    if (s_is_at_end(p)) return true;
+
+    Token token = {0};
+
+    switch (*p->c) {
+    case ' ':
+    case '\r':
+    case '\t': {
         p->c++;
+        return true;
+    } break;
+    case '\n': {
+        p->c++;
+        token.type = TOKEN_NEWLINE;
+    } break;
+    case ':': {
+        p->c++;
+        token.type = TOKEN_COLON;
+    } break;
+    case '{': {
+        p->c++;
+        token.type = TOKEN_LCURLY;
+    } break;
+    case '}': {
+        p->c++;
+        token.type = TOKEN_RCURLY;
+    } break;
+    case '[': {
+        if (*(p->c + 1) == '[') {
+            if (!scan_multiline_string(p, &token)) {
+                return false;
+            }
+            break;
+        }
+        p->c++;
+        token.type = TOKEN_LBRACK;
+    } break;
+    case ']': {
+        p->c++;
+        token.type = TOKEN_RBRACK;
+    } break;
+    case '"': {
+        if (!scan_string(p, &token)) {
+            return false;
+        }
+    } break;
+    case '/': {
+        if (*(p->c + 1) == '/') {
+            // Comment
+            while(!s_is_at_end(p) && *p->c != '\n') {
+                p->c++;
+            }
+            return true;
+        }
+    }
+    default: {
+        if (is_alpha(*p->c)) {
+            if (!scan_identifier(p, &token)) {
+                return false;
+            }
+            break;
+        }
+        if (is_numeric(*p->c)) {
+            if (!scan_number(p, &token)) {
+                return false;
+            }
+            break;
+        }
+
+        return false;
+    } break;
     }
 
-    return spaces != 0;
-}
-
-static bool skip_spaces(Parser *p) {
-    while (!is_at_end(p) && ((*p->c) == ' ' || (*p->c) == '\t')) {
-        p->c++;
-    }
+    mt_array_push(p->config->alloc, p->tokens, token);
 
     return true;
 }
 
-static bool skip_spaces1(Parser *p) {
-    uint32_t spaces = 0;
-    while (!is_at_end(p) && ((*p->c) == ' ' || (*p->c) == '\t')) {
-        spaces++;
-        p->c++;
+static bool parser_scan(Parser *p) {
+    while (!s_is_at_end(p)) {
+        if (!scan_token(p)) return false;
     }
-
-    return spaces != 0;
+    return true;
 }
 
-static bool parse_entry(Parser *p, MtConfigEntry *entry);
+static bool parse_object_entries(Parser *p, MtConfigObject *obj);
+
+static bool parse_entry(Parser *p, MtConfigEntry *entry) {
+    if (p_is_at_end(p) || p->t->type != TOKEN_IDENT) {
+        return false;
+    }
+    entry->key = p->t->string;
+    p->t++;
+
+    if (p_is_at_end(p) || p->t->type != TOKEN_COLON) {
+        return false;
+    }
+    p->t++;
+
+    if (p_is_at_end(p)) {
+        return false;
+    }
+
+    switch (p->t->type) {
+    case TOKEN_STRING: {
+        entry->value.type   = MT_CONFIG_VALUE_STRING;
+        entry->value.string = p->t->string;
+        p->t++;
+    } break;
+    case TOKEN_TRUE: {
+        entry->value.type    = MT_CONFIG_VALUE_BOOL;
+        entry->value.boolean = true;
+        p->t++;
+    } break;
+    case TOKEN_FALSE: {
+        entry->value.type    = MT_CONFIG_VALUE_BOOL;
+        entry->value.boolean = false;
+        p->t++;
+    } break;
+    case TOKEN_INT: {
+        entry->value.type = MT_CONFIG_VALUE_INT;
+        entry->value.i64  = p->t->i64;
+        p->t++;
+    } break;
+    case TOKEN_FLOAT: {
+        entry->value.type = MT_CONFIG_VALUE_FLOAT;
+        entry->value.f64  = p->t->f64;
+        p->t++;
+    } break;
+    case TOKEN_LCURLY: {
+        entry->value.type = MT_CONFIG_VALUE_OBJECT;
+        p->t++;
+
+        while (!p_is_at_end(p) && p->t->type == TOKEN_NEWLINE) {
+            p->t++;
+        }
+
+        if (p_is_at_end(p) || !parse_object_entries(p, &entry->value.object)) {
+            return false;
+        }
+
+        while (!p_is_at_end(p) && p->t->type == TOKEN_NEWLINE) {
+            p->t++;
+        }
+
+        if (p_is_at_end(p) || p->t->type != TOKEN_RCURLY) {
+            return false;
+        }
+        p->t++;
+    } break;
+    default: { return false; }
+    }
+
+    while (!p_is_at_end(p) && p->t->type == TOKEN_NEWLINE) {
+        p->t++;
+    }
+
+    return true;
+}
 
 static bool parse_object_entries(Parser *p, MtConfigObject *obj) {
     memset(obj, 0, sizeof(*obj));
@@ -80,7 +330,8 @@ static bool parse_object_entries(Parser *p, MtConfigObject *obj) {
 
     bool res = true;
     MtConfigEntry entry;
-    while (!is_at_end(p) && *p->c != '}' && (res = parse_entry(p, &entry))) {
+    while (!p_is_at_end(p) && p->t->type != TOKEN_RCURLY &&
+           (res = parse_entry(p, &entry))) {
         uint64_t key_hash = mt_hash_str(entry.key);
         if (!mt_hash_get_ptr(&obj->map, key_hash)) {
             MtConfigEntry *entry_ptr =
@@ -89,158 +340,9 @@ static bool parse_object_entries(Parser *p, MtConfigObject *obj) {
         } else {
             return false;
         }
-
-        if (!skip_whitespace1(p)) {
-            return false;
-        }
     }
 
     return res;
-}
-
-static bool parse_number(Parser *p, MtConfigValue *value) {
-    bool found_dot = false;
-
-    char str[48];
-    char *s = str;
-    while (!is_at_end(p) &&
-           ((*p->c >= '0' && *p->c <= '9') || *p->c == '-' || *p->c == '.')) {
-        if (*p->c == '.') found_dot = true;
-        *(s++) = *(p->c++);
-    }
-    *s = '\0';
-
-    if (found_dot) {
-        value->type = MT_CONFIG_VALUE_FLOAT;
-        value->f64  = strtod(str, NULL);
-    } else {
-        value->type = MT_CONFIG_VALUE_INT;
-        value->i64  = strtol(str, NULL, 10);
-    }
-
-    return true;
-}
-
-static bool parse_string(Parser *p, MtConfigValue *value) {
-    value->type = MT_CONFIG_VALUE_STRING;
-
-    if (is_at_end(p) || *p->c != '"') return false;
-    p->c++;
-
-    mt_str_builder_reset(&p->sb);
-    while (!is_at_end(p) && *p->c != '"') {
-        mt_str_builder_append_char(&p->sb, *p->c);
-        p->c++;
-    }
-    value->string = mt_str_builder_build(&p->sb, &p->config->bump);
-
-    if (is_at_end(p) || *p->c != '"') return false;
-    p->c++;
-
-    return true;
-}
-
-static bool parse_multiline_string(Parser *p, MtConfigValue *value) {
-    value->type = MT_CONFIG_VALUE_STRING;
-
-    if (is_at_end(p) || strncmp(p->c, "[[", 2) != 0) {
-        return false;
-    }
-    p->c += 2;
-
-    mt_str_builder_reset(&p->sb);
-    while (!is_at_end(p) && strncmp(p->c, "]]", 2) != 0) {
-        mt_str_builder_append_char(&p->sb, *p->c);
-        p->c++;
-    }
-    value->string = mt_str_builder_build(&p->sb, &p->config->bump);
-
-    if (is_at_end(p) || strncmp(p->c, "]]", 2) != 0) {
-        return false;
-    }
-    p->c += 2;
-
-    return true;
-}
-
-static bool parse_entry(Parser *p, MtConfigEntry *entry) {
-    memset(entry, 0, sizeof(*entry));
-
-    if (strncmp(p->c, "//", 2) == 0) {
-        printf("Hey\n");
-        while (!is_at_end(p) && *p->c != '\n') {
-            p->c++;
-        }
-        if (!is_at_end(p)) p->c++;
-    }
-
-    if (!skip_whitespace(p)) return false;
-
-    char key[128];
-    char *k = key;
-    while (!is_at_end(p) && is_alphanum(*p->c)) {
-        *(k++) = *(p->c++);
-    }
-    *k = '\0';
-
-    if (strlen(key) <= 0) return false;
-
-    entry->key = mt_strdup(&p->config->bump, key);
-
-    if (!skip_spaces(p)) return false;
-
-    if (is_at_end(p) || (*p->c) != ':') return false;
-    p->c++;
-
-    if (!skip_spaces(p)) return false;
-
-    if (*(p->c) == '{') {
-        // Parse object
-        entry->value.type = MT_CONFIG_VALUE_OBJECT;
-
-        if (is_at_end(p) || *p->c != '{') return false;
-        p->c++;
-
-        if (!skip_whitespace(p)) return false;
-
-        bool res = parse_object_entries(p, &entry->value.object);
-
-        if (is_at_end(p) || *p->c != '}') {
-            return false;
-        }
-        p->c++;
-
-        return res;
-    }
-
-    if ((*(p->c) >= '0' && *(p->c) <= '9') || *p->c == '.' || *p->c == '-') {
-        // Parse number
-        return parse_number(p, &entry->value);
-    }
-
-    if (*(p->c) == '"') {
-        return parse_string(p, &entry->value);
-    }
-
-    if (strncmp(p->c, "[[", 2) == 0) {
-        return parse_multiline_string(p, &entry->value);
-    }
-
-    if (strncmp(p->c, "true", 4) == 0) {
-        p->c += 4;
-        entry->value.type    = MT_CONFIG_VALUE_BOOL;
-        entry->value.boolean = true;
-        return true;
-    }
-
-    if (strncmp(p->c, "false", 4) == 0) {
-        p->c += 4;
-        entry->value.type    = MT_CONFIG_VALUE_BOOL;
-        entry->value.boolean = true;
-        return true;
-    }
-
-    return false;
 }
 
 static void destroy_object(MtConfig *config, MtConfigObject *obj) {
@@ -262,23 +364,25 @@ mt_config_parse(MtAllocator *alloc, char *input, uint64_t input_size) {
 
     mt_bump_alloc_init(&config->bump, 1 << 12, config->alloc);
 
-    MtStringBuilder sb;
-
     Parser parser     = {0};
     parser.input      = input;
     parser.input_size = input_size;
-    parser.c          = input;
     parser.config     = config;
 
     mt_str_builder_init(&parser.sb, config->alloc);
 
-    skip_whitespace(&parser);
+    parser.c = input;
+    if (!parser_scan(&parser)) {
+        mt_str_builder_destroy(&parser.sb);
+        mt_array_free(alloc, parser.tokens);
+        mt_free(alloc, config);
+        return NULL;
+    }
 
-    bool res = parse_object_entries(&parser, &config->root);
-
-    mt_str_builder_destroy(&parser.sb);
-
-    if (!res) {
+    parser.t = parser.tokens;
+    if (!parse_object_entries(&parser, &config->root)) {
+        mt_str_builder_destroy(&parser.sb);
+        mt_array_free(alloc, parser.tokens);
         mt_free(alloc, config);
         return NULL;
     }
