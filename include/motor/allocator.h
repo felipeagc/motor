@@ -30,3 +30,5 @@ void mt_internal_free(
 char *mt_strdup(MtAllocator *alloc, char *str);
 
 char *mt_strndup(MtAllocator *alloc, char *str, uint64_t num_bytes);
+
+char *mt_strcat(MtAllocator *alloc, char *dest, const char* src);

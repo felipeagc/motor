@@ -4,11 +4,13 @@
 #include <stdint.h>
 #include "allocator.h"
 #include "string_builder.h"
+#include "hashmap.h"
 
 typedef struct MtConfigEntry MtConfigEntry;
 
 typedef struct MtConfigObject {
     /*array*/ MtConfigEntry *entries;
+    MtHashMap map;
 } MtConfigObject;
 
 typedef enum MtConfigValueType {
@@ -37,7 +39,7 @@ typedef struct MtConfigEntry {
 
 typedef struct MtConfig MtConfig;
 
-MtConfig *mt_config_parse(char *input, uint64_t input_size);
+MtConfig *mt_config_parse(MtAllocator *alloc, char *input, uint64_t input_size);
 
 MtConfigObject *mt_config_get_root(MtConfig *config);
 

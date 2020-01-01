@@ -61,11 +61,6 @@ typedef enum MtFrontFace {
     MT_FRONT_FACE_COUNTER_CLOCKWISE,
 } MtFrontFace;
 
-typedef struct MtVertexAttribute {
-    MtFormat format;
-    uint32_t offset;
-} MtVertexAttribute;
-
 typedef struct MtGraphicsPipelineCreateInfo {
     bool blending;
     bool depth_test;
@@ -74,10 +69,6 @@ typedef struct MtGraphicsPipelineCreateInfo {
     MtCullMode cull_mode;
     MtFrontFace front_face;
     float line_width;
-
-    MtVertexAttribute *vertex_attributes;
-    uint32_t vertex_attribute_count;
-    uint32_t vertex_stride;
 } MtGraphicsPipelineCreateInfo;
 
 typedef union MtColor {
