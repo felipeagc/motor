@@ -27,8 +27,8 @@ void *mt_internal_realloc(
 void mt_internal_free(
     MtAllocator *alloc, void *ptr, const char *filename, uint32_t line);
 
-char *mt_strdup(MtAllocator *alloc, char *str);
+char *mt_strdup(MtAllocator *alloc, const char *str);
 
-char *mt_strndup(MtAllocator *alloc, char *str, uint64_t num_bytes);
+char *mt_strndup(MtAllocator *alloc, const char *str, uint64_t num_bytes);
 
 char *mt_strcat(MtAllocator *alloc, char *dest, const char* src);

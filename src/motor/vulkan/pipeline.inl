@@ -69,7 +69,7 @@ static void combined_set_layouts_init(
                         binding = mt_array_push(
                             alloc,
                             set->bindings,
-                            (VkDescriptorSetLayoutBinding){});
+                            (VkDescriptorSetLayoutBinding){0});
                         binding->binding = sbinding->binding;
                     }
 

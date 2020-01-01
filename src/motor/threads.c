@@ -53,7 +53,7 @@ MtThread mt_thread_current(void) {
 
 int mt_thread_detach(MtThread thread) {
 #if defined(MT_THREADS_WIN32)
-    return CloseHandle(thread) != 0
+    return CloseHandle(thread) != 0;
 #elif defined(MT_THREADS_POSIX)
     return pthread_detach(thread) == 0;
 #endif

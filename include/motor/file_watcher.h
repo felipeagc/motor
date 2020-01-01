@@ -26,9 +26,13 @@ typedef struct MtFileWatcherEvent {
     char *dst;
 } MtFileWatcherEvent;
 
+typedef void (*MtFileWatcherHandler)(
+    MtFileWatcherEvent *event, void *user_data);
+
 MtFileWatcher *mt_file_watcher_create(
     MtAllocator *alloc, MtFileWatcherEventType types, const char *dir);
 
-bool mt_file_watcher_poll(MtFileWatcher *watcher, MtFileWatcherEvent *event);
+void mt_file_watcher_poll(
+    MtFileWatcher *watcher, MtFileWatcherHandler handler, void *user_data);
 
 void mt_file_watcher_destroy(MtFileWatcher *watcher);
