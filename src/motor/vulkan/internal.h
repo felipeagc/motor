@@ -106,12 +106,19 @@ typedef struct SetInfo {
     /*array*/ VkDescriptorSetLayoutBinding *bindings;
 } SetInfo;
 
+typedef struct VertexAttribute {
+    VkFormat format;
+    uint32_t size;
+} VertexAttribute;
+
 typedef struct Shader {
     VkShaderModule mod;
     VkShaderStageFlagBits stage;
 
     /*array*/ VkPushConstantRange *push_constants;
     /*array*/ SetInfo *sets;
+
+    /*array*/ VertexAttribute *vertex_attributes;
 } Shader;
 
 typedef union Descriptor {

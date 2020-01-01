@@ -1,3 +1,7 @@
+common: [[
+    const vec3 green = vec3(0.0f, 1.0f, 0.0f);
+]]
+
 vertex: [[
     layout (location = 0) in vec3 pos;
     layout (location = 1) in vec3 normal;
@@ -24,9 +28,8 @@ fragment: [[
     };
 
     layout (location = 0) out vec4 out_color;
-
     
     void main() {
-        out_color = texture(albedo, tex_coords) * vec4(color, 1.0f);
+        out_color = texture(albedo, tex_coords) * vec4(color * green, 1.0f);
     }
 ]]

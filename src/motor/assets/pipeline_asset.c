@@ -13,12 +13,6 @@
 #include <assert.h>
 #include <shaderc/shaderc.h>
 
-typedef struct Vertex {
-    Vec3 pos;
-    Vec3 normal;
-    Vec2 tex_coords;
-} Vertex;
-
 static void asset_destroy(MtAsset *asset_) {
     MtPipelineAsset *asset = (MtPipelineAsset *)asset_;
     if (!asset) return;
@@ -47,13 +41,18 @@ bool asset_init(
 
     fclose(f);
 
+    shaderc_compile_options_t options = NULL;
+    char *vertex_text = NULL, *fragment_text = NULL;
+
+    shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
+
     // Parse file
-    MtConfig *config = mt_config_parse(input, input_size);
+    MtConfig *config = mt_config_parse(asset_manager->alloc, input, input_size);
     if (!config) {
         goto failed;
     }
 
-    shaderc_compile_options_t options = shaderc_compile_options_initialize();
+    options = shaderc_compile_options_initialize();
     shaderc_compile_options_set_optimization_level(
         options, shaderc_optimization_level_performance);
     shaderc_compile_options_set_forced_version_profile(
@@ -61,51 +60,66 @@ bool asset_init(
     shaderc_compile_options_set_target_env(
         options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
 
-    shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
-
-    // Compile shaders
     MtConfigObject *obj = mt_config_get_root(config);
-    for (uint32_t i = 0; i < mt_array_size(obj->entries); i++) {
-        MtConfigEntry *entry = &obj->entries[i];
-        if (strcmp(entry->key, "vertex") == 0 &&
-            entry->value.type == MT_CONFIG_VALUE_STRING) {
-            vertex_result = shaderc_compile_into_spv(
-                asset_manager->engine->compiler,
-                entry->value.string,
-                strlen(entry->value.string),
-                shaderc_vertex_shader,
-                path,
-                "main",
-                options);
+    MtConfigEntry *vertex_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
+    MtConfigEntry *fragment_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
+    MtConfigEntry *common_entry =
+        mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
 
-            if (shaderc_result_get_compilation_status(vertex_result) ==
-                shaderc_compilation_status_compilation_error) {
-                printf("%s\n", shaderc_result_get_error_message(vertex_result));
-                goto failed;
-            }
-        }
-
-        if (strcmp(entry->key, "fragment") == 0 &&
-            entry->value.type == MT_CONFIG_VALUE_STRING) {
-            fragment_result = shaderc_compile_into_spv(
-                asset_manager->engine->compiler,
-                entry->value.string,
-                strlen(entry->value.string),
-                shaderc_fragment_shader,
-                path,
-                "main",
-                options);
-
-            if (shaderc_result_get_compilation_status(fragment_result) ==
-                shaderc_compilation_status_compilation_error) {
-                printf(
-                    "%s\n", shaderc_result_get_error_message(fragment_result));
-                goto failed;
-            }
-        }
+    if (!vertex_entry || !fragment_entry) {
+        goto failed;
     }
 
-    if (vertex_result == NULL || fragment_result == NULL) {
+    if (vertex_entry->value.type != MT_CONFIG_VALUE_STRING ||
+        fragment_entry->value.type != MT_CONFIG_VALUE_STRING) {
+        goto failed;
+    }
+
+    vertex_text = mt_strdup(asset_manager->alloc, vertex_entry->value.string);
+    fragment_text =
+        mt_strdup(asset_manager->alloc, fragment_entry->value.string);
+
+    if (common_entry && common_entry->value.type == MT_CONFIG_VALUE_STRING) {
+        vertex_text = mt_strcat(
+            asset_manager->alloc, common_entry->value.string, vertex_text);
+        fragment_text = mt_strcat(
+            asset_manager->alloc, common_entry->value.string, fragment_text);
+    }
+
+    size_t vertex_text_size   = strlen(vertex_text);
+    size_t fragment_text_size = strlen(fragment_text);
+
+    // Compile vertex shader
+    vertex_result = shaderc_compile_into_spv(
+        asset_manager->engine->compiler,
+        vertex_text,
+        vertex_text_size,
+        shaderc_vertex_shader,
+        path,
+        "main",
+        options);
+
+    if (shaderc_result_get_compilation_status(vertex_result) ==
+        shaderc_compilation_status_compilation_error) {
+        printf("%s\n", shaderc_result_get_error_message(vertex_result));
+        goto failed;
+    }
+
+    // Compile fragment shader
+    fragment_result = shaderc_compile_into_spv(
+        asset_manager->engine->compiler,
+        fragment_text,
+        fragment_text_size,
+        shaderc_fragment_shader,
+        path,
+        "main",
+        options);
+
+    if (shaderc_result_get_compilation_status(fragment_result) ==
+        shaderc_compilation_status_compilation_error) {
+        printf("%s\n", shaderc_result_get_error_message(fragment_result));
         goto failed;
     }
 
@@ -118,15 +132,6 @@ bool asset_init(
         &(MtGraphicsPipelineCreateInfo){
             .cull_mode  = MT_CULL_MODE_NONE,
             .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
-            .vertex_attributes =
-                (MtVertexAttribute[]){
-                    {.format = MT_FORMAT_RGB32_SFLOAT, .offset = 0},
-                    {.format = MT_FORMAT_RGB32_SFLOAT,
-                     .offset = sizeof(float) * 3},
-                    {.format = MT_FORMAT_RG32_SFLOAT,
-                     .offset = sizeof(float) * 6}},
-            .vertex_attribute_count = 3,
-            .vertex_stride          = sizeof(Vertex),
         });
 
     shaderc_compile_options_release(options);

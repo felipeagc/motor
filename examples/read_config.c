@@ -52,7 +52,7 @@ int main() {
 
     fclose(f);
 
-    MtConfig *config = mt_config_parse(input, input_size);
+    MtConfig *config = mt_config_parse(NULL, input, input_size);
     if (!config) {
         printf("Failed to parse\n");
         exit(1);

@@ -130,6 +130,45 @@ shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size) {
 
     assert(reflect_mod.entry_point_count == 1);
 
+    if (shader->stage == VK_SHADER_STAGE_VERTEX_BIT) {
+        uint32_t location_count = 0;
+        for (uint32_t i = 0; i < reflect_mod.input_variable_count; i++) {
+            SpvReflectInterfaceVariable *var = &reflect_mod.input_variables[i];
+            location_count = MT_MAX(var->location + 1, location_count);
+        }
+
+        mt_array_pushn(dev->alloc, shader->vertex_attributes, location_count);
+        for (uint32_t i = 0; i < reflect_mod.input_variable_count; i++) {
+            SpvReflectInterfaceVariable *var = &reflect_mod.input_variables[i];
+            VertexAttribute *attrib = &shader->vertex_attributes[var->location];
+            attrib->format          = (VkFormat)var->format;
+
+            switch (attrib->format) {
+            case VK_FORMAT_R32_UINT:
+            case VK_FORMAT_R32_SINT:
+            case VK_FORMAT_R32_SFLOAT: {
+                attrib->size = sizeof(float);
+            } break;
+            case VK_FORMAT_R32G32_UINT:
+            case VK_FORMAT_R32G32_SINT:
+            case VK_FORMAT_R32G32_SFLOAT: {
+                attrib->size = sizeof(float) * 2;
+            } break;
+            case VK_FORMAT_R32G32B32_UINT:
+            case VK_FORMAT_R32G32B32_SINT:
+            case VK_FORMAT_R32G32B32_SFLOAT: {
+                attrib->size = sizeof(float) * 3;
+            } break;
+            case VK_FORMAT_R32G32B32A32_UINT:
+            case VK_FORMAT_R32G32B32A32_SINT:
+            case VK_FORMAT_R32G32B32A32_SFLOAT: {
+                attrib->size = sizeof(float) * 4;
+            } break;
+            default: assert(0);
+            }
+        }
+    }
+
     if (reflect_mod.descriptor_set_count > 0) {
         mt_array_pushn_zeroed(
             dev->alloc, shader->sets, reflect_mod.descriptor_set_count);
@@ -186,6 +225,7 @@ static void shader_destroy(MtDevice *dev, Shader *shader) {
 
     mt_array_free(dev->alloc, shader->sets);
     mt_array_free(dev->alloc, shader->push_constants);
+    mt_array_free(dev->alloc, shader->vertex_attributes);
 }
 
 static PipelineLayout *create_pipeline_layout(
@@ -288,6 +328,8 @@ static void create_graphics_pipeline_instance(
 
     MtGraphicsPipelineCreateInfo *options = &pipeline->create_info;
 
+    VertexAttribute *attribs = NULL;
+
     VkPipelineShaderStageCreateInfo *stages = NULL;
     mt_array_pushn(dev->alloc, stages, mt_array_size(pipeline->shaders));
     for (uint32_t i = 0; i < mt_array_size(pipeline->shaders); i++) {
@@ -297,6 +339,9 @@ static void create_graphics_pipeline_instance(
             .module = pipeline->shaders[i].mod,
             .pName  = "main",
         };
+        if (stages[i].stage == VK_SHADER_STAGE_VERTEX_BIT) {
+            attribs = pipeline->shaders[i].vertex_attributes;
+        }
     }
 
     // Defaults are OK
@@ -304,35 +349,60 @@ static void create_graphics_pipeline_instance(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     };
 
+    uint32_t vertex_stride = 0;
+    for (uint32_t i = 0; i < mt_array_size(attribs); i++) {
+        vertex_stride += attribs[i].size;
+    }
+
     VkVertexInputBindingDescription binding_description = {
         .binding   = 0,
-        .stride    = options->vertex_stride,
+        .stride    = vertex_stride,
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
     };
 
-    if (options->vertex_stride > 0) {
+    VkVertexInputAttributeDescription *attributes = NULL;
+    if (mt_array_size(attribs) > 0) {
         vertex_input_info.vertexBindingDescriptionCount = 1;
         vertex_input_info.pVertexBindingDescriptions    = &binding_description;
-    }
 
-    VkVertexInputAttributeDescription *attributes = NULL;
-    if (options->vertex_attribute_count > 0) {
-        mt_array_pushn(dev->alloc, attributes, options->vertex_attribute_count);
+        mt_array_pushn(dev->alloc, attributes, mt_array_size(attribs));
 
-        for (uint32_t i = 0; i < options->vertex_attribute_count; i++) {
+        uint32_t attrib_offset = 0;
+
+        for (uint32_t i = 0; i < mt_array_size(attribs); i++) {
             attributes[i] = (VkVertexInputAttributeDescription){
                 .location = i,
                 .binding  = 0,
-                .format =
-                    format_to_vulkan(options->vertex_attributes[i].format),
-                .offset = options->vertex_attributes[i].offset,
+                .format   = attribs[i].format,
+                .offset   = attrib_offset,
             };
+            attrib_offset += attribs[i].size;
         }
-
-        vertex_input_info.vertexAttributeDescriptionCount =
-            mt_array_size(attributes);
-        vertex_input_info.pVertexAttributeDescriptions = attributes;
     }
+
+    vertex_input_info.vertexAttributeDescriptionCount =
+        mt_array_size(attributes);
+    vertex_input_info.pVertexAttributeDescriptions = attributes;
+
+    /* if (options->vertex_attribute_count > 0) { */
+    /*     mt_array_pushn(dev->alloc, attributes,
+     * options->vertex_attribute_count); */
+
+    /*     for (uint32_t i = 0; i < options->vertex_attribute_count; i++) { */
+    /*         attributes[i] = (VkVertexInputAttributeDescription){ */
+    /*             .location = i, */
+    /*             .binding  = 0, */
+    /*             .format = */
+    /*                 format_to_vulkan(options->vertex_attributes[i].format),
+     */
+    /*             .offset = options->vertex_attributes[i].offset, */
+    /*         }; */
+    /*     } */
+
+    /*     vertex_input_info.vertexAttributeDescriptionCount = */
+    /*         mt_array_size(attributes); */
+    /*     vertex_input_info.pVertexAttributeDescriptions = attributes; */
+    /* } */
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {
         .sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -552,13 +622,7 @@ static MtPipeline *create_graphics_pipeline(
         ci->line_width = 1.0f;
     }
 
-    pipeline->create_info                   = *ci;
-    pipeline->create_info.vertex_attributes = mt_alloc(
-        dev->alloc, sizeof(MtVertexAttribute) * ci->vertex_attribute_count);
-    memcpy(
-        pipeline->create_info.vertex_attributes,
-        ci->vertex_attributes,
-        sizeof(MtVertexAttribute) * ci->vertex_attribute_count);
+    pipeline->create_info = *ci;
     mt_array_pushn(dev->alloc, pipeline->shaders, 2);
 
     shader_init(dev, &pipeline->shaders[0], vertex_code, vertex_code_size);
@@ -576,14 +640,6 @@ static MtPipeline *create_graphics_pipeline(
     XXH64_update(&state, &ci->cull_mode, sizeof(ci->cull_mode));
     XXH64_update(&state, &ci->front_face, sizeof(ci->front_face));
     XXH64_update(&state, &ci->line_width, sizeof(ci->line_width));
-
-    XXH64_update(&state, &ci->vertex_stride, sizeof(ci->vertex_stride));
-    for (uint32_t i = 0; i < ci->vertex_attribute_count; i++) {
-        XXH64_update(
-            &state,
-            &ci->vertex_attributes[i],
-            sizeof(ci->vertex_attributes[i]));
-    }
 
     pipeline->hash = (uint64_t)XXH64_digest(&state);
 
@@ -617,10 +673,6 @@ create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t code_size) {
 }
 
 static void destroy_pipeline(MtDevice *dev, MtPipeline *pipeline) {
-    if (pipeline->create_info.vertex_attributes) {
-        mt_free(dev->alloc, pipeline->create_info.vertex_attributes);
-    }
-
     for (uint32_t i = 0; i < pipeline->instances.size; i++) {
         if (pipeline->instances.keys[i] != MT_HASH_UNUSED) {
             destroy_pipeline_instance(

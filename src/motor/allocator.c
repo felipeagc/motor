@@ -62,3 +62,20 @@ char *mt_strndup(MtAllocator *alloc, char *str, uint64_t num_bytes) {
     strncpy(s, str, num_bytes);
     return s;
 }
+
+char *mt_strcat(MtAllocator *alloc, char *dest, const char *src) {
+    uint64_t dest_len = strlen(dest);
+    uint64_t src_len  = strlen(src);
+    char *new_str     = mt_alloc(alloc, dest_len + src_len + 1);
+
+    char *c = new_str;
+    for (uint64_t i = 0; i < dest_len; i++) {
+        *(c++) = dest[i];
+    }
+    for (uint64_t i = 0; i < src_len; i++) {
+        *(c++) = src[i];
+    }
+    *c = '\0';
+
+    return new_str;
+}
