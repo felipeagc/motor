@@ -55,7 +55,7 @@ bool asset_init(
 
     shaderc_compile_options_t options = shaderc_compile_options_initialize();
     shaderc_compile_options_set_optimization_level(
-        options, shaderc_optimization_level_zero); // TODO: enable optimization
+        options, shaderc_optimization_level_performance);
     shaderc_compile_options_set_forced_version_profile(
         options, 450, shaderc_profile_none);
     shaderc_compile_options_set_target_env(

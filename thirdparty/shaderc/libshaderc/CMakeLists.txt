@@ -23,23 +23,6 @@ target_compile_definitions(shaderc_shared
 )
 set_target_properties(shaderc_shared PROPERTIES SOVERSION 1)
 
-if(SHADERC_ENABLE_INSTALL)
-  install(
-    FILES
-      include/shaderc/env.h
-      include/shaderc/status.h
-      include/shaderc/visibility.h
-      include/shaderc/shaderc.h
-      include/shaderc/shaderc.hpp
-    DESTINATION
-      ${CMAKE_INSTALL_INCLUDEDIR}/shaderc)
-
-  install(TARGETS shaderc shaderc_shared
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif(SHADERC_ENABLE_INSTALL)
-
 find_package(Threads)
 set(SHADERC_LIBS
   glslang OSDependent OGLCompiler glslang ${CMAKE_THREAD_LIBS_INIT}
@@ -72,23 +55,6 @@ shaderc_add_tests(
     shaderc_private)
 
 shaderc_combine_static_lib(shaderc_combined shaderc)
-
-if(SHADERC_ENABLE_INSTALL)
-  # Since shaderc_combined is defined as an imported library, we cannot use the
-  # install() directive to install it. Install it like a normal file.
-  get_target_property(generated_location shaderc_combined LOCATION)
-  string(REGEX MATCH "Visual Studio .*" vs_generator "${CMAKE_GENERATOR}")
-  if (NOT "${vs_generator}" STREQUAL "")
-    # With Visual Studio generators, the LOCATION property is not properly
-    # expanded according to the current build configuration. We need to work
-    # around this problem by manually substitution.
-    string(REPLACE "$(Configuration)" "\${CMAKE_INSTALL_CONFIG_NAME}"
-      install_location "${generated_location}")
-    install(FILES ${install_location} DESTINATION ${CMAKE_INSTALL_LIBDIR})
-  else()
-    install(FILES ${generated_location} DESTINATION ${CMAKE_INSTALL_LIBDIR})
-  endif()
-endif(SHADERC_ENABLE_INSTALL)
 
 shaderc_add_tests(
   TEST_PREFIX shaderc_combined

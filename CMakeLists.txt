@@ -5,6 +5,11 @@ set(CMAKE_BUILD_TYPE Debug)
 enable_testing()
 find_package (Threads)
 
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+endif()
+
 add_subdirectory(thirdparty)
 
 set(
