@@ -24,10 +24,6 @@ struct MtFileWatcher {
     uint32_t watch_flags;
 
     /*array*/ WatcherItem *items;
-
-    /*array*/ MtFileWatcherEvent *events;
-
-    MtFileWatcherEvent *last_event;
 };
 
 static void watcher_add(MtFileWatcher *w, char *path) {
@@ -145,15 +141,8 @@ static char *build_full_path(
     return res;
 }
 
-bool mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherEvent *out_event) {
-    if (w->last_event) {
-        if (w->last_event->src) mt_free(w->alloc, w->last_event->src);
-        w->last_event->src = NULL;
-        if (w->last_event->dst) mt_free(w->alloc, w->last_event->dst);
-        w->last_event->dst = NULL;
-        w->last_event      = NULL;
-    }
-
+void mt_file_watcher_poll(
+    MtFileWatcher *w, MtFileWatcherHandler handler, void *user_data) {
     char *move_src       = 0x0;
     uint32_t move_cookie = 0;
 
@@ -173,48 +162,51 @@ bool mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherEvent *out_event) {
             if (is_dir) {
                 if (is_create) {
                     char *src = build_full_path(w, ev->wd, ev->name, ev->len);
-                    char *add_src =
-                        build_full_path(w, ev->wd, ev->name, ev->len);
-                    watcher_add(w, add_src);
+                    watcher_add(w, src);
                     MtFileWatcherEvent e = {
                         MT_FILE_WATCHER_EVENT_CREATE, src, NULL};
-                    mt_array_push(w->alloc, w->events, e);
+                    handler(&e, user_data);
+                    mt_free(w->alloc, src);
                 } else if (is_remove) {
                     char *src = build_full_path(w, ev->wd, ev->name, ev->len);
                     MtFileWatcherEvent e = {
                         MT_FILE_WATCHER_EVENT_REMOVE, src, NULL};
-                    mt_array_push(w->alloc, w->events, e);
+                    handler(&e, user_data);
+                    mt_free(w->alloc, src);
                 } else if (is_del_self) {
                     watcher_remove(w, ev->wd);
                 }
             } else if (ev->mask & IN_Q_OVERFLOW) {
                 MtFileWatcherEvent e = {
                     MT_FILE_WATCHER_EVENT_BUFFER_OVERFLOW, NULL, NULL};
-                mt_array_push(w->alloc, w->events, e);
+                handler(&e, user_data);
             } else {
                 if (is_create) {
                     char *src = build_full_path(w, ev->wd, ev->name, ev->len);
                     MtFileWatcherEvent e = {
                         MT_FILE_WATCHER_EVENT_CREATE, src, NULL};
-                    mt_array_push(w->alloc, w->events, e);
+                    handler(&e, user_data);
+                    mt_free(w->alloc, src);
                 } else if (is_remove) {
                     char *src = build_full_path(w, ev->wd, ev->name, ev->len);
                     MtFileWatcherEvent e = {
                         MT_FILE_WATCHER_EVENT_REMOVE, src, NULL};
-                    mt_array_push(w->alloc, w->events, e);
+                    handler(&e, user_data);
+                    mt_free(w->alloc, src);
                 } else if (is_modify) {
                     char *src = build_full_path(w, ev->wd, ev->name, ev->len);
                     MtFileWatcherEvent e = {
                         MT_FILE_WATCHER_EVENT_MODIFY, src, NULL};
-                    mt_array_push(w->alloc, w->events, e);
+                    handler(&e, user_data);
+                    mt_free(w->alloc, src);
                 } else if (is_move_from) {
                     if (move_src != 0x0) {
                         // ... this is a new pair of a move, so the last one was
                         // move "outside" the current watch ...
-                        char *src            = mt_strdup(w->alloc, move_src);
                         MtFileWatcherEvent e = {
-                            MT_FILE_WATCHER_EVENT_MOVE, src, 0x0};
-                        mt_array_push(w->alloc, w->events, e);
+                            MT_FILE_WATCHER_EVENT_MOVE, move_src, 0x0};
+                        handler(&e, user_data);
+                        mt_free(w->alloc, move_src);
                     }
 
                     // ... this is the first potential pair of a move ...
@@ -227,16 +219,18 @@ bool mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherEvent *out_event) {
                             build_full_path(w, ev->wd, ev->name, ev->len);
                         MtFileWatcherEvent e = {
                             MT_FILE_WATCHER_EVENT_MOVE, move_src, dst};
-                        mt_array_push(w->alloc, w->events, e);
+                        handler(&e, user_data);
+                        mt_free(w->alloc, dst);
+                        mt_free(w->alloc, move_src);
 
                         move_src    = 0x0;
                         move_cookie = 0;
                     } else if (move_src != 0x0) {
                         // ... this is a "move to outside of watch" ...
-                        char *src            = mt_strdup(w->alloc, move_src);
                         MtFileWatcherEvent e = {
-                            MT_FILE_WATCHER_EVENT_MOVE, src, 0x0};
-                        mt_array_push(w->alloc, w->events, e);
+                            MT_FILE_WATCHER_EVENT_MOVE, move_src, 0x0};
+                        handler(&e, user_data);
+                        mt_free(w->alloc, move_src);
 
                         move_src    = 0x0;
                         move_cookie = 0;
@@ -246,14 +240,16 @@ bool mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherEvent *out_event) {
                             build_full_path(w, ev->wd, ev->name, ev->len);
                         e = (MtFileWatcherEvent){
                             MT_FILE_WATCHER_EVENT_MOVE, NULL, dst};
-                        mt_array_push(w->alloc, w->events, e);
+                        handler(&e, user_data);
+                        mt_free(w->alloc, dst);
                     } else {
                         // ... this is a "move from outside to watch" ...
                         char *dst =
                             build_full_path(w, ev->wd, ev->name, ev->len);
                         MtFileWatcherEvent e = {
                             MT_FILE_WATCHER_EVENT_MOVE, NULL, dst};
-                        mt_array_push(w->alloc, w->events, e);
+                        handler(&e, user_data);
+                        mt_free(w->alloc, dst);
                     }
                 }
             }
@@ -264,19 +260,11 @@ bool mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherEvent *out_event) {
         if (move_src) {
             // ... we have a "move to outside of watch" that was never closed
             // ...
-            char *src            = mt_strdup(w->alloc, move_src);
-            MtFileWatcherEvent e = {MT_FILE_WATCHER_EVENT_MOVE, src, 0x0};
-            mt_array_push(w->alloc, w->events, e);
+            MtFileWatcherEvent e = {MT_FILE_WATCHER_EVENT_MOVE, move_src, NULL};
+            handler(&e, user_data);
+            mt_free(w->alloc, move_src);
         }
     }
-
-    if (mt_array_size(w->events) == 0) {
-        w->last_event = NULL;
-        return false;
-    }
-    w->last_event = mt_array_pop(w->events);
-    *out_event    = *w->last_event;
-    return true;
 }
 
 void mt_file_watcher_destroy(MtFileWatcher *w) {
@@ -286,13 +274,7 @@ void mt_file_watcher_destroy(MtFileWatcher *w) {
         mt_free(w->alloc, w->items[i].path);
     }
 
-    for (uint32_t i = 0; i < mt_array_size(w->events); i++) {
-        if (w->events[i].src) mt_free(w->alloc, w->events[i].src);
-        if (w->events[i].dst) mt_free(w->alloc, w->events[i].dst);
-    }
-
     mt_array_free(w->alloc, w->items);
-    mt_array_free(w->alloc, w->events);
     mt_free(w->alloc, w);
 }
 #endif

@@ -213,7 +213,7 @@ static bool scan_token(Parser *p) {
     case '/': {
         if (*(p->c + 1) == '/') {
             // Comment
-            while(!s_is_at_end(p) && *p->c != '\n') {
+            while (!s_is_at_end(p) && *p->c != '\n') {
                 p->c++;
             }
             return true;
@@ -314,7 +314,9 @@ static bool parse_entry(Parser *p, MtConfigEntry *entry) {
         }
         p->t++;
     } break;
-    default: { return false; }
+    default: {
+        return false;
+    }
     }
 
     while (!p_is_at_end(p) && p->t->type == TOKEN_NEWLINE) {
@@ -386,6 +388,8 @@ mt_config_parse(MtAllocator *alloc, char *input, uint64_t input_size) {
         mt_free(alloc, config);
         return NULL;
     }
+
+    mt_array_free(alloc, parser.tokens);
 
     return config;
 }
