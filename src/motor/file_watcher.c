@@ -2,13 +2,14 @@
 
 #include "../../include/motor/allocator.h"
 #include "../../include/motor/array.h"
+#include <assert.h>
+#include <string.h>
+#include <stdio.h>
 
 #if defined(__linux__)
 #include <unistd.h>
-#include <string.h>
 #include <sys/inotify.h>
 #include <dirent.h>
-#include <assert.h>
 #include <sys/stat.h>
 
 typedef struct WatcherItem {
@@ -292,6 +293,146 @@ void mt_file_watcher_destroy(MtFileWatcher *w) {
 
     mt_array_free(w->alloc, w->items);
     mt_array_free(w->alloc, w->events);
+    mt_free(w->alloc, w);
+}
+#endif
+
+#if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__)
+#include <windows.h>
+
+struct MtFileWatcher {
+    MtAllocator *alloc;
+
+    const char *watch_dir;
+    size_t watch_dir_len;
+
+    HANDLE directory;
+    OVERLAPPED overlapped;
+
+    DWORD read_buffer[2048];
+};
+
+static void watcher_begin_read(MtFileWatcher *w) {
+    ZeroMemory(&w->overlapped, sizeof(w->overlapped));
+
+    BOOL success = ReadDirectoryChangesW(
+        w->directory,
+        w->read_buffer,
+        sizeof(w->read_buffer),
+        TRUE, // recursive
+        FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION |
+            FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME,
+        0x0,
+        &w->overlapped,
+        0x0);
+
+    if (!success) {
+        printf("Failed to start file watcher\n");
+    }
+    assert(success);
+}
+
+MtFileWatcher *mt_file_watcher_create(
+    MtAllocator *alloc, MtFileWatcherEventType types, const char *dir) {
+    MtFileWatcher *w = mt_alloc(alloc, sizeof(MtFileWatcher));
+    memset(w, 0, sizeof(*w));
+
+    w->alloc = alloc;
+
+    w->watch_dir     = mt_strdup(w->alloc, dir);
+    w->watch_dir_len = strlen(w->watch_dir);
+
+    w->directory = CreateFile(
+        w->watch_dir,
+        FILE_LIST_DIRECTORY,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,          // security descriptor
+        OPEN_EXISTING, // how to create
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, // file attributes
+        NULL);
+
+    watcher_begin_read(w);
+
+    return w;
+}
+
+static char *build_full_path(MtFileWatcher *w, FILE_NOTIFY_INFORMATION *ev) {
+    size_t name_len = (size_t)(ev->FileNameLength / 2);
+
+    size_t length = w->watch_dir_len + 1 + name_len;
+    char *res     = mt_alloc(w->alloc, length + 1);
+    strcpy(res, w->watch_dir);
+    res[w->watch_dir_len] = '/';
+
+    // HACKY! convert to utf8 or keep as WCHAR depending on compile-define.
+    for (size_t i = 0; i < name_len; ++i) {
+        assert(ev->FileName[i] <= 255);
+        res[w->watch_dir_len + 1 + i] =
+            ev->FileName[i] > 255 ? '_' : (char)ev->FileName[i];
+    }
+    res[length] = '\0';
+    return res;
+}
+
+void mt_file_watcher_poll(
+    MtFileWatcher *w, MtFileWatcherHandler handler, void *user_data) {
+    DWORD bytes;
+    BOOL res = GetOverlappedResult(w->directory, &w->overlapped, &bytes, FALSE);
+
+    if (res != TRUE) return;
+
+    char *move_src = NULL;
+
+    FILE_NOTIFY_INFORMATION *ev = (FILE_NOTIFY_INFORMATION *)w->read_buffer;
+    while (1) {
+        switch (ev->Action) {
+        case FILE_ACTION_ADDED: {
+            char *src            = build_full_path(w, ev);
+            MtFileWatcherEvent e = {MT_FILE_WATCHER_EVENT_CREATE, src, NULL};
+            handler(&e, user_data);
+            mt_free(w->alloc, src);
+        } break;
+        case FILE_ACTION_REMOVED: {
+            char *src            = build_full_path(w, ev);
+            MtFileWatcherEvent e = {MT_FILE_WATCHER_EVENT_REMOVE, src, NULL};
+            handler(&e, user_data);
+            mt_free(w->alloc, src);
+        } break;
+        case FILE_ACTION_MODIFIED: {
+            char *src            = build_full_path(w, ev);
+            MtFileWatcherEvent e = {MT_FILE_WATCHER_EVENT_MODIFY, src, NULL};
+            handler(&e, user_data);
+            mt_free(w->alloc, src);
+        } break;
+        case FILE_ACTION_RENAMED_OLD_NAME: {
+            move_src = build_full_path(w, ev);
+        } break;
+        case FILE_ACTION_RENAMED_NEW_NAME: {
+            char *dst = build_full_path(w, ev);
+
+            MtFileWatcherEvent e = {MT_FILE_WATCHER_EVENT_MOVE, move_src, dst};
+            handler(&e, user_data);
+            mt_free(w->alloc, dst);
+            mt_free(w->alloc, move_src);
+            move_src = NULL;
+        } break;
+        default: break;
+        }
+
+        if (ev->NextEntryOffset == 0) break;
+
+        ev = (FILE_NOTIFY_INFORMATION *)((char *)ev + ev->NextEntryOffset);
+    }
+
+    if (move_src != NULL) {
+        mt_free(w->alloc, move_src);
+    }
+
+    watcher_begin_read(w);
+}
+
+void mt_file_watcher_destroy(MtFileWatcher *w) {
+    CloseHandle(w->directory);
     mt_free(w->alloc, w);
 }
 #endif

@@ -121,7 +121,7 @@ static void create_instance(MtDevice *dev) {
     create_info.ppEnabledLayerNames = VALIDATION_LAYERS;
 #endif
 
-    const char **extensions  = NULL;
+    char **extensions  = NULL;
     uint32_t extension_count = 0;
     if (MT_LENGTH(INSTANCE_EXTENSIONS) > 0) {
         extension_count = MT_LENGTH(INSTANCE_EXTENSIONS);
@@ -785,7 +785,9 @@ static void destroy_device(MtDevice *dev) {
 }
 // }}}
 
-static MtRenderer g_vulkan_renderer = (MtRenderer){
+MtDevice *mt_vulkan_device_init(
+    MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc) {
+    mt_render = (MtRenderer){
     .destroy_device   = destroy_device,
     .device_wait_idle = device_wait_idle,
 
@@ -846,10 +848,6 @@ static MtRenderer g_vulkan_renderer = (MtRenderer){
 
     .cmd_dispatch = cmd_dispatch,
 };
-
-MtDevice *mt_vulkan_device_init(
-    MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc) {
-    mt_render = g_vulkan_renderer;
 
     MtDevice *dev = mt_alloc(alloc, sizeof(MtDevice));
     memset(dev, 0, sizeof(*dev));

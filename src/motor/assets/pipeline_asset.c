@@ -29,6 +29,7 @@ bool asset_init(
     // Read file
     FILE *f = fopen(path, "r");
     if (!f) {
+        printf("Failed at %s:%u\n", __FILE__, __LINE__);
         goto failed;
     }
 
@@ -49,6 +50,7 @@ bool asset_init(
     // Parse file
     MtConfig *config = mt_config_parse(asset_manager->alloc, input, input_size);
     if (!config) {
+        printf("Failed at %s:%u\n", __FILE__, __LINE__);
         goto failed;
     }
 
@@ -84,11 +86,13 @@ bool asset_init(
         mt_hash_get_ptr(&obj->map, mt_hash_str("line_width"));
 
     if (!vertex_entry || !fragment_entry) {
+        printf("Failed at %s:%u\n", __FILE__, __LINE__);
         goto failed;
     }
 
     if (vertex_entry->value.type != MT_CONFIG_VALUE_STRING ||
         fragment_entry->value.type != MT_CONFIG_VALUE_STRING) {
+        printf("Failed at %s:%u\n", __FILE__, __LINE__);
         goto failed;
     }
 

@@ -46,29 +46,32 @@ void game_destroy(Game *g) {
     mt_engine_destroy(&g->engine);
 }
 
+void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data) {
+    Game *g = (Game *)user_data;
+
+    switch (e->type) {
+    case MT_FILE_WATCHER_EVENT_MODIFY: {
+        mt_asset_manager_load(&g->engine.asset_manager, e->src);
+    } break;
+    default: break;
+    }
+}
+
 int main(int argc, char *argv[]) {
     Game game = {0};
     game_init(&game);
 
     Vertex vertices[4] = {
-        {{0.5f, -0.5f, 0.0f}, {}, {1.0f, 1.0f}},  // Top right
-        {{0.5f, 0.5f, 0.0f}, {}, {1.0f, 0.0f}},   // Bottom right
-        {{-0.5f, 0.5f, 0.0f}, {}, {0.0f, 0.0f}},  // Bottom left
-        {{-0.5f, -0.5f, 0.0f}, {}, {0.0f, 1.0f}}, // Top left
+        (Vertex){V3(0.5f, -0.5f, 0.0f), V3(0.0f, 0.0f, 0.0f), V2(1.0f, 1.0f)},  // Top right
+        (Vertex){V3(0.5f, 0.5f, 0.0f), V3(0.0f, 0.0f, 0.0f), V2(1.0f, 0.0f)},   // Bottom right
+        (Vertex){V3(-0.5f, 0.5f, 0.0f), V3(0.0f, 0.0f, 0.0f), V2(0.0f, 0.0f)},  // Bottom left
+        (Vertex){V3(-0.5f, -0.5f, 0.0f), V3(0.0f, 0.0f, 0.0f), V2(0.0f, 1.0f)}, // Top left
     };
 
     uint16_t indices[6] = {2, 1, 0, 0, 3, 2};
 
     while (!game.engine.window.vt->should_close(game.engine.window.inst)) {
-        MtFileWatcherEvent e;
-        while (mt_file_watcher_poll(game.watcher, &e)) {
-            switch (e.type) {
-            case MT_FILE_WATCHER_EVENT_MODIFY: {
-                mt_asset_manager_load(&game.engine.asset_manager, e.src);
-            } break;
-            default: break;
-            }
-        }
+        mt_file_watcher_poll(game.watcher, asset_watcher_handler, &game);
 
         game.engine.window_system.vt->poll_events();
 

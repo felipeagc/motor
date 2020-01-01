@@ -106,11 +106,7 @@ static int32_t get_physical_device_presentation_support(
         instance, device, queue_family);
 }
 
-static MtWindowSystem g_glfw_window_system = (MtWindowSystem){
-    .get_vulkan_instance_extensions = get_instance_extensions,
-    .get_physical_device_presentation_support =
-        get_physical_device_presentation_support,
-};
+MtWindowSystem g_glfw_window_system;
 
 /*
  * Window System VT
@@ -120,10 +116,7 @@ static void poll_events(void) { glfwPollEvents(); }
 
 static void glfw_destroy(void) { glfwTerminate(); }
 
-static MtWindowSystemVT g_glfw_window_system_vt = (MtWindowSystemVT){
-    .poll_events = poll_events,
-    .destroy     = glfw_destroy,
-};
+static MtWindowSystemVT g_glfw_window_system_vt;
 
 /*
  * Setup functions
@@ -772,16 +765,7 @@ static MtRenderPass *get_render_pass(MtWindow *window) {
     return &window->render_pass;
 }
 
-static MtWindowVT g_glfw_window_vt = (MtWindowVT){
-    .should_close = should_close,
-    .next_event   = next_event,
-
-    .begin_frame     = begin_frame,
-    .end_frame       = end_frame,
-    .get_render_pass = get_render_pass,
-
-    .destroy = window_destroy,
-};
+static MtWindowVT g_glfw_window_vt;
 
 /*
  * Public functions
@@ -797,6 +781,17 @@ void mt_glfw_vulkan_init(MtIWindowSystem *system) {
         printf("Vulkan is not supported\n");
         exit(1);
     }
+
+    g_glfw_window_system_vt = (MtWindowSystemVT){
+        .poll_events = poll_events,
+        .destroy     = glfw_destroy,
+    };
+
+    g_glfw_window_system = (MtWindowSystem){
+        .get_vulkan_instance_extensions = get_instance_extensions,
+        .get_physical_device_presentation_support =
+            get_physical_device_presentation_support,
+    };
 
     system->inst = (MtWindowSystem *)&g_glfw_window_system;
     system->vt   = &g_glfw_window_system_vt;
@@ -816,6 +811,17 @@ void mt_glfw_vulkan_window_init(
         glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
     window->alloc = alloc;
     window->dev   = dev;
+
+    g_glfw_window_vt = (MtWindowVT){
+        .should_close = should_close,
+        .next_event   = next_event,
+
+        .begin_frame     = begin_frame,
+        .end_frame       = end_frame,
+        .get_render_pass = get_render_pass,
+
+        .destroy = window_destroy,
+    };
 
     interface->vt   = &g_glfw_window_vt;
     interface->inst = (MtWindow *)window;
