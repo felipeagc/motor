@@ -16,6 +16,7 @@ static void end_cmd_buffer(MtCmdBuffer *cb) {
         cb->bound_descriptor_set_hashes,
         0,
         sizeof(cb->bound_descriptor_set_hashes));
+    memset(&cb->current_viewport, 0, sizeof(cb->current_viewport));
 
     buffer_block_reset(&cb->ubo_block);
     buffer_block_reset(&cb->vbo_block);
@@ -24,6 +25,10 @@ static void end_cmd_buffer(MtCmdBuffer *cb) {
     if (cb->vbo_block.mapping) {
         assert(cb->vbo_block.buffer->buffer);
     }
+}
+
+static void get_viewport(MtCmdBuffer *cb, MtViewport *viewport) {
+    *viewport = cb->current_viewport;
 }
 
 static void image_barrier(
@@ -338,17 +343,20 @@ static void cmd_copy_image_to_buffer(
         src->array_layer);
 }
 
-static void cmd_set_viewport(
-    MtCmdBuffer *cmd_buffer, float x, float y, float width, float height) {
-    VkViewport viewport = {
-        .width    = width,
-        .height   = height,
-        .x        = x,
-        .y        = y,
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f,
-    };
-    vkCmdSetViewport(cmd_buffer->cmd_buffer, 0, 1, &viewport);
+static void cmd_set_viewport(MtCmdBuffer *cb, MtViewport *viewport) {
+    cb->current_viewport = *viewport;
+    vkCmdSetViewport(
+        cb->cmd_buffer,
+        0,
+        1,
+        &(VkViewport){
+            .width    = viewport->width,
+            .height   = viewport->height,
+            .x        = viewport->x,
+            .y        = viewport->y,
+            .minDepth = viewport->min_depth,
+            .maxDepth = viewport->max_depth,
+        });
 }
 
 static void cmd_set_scissor(
@@ -415,10 +423,14 @@ cmd_begin_render_pass(MtCmdBuffer *cmd_buffer, MtRenderPass *render_pass) {
 
     cmd_set_viewport(
         cmd_buffer,
-        0.0f,
-        0.0f,
-        (float)render_pass->extent.width,
-        (float)render_pass->extent.height);
+        &(MtViewport){
+            .x         = 0.0f,
+            .y         = 0.0f,
+            .width     = (float)render_pass->extent.width,
+            .height    = (float)render_pass->extent.height,
+            .min_depth = 0.0f,
+            .max_depth = 1.0f,
+        });
     cmd_set_scissor(
         cmd_buffer,
         0,
@@ -427,8 +439,9 @@ cmd_begin_render_pass(MtCmdBuffer *cmd_buffer, MtRenderPass *render_pass) {
         render_pass->extent.height);
 }
 
-static void cmd_end_render_pass(MtCmdBuffer *cmd_buffer) {
-    vkCmdEndRenderPass(cmd_buffer->cmd_buffer);
+static void cmd_end_render_pass(MtCmdBuffer *cb) {
+    memset(&cb->current_renderpass, 0, sizeof(cb->current_renderpass));
+    vkCmdEndRenderPass(cb->cmd_buffer);
 }
 
 static void cmd_bind_uniform(

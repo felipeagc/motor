@@ -3,6 +3,8 @@ static MtFormat format_from_vulkan(VkFormat format) {
     case VK_FORMAT_R8_UINT: return MT_FORMAT_R8_UINT;
     case VK_FORMAT_R32_UINT: return MT_FORMAT_R32_UINT;
 
+    case VK_FORMAT_R8_UNORM: return MT_FORMAT_R8_UNORM;
+    case VK_FORMAT_R8G8_UNORM: return MT_FORMAT_RG8_UNORM;
     case VK_FORMAT_R8G8B8_UNORM: return MT_FORMAT_RGB8_UNORM;
     case VK_FORMAT_R8G8B8A8_UNORM: return MT_FORMAT_RGBA8_UNORM;
 
@@ -30,6 +32,8 @@ static VkFormat format_to_vulkan(MtFormat format) {
     case MT_FORMAT_R8_UINT: return VK_FORMAT_R8_UINT;
     case MT_FORMAT_R32_UINT: return VK_FORMAT_R32_UINT;
 
+    case MT_FORMAT_R8_UNORM: return VK_FORMAT_R8_UNORM;
+    case MT_FORMAT_RG8_UNORM: return VK_FORMAT_R8G8_UNORM;
     case MT_FORMAT_RGB8_UNORM: return VK_FORMAT_R8G8B8_UNORM;
     case MT_FORMAT_RGBA8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
 

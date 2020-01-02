@@ -2,7 +2,7 @@ cull_mode: "back"
 front_face: "counter_clockwise"
 
 common: [[
-    const vec3 green = vec3(0.0f, 1.0f, 0.0f);
+    const vec3 green = vec3(1.0f, 1.0f, 1.0f);
 ]]
 
 vertex: [[
@@ -16,6 +16,7 @@ vertex: [[
     void main() {
         normal0 = normal;
         tex_coords0 = tex_coords;
+        tex_coords0.y = 1.0 - tex_coords0.y;
 
         gl_Position = vec4(pos, 1.0f);
     }

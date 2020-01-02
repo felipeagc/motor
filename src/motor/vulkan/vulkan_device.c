@@ -819,6 +819,8 @@ static MtRenderer g_vulkan_renderer = {
     .begin_cmd_buffer = begin_cmd_buffer,
     .end_cmd_buffer   = end_cmd_buffer,
 
+    .cmd_get_viewport = get_viewport,
+
     .cmd_copy_buffer_to_buffer = cmd_copy_buffer_to_buffer,
     .cmd_copy_buffer_to_image  = cmd_copy_buffer_to_image,
     .cmd_copy_image_to_buffer  = cmd_copy_image_to_buffer,
