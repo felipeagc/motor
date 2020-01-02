@@ -43,7 +43,7 @@ set(
 
 add_library(motor ${MOTOR_SOURCES})
 target_include_directories(motor PUBLIC include/ PRIVATE ${glfw_INCLUDE_DIRS})
-target_link_libraries(motor ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} glfw shaderc_shared)
+target_link_libraries(motor ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} vulkan-headers glfw shaderc_shared)
 
 add_executable(simple examples/simple.c)
 target_link_libraries(simple PUBLIC motor)
