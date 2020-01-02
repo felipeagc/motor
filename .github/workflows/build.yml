@@ -9,7 +9,7 @@ jobs:
     - uses: actions/checkout@v1
     - uses: seanmiddleditch/gha-setup-ninja@master
     - name: install dependencies
-      run: apt-get install -y libglfw3-dev gcc-multilib g++-multilib
+      run: sudo apt-get install -y libglfw3-dev
     - name: cmake
       run: |
         mkdir build
