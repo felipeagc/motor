@@ -179,8 +179,13 @@ typedef struct MtCmdBuffer {
     MtDevice *dev;
     VkCommandBuffer cmd_buffer;
     PipelineInstance *bound_pipeline_instance;
+
     MtRenderPass current_renderpass;
+
+    MtViewport current_viewport;
+
     uint32_t queue_type;
+
     Descriptor bound_descriptors[MAX_DESCRIPTOR_BINDINGS][MAX_DESCRIPTOR_SETS];
     uint64_t bound_descriptor_set_hashes[MAX_DESCRIPTOR_SETS];
 

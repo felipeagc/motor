@@ -7,22 +7,11 @@
 #include "../../../include/motor/renderer.h"
 #include "../stb_image.h"
 
-static void asset_destroy(MtAsset *asset_) {
-    MtImageAsset *asset = (MtImageAsset *)asset_;
-    if (!asset) return;
-
-    MtDevice *dev = asset->asset_manager->engine->device;
-
-    mt_render.destroy_image(dev, asset->image);
-    mt_render.destroy_sampler(dev, asset->sampler);
-}
-
 static bool
 asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
     MtImageAsset *asset  = (MtImageAsset *)asset_;
     asset->asset_manager = asset_manager;
 
-    stbi_set_flip_vertically_on_load(true);
     int32_t w, h, num_channels;
     uint8_t *image_data = stbi_load(path, &w, &h, &num_channels, 4);
 
@@ -48,6 +37,16 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
                                .mag_filter = MT_FILTER_NEAREST});
 
     return true;
+}
+
+static void asset_destroy(MtAsset *asset_) {
+    MtImageAsset *asset = (MtImageAsset *)asset_;
+    if (!asset) return;
+
+    MtDevice *dev = asset->asset_manager->engine->device;
+
+    mt_render.destroy_image(dev, asset->image);
+    mt_render.destroy_sampler(dev, asset->sampler);
 }
 
 static const char *g_extensions[] = {

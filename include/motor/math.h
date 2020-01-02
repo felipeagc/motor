@@ -438,6 +438,17 @@ mat4_perspective(float fovy, float aspect_ratio, float znear, float zfar) {
     return result;
 }
 
+// TODO: test
+MT_MATH_INLINE Mat4
+mat4_orthographic(float l, float r, float b, float t, float n, float f) {
+    return (Mat4){{
+        {2.0f / (r - l), 0, 0, 0},
+        {0, 2.0f / (t - b), 0, 0},
+        {0, 0, 1.0f / (f - n), 0},
+        {-(r + l) / (r - l), -(t + b) / (t - b), -n / (f - n), 1.0f},
+    }};
+}
+
 // TESTED: compatible with glm
 MT_MATH_INLINE Mat4 mat4_look_at(Vec3 eye, Vec3 center, Vec3 up) {
     Vec3 f = v3_normalize(v3_sub(center, eye));

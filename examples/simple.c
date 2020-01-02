@@ -2,11 +2,14 @@
 #include <motor/renderer.h>
 #include <motor/window.h>
 #include <motor/util.h>
-#include <motor/math_types.h>
+#include <motor/math.h>
 #include <motor/file_watcher.h>
 #include <motor/engine.h>
+#include <motor/array.h>
+#include <motor/ui.h>
 #include <motor/assets/pipeline_asset.h>
 #include <motor/assets/image_asset.h>
+#include <motor/assets/font_asset.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -20,28 +23,37 @@ typedef struct Vertex {
 typedef struct Game {
     MtEngine engine;
 
+    MtUIRenderer *ui;
+
     MtFileWatcher *watcher;
 
-    MtImageAsset *image_asset;
-    MtPipelineAsset *pipeline_asset;
+    MtImageAsset *image;
+    MtFontAsset *font;
+    MtPipelineAsset *text_pipeline;
 } Game;
 
 void game_init(Game *g) {
+    memset(g, 0, sizeof(*g));
+
     mt_engine_init(&g->engine);
+
+    g->ui = mt_ui_create(g->engine.alloc, &g->engine.asset_manager);
 
     g->watcher = mt_file_watcher_create(
         g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
 
-    g->image_asset = (MtImageAsset *)mt_asset_manager_load(
+    g->image = (MtImageAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/test.png");
+    assert(g->image);
 
-    g->pipeline_asset = (MtPipelineAsset *)mt_asset_manager_load(
-        &g->engine.asset_manager, "../assets/shaders/test.glsl");
-    assert(g->pipeline_asset);
+    g->font = (MtFontAsset *)mt_asset_manager_load(
+        &g->engine.asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
+    assert(g->font);
 }
 
 void game_destroy(Game *g) {
     mt_file_watcher_destroy(g->watcher);
+    mt_ui_destroy(g->ui);
 
     mt_engine_destroy(&g->engine);
 }
@@ -60,15 +72,6 @@ void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data) {
 int main(int argc, char *argv[]) {
     Game game = {0};
     game_init(&game);
-
-    Vertex vertices[4] = {
-        (Vertex){V3(0.5f, -0.5f, 0.0f), V3(0.0f, 0.0f, 0.0f), V2(1.0f, 1.0f)},  // Top right
-        (Vertex){V3(0.5f, 0.5f, 0.0f), V3(0.0f, 0.0f, 0.0f), V2(1.0f, 0.0f)},   // Bottom right
-        (Vertex){V3(-0.5f, 0.5f, 0.0f), V3(0.0f, 0.0f, 0.0f), V2(0.0f, 0.0f)},  // Bottom left
-        (Vertex){V3(-0.5f, -0.5f, 0.0f), V3(0.0f, 0.0f, 0.0f), V2(0.0f, 1.0f)}, // Top left
-    };
-
-    uint16_t indices[6] = {2, 1, 0, 0, 3, 2};
 
     while (!game.engine.window.vt->should_close(game.engine.window.inst)) {
         mt_file_watcher_poll(game.watcher, asset_watcher_handler, &game);
@@ -95,14 +98,25 @@ int main(int argc, char *argv[]) {
             cb,
             game.engine.window.vt->get_render_pass(game.engine.window.inst));
 
-        mt_render.cmd_bind_pipeline(cb, game.pipeline_asset->pipeline);
-        mt_render.cmd_bind_vertex_data(cb, vertices, sizeof(vertices));
-        mt_render.cmd_bind_index_data(
-            cb, indices, sizeof(indices), MT_INDEX_TYPE_UINT16);
-        mt_render.cmd_bind_image(
-            cb, game.image_asset->image, game.image_asset->sampler, 0, 0);
-        mt_render.cmd_bind_uniform(cb, &V3(1, 1, 1), sizeof(Vec3), 0, 1);
-        mt_render.cmd_draw_indexed(cb, MT_LENGTH(indices), 1);
+        // Draw UI
+        {
+            MtViewport viewport;
+            mt_render.cmd_get_viewport(cb, &viewport);
+            mt_ui_begin(game.ui, &viewport);
+
+            mt_ui_set_font(game.ui, game.font);
+            mt_ui_set_font_size(game.ui, 50);
+
+            mt_ui_text(game.ui, "Hello World");
+            mt_ui_set_color(game.ui, V3(1, 0, 0));
+            mt_ui_text(game.ui, "Hello");
+            mt_ui_set_color(game.ui, V3(0, 1, 0));
+            mt_ui_text(game.ui, "Hello");
+            mt_ui_set_color(game.ui, V3(0, 0, 1));
+            mt_ui_text(game.ui, "Hello");
+
+            mt_ui_draw(game.ui, cb);
+        }
 
         mt_render.cmd_end_render_pass(cb);
 

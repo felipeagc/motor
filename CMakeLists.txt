@@ -39,10 +39,6 @@ set(
 	src/motor/bitset.c
 	include/motor/bitset.h
 
-	src/motor/xxhash.c
-	src/motor/xxhash.h
-	src/motor/xxh3.h
-
 	src/motor/file_watcher.c
 	include/motor/file_watcher.h
 
@@ -55,17 +51,35 @@ set(
 	src/motor/engine.c
 	include/motor/engine.h
 
+	src/motor/ui.c
+	include/motor/ui.h
+
 	src/motor/asset_manager.c
 	include/motor/asset_manager.h
-
-	src/motor/stb_image.c
-	src/motor/stb_image.h
 
 	src/motor/assets/image_asset.c
 	include/motor/assets/image_asset.h
 
 	src/motor/assets/pipeline_asset.c
 	include/motor/assets/pipeline_asset.h
+
+	src/motor/assets/font_asset.c
+	include/motor/assets/font_asset.h
+
+	# Third party stuff:
+
+	src/motor/xxhash.c
+	src/motor/xxhash.h
+	src/motor/xxh3.h
+
+	src/motor/stb_image.c
+	src/motor/stb_image.h
+
+	src/motor/stb_rect_pack.c
+	src/motor/stb_rect_pack.h
+
+	src/motor/stb_truetype.c
+	src/motor/stb_truetype.h
 
 	src/motor/vulkan/glfw_window.c
 	include/motor/vulkan/glfw_window.h

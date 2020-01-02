@@ -768,6 +768,13 @@ static MtRenderPass *get_render_pass(MtWindow *window) {
     return &window->render_pass;
 }
 
+static void get_size(MtWindow *window, uint32_t *width, uint32_t *height) {
+    int w = 0, h = 0;
+    glfwGetFramebufferSize(window->window, &w, &h);
+    *width  = (uint32_t)w;
+    *height = (uint32_t)h;
+}
+
 static MtWindowVT g_glfw_window_vt = {
     .should_close = should_close,
     .next_event   = next_event,
@@ -775,6 +782,8 @@ static MtWindowVT g_glfw_window_vt = {
     .begin_frame     = begin_frame,
     .end_frame       = end_frame,
     .get_render_pass = get_render_pass,
+
+    .get_size = get_size,
 
     .destroy = window_destroy,
 };

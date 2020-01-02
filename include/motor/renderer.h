@@ -25,6 +25,8 @@ typedef enum MtFormat {
     MT_FORMAT_R8_UINT,
     MT_FORMAT_R32_UINT,
 
+    MT_FORMAT_R8_UNORM,
+    MT_FORMAT_RG8_UNORM,
     MT_FORMAT_RGB8_UNORM,
     MT_FORMAT_RGBA8_UNORM,
 
@@ -71,12 +73,14 @@ typedef struct MtGraphicsPipelineCreateInfo {
     float line_width;
 } MtGraphicsPipelineCreateInfo;
 
-typedef union MtColor {
-    struct {
-        float r, g, b, a;
-    };
-    float values[4];
-} MtColor;
+typedef struct MtViewport {
+    float x;
+    float y;
+    float width;
+    float height;
+    float min_depth;
+    float max_depth;
+} MtViewport;
 
 typedef enum MtBufferUsage {
     MT_BUFFER_USAGE_VERTEX,
@@ -226,6 +230,8 @@ typedef struct MtRenderer {
     void (*begin_cmd_buffer)(MtCmdBuffer *);
     void (*end_cmd_buffer)(MtCmdBuffer *);
 
+    void (*cmd_get_viewport)(MtCmdBuffer *, MtViewport *);
+
     void (*cmd_copy_buffer_to_buffer)(
         MtCmdBuffer *,
         MtBuffer *src,
@@ -247,7 +253,7 @@ typedef struct MtRenderer {
     void (*cmd_begin_render_pass)(MtCmdBuffer *, MtRenderPass *);
     void (*cmd_end_render_pass)(MtCmdBuffer *);
 
-    void (*cmd_set_viewport)(MtCmdBuffer *, float x, float y, float w, float h);
+    void (*cmd_set_viewport)(MtCmdBuffer *, MtViewport *);
     void (*cmd_set_scissor)(
         MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
 

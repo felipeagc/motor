@@ -52,6 +52,7 @@ static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci) {
 }
 
 static void destroy_sampler(MtDevice *dev, MtSampler *sampler) {
+    VK_CHECK(vkDeviceWaitIdle(dev->device));
     if (sampler->sampler) vkDestroySampler(dev->device, sampler->sampler, NULL);
     mt_free(dev->alloc, sampler);
 }
