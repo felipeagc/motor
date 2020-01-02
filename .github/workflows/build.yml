@@ -3,11 +3,24 @@ name: build
 on: [push]
 
 jobs:
-  build:
+  linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@v1
+    - uses: seanmiddleditch/gha-setup-ninja@master
+    - name: install dependencies
+      run: apt-get install -y libglfw3-dev gcc-multilib g++-multilib
+    - name: cmake
+      run: |
+        mkdir build
+        cd build
+        cmake -G Ninja ..
+    - name: ninja
+      run: ninja -C build
+    - name: ninja test
+      run: ninja -C build test
+  windows:
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v1
     - uses: seanmiddleditch/gha-setup-ninja@master
