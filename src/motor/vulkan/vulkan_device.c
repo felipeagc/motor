@@ -785,69 +785,71 @@ static void destroy_device(MtDevice *dev) {
 }
 // }}}
 
+static MtRenderer g_vulkan_renderer = {
+    .destroy_device   = destroy_device,
+    .device_wait_idle = device_wait_idle,
+
+    .allocate_cmd_buffers = allocate_cmd_buffers,
+    .free_cmd_buffers     = free_cmd_buffers,
+
+    .create_fence  = create_fence,
+    .destroy_fence = destroy_fence,
+
+    .submit = submit,
+
+    .create_buffer  = create_buffer,
+    .destroy_buffer = destroy_buffer,
+
+    .map_buffer   = map_buffer,
+    .unmap_buffer = unmap_buffer,
+
+    .create_image  = create_image,
+    .destroy_image = destroy_image,
+
+    .create_sampler  = create_sampler,
+    .destroy_sampler = destroy_sampler,
+
+    .transfer_to_buffer = transfer_to_buffer,
+    .transfer_to_image  = transfer_to_image,
+
+    .create_graphics_pipeline = create_graphics_pipeline,
+    .create_compute_pipeline  = create_compute_pipeline,
+    .destroy_pipeline         = destroy_pipeline,
+
+    .begin_cmd_buffer = begin_cmd_buffer,
+    .end_cmd_buffer   = end_cmd_buffer,
+
+    .cmd_copy_buffer_to_buffer = cmd_copy_buffer_to_buffer,
+    .cmd_copy_buffer_to_image  = cmd_copy_buffer_to_image,
+    .cmd_copy_image_to_buffer  = cmd_copy_image_to_buffer,
+    /* .cmd_copy_image_to_image   = cmd_copy_image_to_image, */
+
+    .cmd_begin_render_pass = cmd_begin_render_pass,
+    .cmd_end_render_pass   = cmd_end_render_pass,
+
+    .cmd_set_viewport = cmd_set_viewport,
+    .cmd_set_scissor  = cmd_set_scissor,
+
+    .cmd_bind_pipeline = cmd_bind_pipeline,
+
+    .cmd_bind_uniform = cmd_bind_uniform,
+    .cmd_bind_image   = cmd_bind_image,
+
+    .cmd_bind_vertex_buffer = cmd_bind_vertex_buffer,
+    .cmd_bind_index_buffer  = cmd_bind_index_buffer,
+
+    .cmd_bind_vertex_data = cmd_bind_vertex_data,
+    .cmd_bind_index_data  = cmd_bind_index_data,
+
+    .cmd_draw         = cmd_draw,
+    .cmd_draw_indexed = cmd_draw_indexed,
+
+    .cmd_dispatch = cmd_dispatch,
+};
+
 MtDevice *mt_vulkan_device_init(
     MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc) {
-    mt_render = (MtRenderer){
-        .destroy_device   = destroy_device,
-        .device_wait_idle = device_wait_idle,
-
-        .allocate_cmd_buffers = allocate_cmd_buffers,
-        .free_cmd_buffers     = free_cmd_buffers,
-
-        .create_fence  = create_fence,
-        .destroy_fence = destroy_fence,
-
-        .submit = submit,
-
-        .create_buffer  = create_buffer,
-        .destroy_buffer = destroy_buffer,
-
-        .map_buffer   = map_buffer,
-        .unmap_buffer = unmap_buffer,
-
-        .create_image  = create_image,
-        .destroy_image = destroy_image,
-
-        .create_sampler  = create_sampler,
-        .destroy_sampler = destroy_sampler,
-
-        .transfer_to_buffer = transfer_to_buffer,
-        .transfer_to_image  = transfer_to_image,
-
-        .create_graphics_pipeline = create_graphics_pipeline,
-        .create_compute_pipeline  = create_compute_pipeline,
-        .destroy_pipeline         = destroy_pipeline,
-
-        .begin_cmd_buffer = begin_cmd_buffer,
-        .end_cmd_buffer   = end_cmd_buffer,
-
-        .cmd_copy_buffer_to_buffer = cmd_copy_buffer_to_buffer,
-        .cmd_copy_buffer_to_image  = cmd_copy_buffer_to_image,
-        .cmd_copy_image_to_buffer  = cmd_copy_image_to_buffer,
-        /* .cmd_copy_image_to_image   = cmd_copy_image_to_image, */
-
-        .cmd_begin_render_pass = cmd_begin_render_pass,
-        .cmd_end_render_pass   = cmd_end_render_pass,
-
-        .cmd_set_viewport = cmd_set_viewport,
-        .cmd_set_scissor  = cmd_set_scissor,
-
-        .cmd_bind_pipeline = cmd_bind_pipeline,
-
-        .cmd_bind_uniform = cmd_bind_uniform,
-        .cmd_bind_image   = cmd_bind_image,
-
-        .cmd_bind_vertex_buffer = cmd_bind_vertex_buffer,
-        .cmd_bind_index_buffer  = cmd_bind_index_buffer,
-
-        .cmd_bind_vertex_data = cmd_bind_vertex_data,
-        .cmd_bind_index_data  = cmd_bind_index_data,
-
-        .cmd_draw         = cmd_draw,
-        .cmd_draw_indexed = cmd_draw_indexed,
-
-        .cmd_dispatch = cmd_dispatch,
-    };
+    mt_render = g_vulkan_renderer;
 
     MtDevice *dev = mt_alloc(alloc, sizeof(MtDevice));
     memset(dev, 0, sizeof(*dev));
