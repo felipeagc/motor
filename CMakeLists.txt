@@ -14,105 +14,119 @@ else()
 endif()
 
 set(
-	MOTOR_SOURCES
-	src/motor/allocator.c
-	include/motor/allocator.h
+	MOTOR_BASE_SOURCES
+	src/motor/base/allocator.c
+	include/motor/base/allocator.h
 
-	src/motor/arena.c
-	include/motor/arena.h
+	src/motor/base/arena.c
+	include/motor/base/arena.h
 
-	src/motor/bump_alloc.c
-	include/motor/bump_alloc.h
+	src/motor/base/bump_alloc.c
+	include/motor/base/bump_alloc.h
 
-	src/motor/renderer.c
-	include/motor/renderer.h
+	src/motor/base/string_builder.c
+	include/motor/base/string_builder.h
 
-	src/motor/threads.c
-	include/motor/threads.h
+	src/motor/base/threads.c
+	include/motor/base/threads.h
 
-	src/motor/array.c
-	include/motor/array.h
+	src/motor/base/array.c
+	include/motor/base/array.h
 
-	src/motor/hashmap.c
-	include/motor/hashmap.h
+	src/motor/base/hashmap.c
+	include/motor/base/hashmap.h
 
-	src/motor/bitset.c
-	include/motor/bitset.h
+	src/motor/base/bitset.c
+	include/motor/base/bitset.h
 
-	src/motor/file_watcher.c
-	include/motor/file_watcher.h
-
-	src/motor/config.c
-	include/motor/config.h
-
-	src/motor/string_builder.c
-	include/motor/string_builder.h
-
-	src/motor/engine.c
-	include/motor/engine.h
-
-	src/motor/ui.c
-	include/motor/ui.h
-
-	src/motor/asset_manager.c
-	include/motor/asset_manager.h
-
-	src/motor/assets/image_asset.c
-	include/motor/assets/image_asset.h
-
-	src/motor/assets/pipeline_asset.c
-	include/motor/assets/pipeline_asset.h
-
-	src/motor/assets/font_asset.c
-	include/motor/assets/font_asset.h
-
-	# Third party stuff:
-
-	src/motor/xxhash.c
-	src/motor/xxhash.h
-	src/motor/xxh3.h
-
-	src/motor/stb_image.c
-	src/motor/stb_image.h
-
-	src/motor/stb_rect_pack.c
-	src/motor/stb_rect_pack.h
-
-	src/motor/stb_truetype.c
-	src/motor/stb_truetype.h
-
-	src/motor/vulkan/glfw_window.c
-	include/motor/vulkan/glfw_window.h
-
-	src/motor/vulkan/vulkan_device.c
-	include/motor/vulkan/vulkan_device.h
-
-	src/motor/vulkan/volk.c
-	src/motor/vulkan/volk.h
-	src/motor/vulkan/spirv_reflect.c
-	src/motor/vulkan/spirv_reflect.h
-	src/motor/vulkan/vk_mem_alloc.cpp
-	src/motor/vulkan/vk_mem_alloc.h
+	src/motor/base/xxhash.c
+	src/motor/base/xxhash.h
+	src/motor/base/xxh3.h
 	)
 
-add_library(motor ${MOTOR_SOURCES})
-target_include_directories(motor PUBLIC include/ PRIVATE ${glfw_INCLUDE_DIRS})
-target_link_libraries(motor ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} vulkan-headers glfw shaderc_shared)
+set(
+	MOTOR_GRAPHICS_SOURCES
+
+	src/motor/graphics/renderer.c
+	include/motor/graphics/renderer.h
+
+	src/motor/graphics/vulkan/glfw_window.c
+	include/motor/graphics/vulkan/glfw_window.h
+
+	src/motor/graphics/vulkan/vulkan_device.c
+	include/motor/graphics/vulkan/vulkan_device.h
+
+	# Third party stuff:
+	src/motor/graphics/vulkan/volk.c
+	src/motor/graphics/vulkan/volk.h
+	src/motor/graphics/vulkan/spirv_reflect.c
+	src/motor/graphics/vulkan/spirv_reflect.h
+	src/motor/graphics/vulkan/vk_mem_alloc.cpp
+	src/motor/graphics/vulkan/vk_mem_alloc.h
+	)
+
+set(
+	MOTOR_ENGINE_SOURCES
+
+	src/motor/engine/file_watcher.c
+	include/motor/engine/file_watcher.h
+
+	src/motor/engine/config.c
+	include/motor/engine/config.h
+
+	src/motor/engine/engine.c
+	include/motor/engine/engine.h
+
+	src/motor/engine/ui.c
+	include/motor/engine/ui.h
+
+	src/motor/engine/asset_manager.c
+	include/motor/engine/asset_manager.h
+
+	src/motor/engine/assets/image_asset.c
+	include/motor/engine/assets/image_asset.h
+
+	src/motor/engine/assets/pipeline_asset.c
+	include/motor/engine/assets/pipeline_asset.h
+
+	src/motor/engine/assets/font_asset.c
+	include/motor/engine/assets/font_asset.h
+
+	# Third party stuff:
+	src/motor/engine/stb_image.c
+	src/motor/engine/stb_image.h
+	src/motor/engine/stb_rect_pack.c
+	src/motor/engine/stb_rect_pack.h
+	src/motor/engine/stb_truetype.c
+	src/motor/engine/stb_truetype.h
+	)
+
+add_library(motor_base ${MOTOR_BASE_SOURCES})
+target_include_directories(motor_base PUBLIC include/)
+target_link_libraries(motor_base PUBLIC ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+
+add_library(motor_graphics ${MOTOR_GRAPHICS_SOURCES})
+target_include_directories(motor_graphics PUBLIC include/)
+target_link_libraries(motor_graphics PUBLIC motor_base PRIVATE vulkan-headers glfw shaderc_shared)
+
+add_library(motor_engine ${MOTOR_ENGINE_SOURCES})
+target_include_directories(motor_engine PUBLIC include/)
+target_link_libraries(motor_engine PUBLIC motor_base motor_graphics)
 
 add_executable(simple examples/simple.c)
-target_link_libraries(simple PUBLIC motor)
+target_link_libraries(simple PUBLIC motor_engine)
 
 add_executable(watcher examples/watcher.c)
-target_link_libraries(watcher PUBLIC motor)
+target_link_libraries(watcher PUBLIC motor_engine)
 
 add_executable(read_config examples/read_config.c)
-target_link_libraries(read_config PUBLIC motor)
+target_link_libraries(read_config PUBLIC motor_engine)
 
 add_executable(arena_tests tests/arena_tests.c)
-target_link_libraries(arena_tests PUBLIC motor)
+target_link_libraries(arena_tests PUBLIC motor_base)
 add_test(area_tests arena_tests)
 
 add_executable(hash_tests tests/hash_tests.c)
-target_link_libraries(hash_tests PUBLIC motor)
+target_link_libraries(hash_tests PUBLIC motor_base)
 add_test(hash_tests hash_tests)
 

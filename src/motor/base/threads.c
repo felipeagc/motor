@@ -1,4 +1,4 @@
-#include "../../include/motor/threads.h"
+#include <motor/base/threads.h>
 
 #include <stdlib.h>
 #include <stdint.h>

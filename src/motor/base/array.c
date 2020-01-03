@@ -1,6 +1,6 @@
-#include "../../include/motor/array.h"
+#include <motor/base/array.h>
 
-#include "../../include/motor/allocator.h"
+#include <motor/base/allocator.h>
 
 void *
 mt_array_grow(MtAllocator *alloc, void *a, uint32_t item_size, uint32_t cap) {

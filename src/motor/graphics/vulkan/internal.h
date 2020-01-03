@@ -3,11 +3,11 @@
 #include <assert.h>
 #include <stdint.h>
 #include "volk.h"
-#include "../../../include/motor/array.h"
-#include "../../../include/motor/hashmap.h"
-#include "../../../include/motor/renderer.h"
-#include "../../../include/motor/bitset.h"
-#include "../../../include/motor/vulkan/vulkan_device.h"
+#include <motor/base/array.h>
+#include <motor/base/hashmap.h>
+#include <motor/base/bitset.h>
+#include <motor/graphics/renderer.h>
+#include <motor/graphics/vulkan/vulkan_device.h>
 
 enum { FRAMES_IN_FLIGHT = 2 };
 

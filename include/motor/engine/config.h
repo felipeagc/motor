@@ -2,10 +2,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "allocator.h"
-#include "string_builder.h"
-#include "hashmap.h"
+#include <motor/base/hashmap.h>
 
+typedef struct MtAllocator MtAllocator;
 typedef struct MtConfigEntry MtConfigEntry;
 
 typedef struct MtConfigObject {

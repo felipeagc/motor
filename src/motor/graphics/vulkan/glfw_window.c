@@ -1,4 +1,4 @@
-#include "../../../include/motor/vulkan/glfw_window.h"
+#include <motor/graphics/vulkan/glfw_window.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -7,10 +7,10 @@
 #include <GLFW/glfw3.h>
 #include "vk_mem_alloc.h"
 #include "hashing.inl"
-#include "../../../include/motor/renderer.h"
-#include "../../../include/motor/window.h"
-#include "../../../include/motor/util.h"
-#include "../../../include/motor/allocator.h"
+#include <motor/base/util.h>
+#include <motor/base/allocator.h>
+#include <motor/graphics/renderer.h>
+#include <motor/graphics/window.h>
 
 #define clamp(v, a, b) ((((v > b) ? b : v) < a) ? a : v)
 

@@ -1,13 +1,13 @@
-#include "../../../include/motor/assets/pipeline_asset.h"
+#include <motor/engine/assets/pipeline_asset.h>
 
-#include "../../../include/motor/util.h"
-#include "../../../include/motor/allocator.h"
-#include "../../../include/motor/asset_manager.h"
-#include "../../../include/motor/engine.h"
-#include "../../../include/motor/renderer.h"
-#include "../../../include/motor/array.h"
-#include "../../../include/motor/config.h"
-#include "../../../include/motor/math_types.h"
+#include <motor/base/util.h>
+#include <motor/base/allocator.h>
+#include <motor/base/array.h>
+#include <motor/base/math_types.h>
+#include <motor/graphics/renderer.h>
+#include <motor/engine/asset_manager.h>
+#include <motor/engine/engine.h>
+#include <motor/engine/config.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>

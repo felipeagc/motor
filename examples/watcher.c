@@ -1,7 +1,7 @@
 #include <stdio.h>
-#include <motor/allocator.h>
-#include <motor/arena.h>
-#include <motor/file_watcher.h>
+#include <motor/base/allocator.h>
+#include <motor/base/arena.h>
+#include <motor/engine/file_watcher.h>
 
 void handler(MtFileWatcherEvent *e, void *user_data) {
     switch (e->type) {

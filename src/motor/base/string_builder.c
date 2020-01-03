@@ -1,8 +1,8 @@
-#include "../../include/motor/string_builder.h"
+#include <motor/base/string_builder.h>
 
 #include <string.h>
 #include <assert.h>
-#include "../../include/motor/allocator.h"
+#include <motor/base/allocator.h>
 
 void mt_str_builder_init(MtStringBuilder *sb, MtAllocator *alloc) {
     memset(sb, 0, sizeof(*sb));

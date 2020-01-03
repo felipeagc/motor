@@ -1,7 +1,7 @@
-#include <motor/hashmap.h>
-#include <motor/arena.h>
-#include <motor/allocator.h>
-#include <motor/array.h>
+#include <motor/base/hashmap.h>
+#include <motor/base/arena.h>
+#include <motor/base/allocator.h>
+#include <motor/base/array.h>
 #include <assert.h>
 #include <stdio.h>
 
