@@ -2,7 +2,7 @@ blending: true
 depth_test: false
 depth_write: false
 depth_bias: false
-cull_mode: "none"
+cull_mode: "back"
 front_face: "clockwise"
 
 vertex: [[
@@ -35,6 +35,6 @@ fragment: [[
     layout(location = 0) out vec4 out_color;
 
     void main() {
-        out_color = texture(bitmap, tex_coord).x * vec4(in_color, 1.0);
+        out_color = vec4(in_color, texture(bitmap, tex_coord).r);
     }
 ]]
