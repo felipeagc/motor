@@ -103,11 +103,17 @@ set(
 
 add_library(motor_base ${MOTOR_BASE_SOURCES})
 target_include_directories(motor_base PUBLIC include/)
-target_link_libraries(motor_base PUBLIC ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(motor_base ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 
 add_library(motor_graphics ${MOTOR_GRAPHICS_SOURCES})
-target_include_directories(motor_graphics PUBLIC include/)
-target_link_libraries(motor_graphics PUBLIC motor_base PRIVATE vulkan-headers glfw shaderc_shared)
+target_include_directories(motor_graphics PUBLIC include/ thirdparty/shaderc/)
+target_link_libraries(motor_graphics motor_base vulkan-headers glfw)
+
+if(WIN32)
+	target_link_libraries(motor_graphics ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/shaderc/shaderc_shared.dll)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+	target_link_libraries(motor_graphics ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/shaderc/libshaderc_shared.so.1)
+endif()
 
 add_library(motor_engine ${MOTOR_ENGINE_SOURCES})
 target_include_directories(motor_engine PUBLIC include/)
