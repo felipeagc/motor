@@ -1,6 +1,8 @@
 #include <motor/ui.h>
 
 #include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <motor/math.h>
 #include <motor/array.h>
 #include <motor/renderer.h>
@@ -56,7 +58,7 @@ void mt_ui_set_pos(MtUIRenderer *ui, Vec2 pos) { ui->pos = pos; }
 
 void mt_ui_set_color(MtUIRenderer *ui, Vec3 color) { ui->color = color; }
 
-void mt_ui_text(MtUIRenderer *ui, const char *text) {
+static void draw_text(MtUIRenderer *ui, const char *text) {
     FontAtlas *atlas = get_atlas(ui->font, ui->font_height);
 
     ui->pos.y += (float)ui->font_height;
@@ -113,6 +115,18 @@ void mt_ui_text(MtUIRenderer *ui, const char *text) {
 
         ci++;
     }
+}
+
+void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...) {
+    char buf[512];
+    va_list vl;
+    va_start(vl, fmt);
+    vsnprintf(buf, sizeof(buf) - 1, fmt, vl);
+    va_end(vl);
+
+    buf[sizeof(buf) - 1] = '\0';
+
+    draw_text(ui, buf);
 }
 
 void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport) {

@@ -29,7 +29,8 @@ typedef struct MtWindowVT {
     void (*end_frame)(MtWindow *);
     MtRenderPass *(*get_render_pass)(MtWindow *);
 
-    void (*get_size)(MtWindow *, uint32_t *width, uint32_t* height);
+    float (*delta_time)(MtWindow *);
+    void (*get_size)(MtWindow *, uint32_t *width, uint32_t *height);
 
     void (*destroy)(MtWindow *);
 } MtWindowVT;

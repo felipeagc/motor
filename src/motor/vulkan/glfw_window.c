@@ -48,6 +48,9 @@ typedef struct MtWindow {
     MtRenderPass render_pass;
 
     MtCmdBuffer *cmd_buffers[FRAMES_IN_FLIGHT];
+
+    double last_time;
+    double delta_time;
 } MtWindow;
 
 /*
@@ -657,6 +660,8 @@ static bool next_event(MtWindow *window, MtEvent *event) {
 static MtCmdBuffer *begin_frame(MtWindow *window) {
     MtDevice *dev = window->dev;
 
+    window->last_time = glfwGetTime();
+
     vkWaitForFences(
         dev->device,
         1,
@@ -740,6 +745,8 @@ static void end_frame(MtWindow *window) {
     }
 
     window->current_frame = (window->current_frame + 1) % FRAMES_IN_FLIGHT;
+
+    window->delta_time = glfwGetTime() - window->last_time;
 }
 
 static void window_destroy(MtWindow *window) {
@@ -775,6 +782,8 @@ static void get_size(MtWindow *window, uint32_t *width, uint32_t *height) {
     *height = (uint32_t)h;
 }
 
+static float delta_time(MtWindow *window) { return (float)window->delta_time; }
+
 static MtWindowVT g_glfw_window_vt = {
     .should_close = should_close,
     .next_event   = next_event,
@@ -783,7 +792,8 @@ static MtWindowVT g_glfw_window_vt = {
     .end_frame       = end_frame,
     .get_render_pass = get_render_pass,
 
-    .get_size = get_size,
+    .delta_time = delta_time,
+    .get_size   = get_size,
 
     .destroy = window_destroy,
 };
@@ -822,6 +832,8 @@ void mt_glfw_vulkan_window_init(
     MtAllocator *alloc) {
     MtWindow *window = mt_alloc(alloc, sizeof(MtWindow));
     memset(window, 0, sizeof(*window));
+
+    window->last_time = 0.0f;
 
     window->window =
         glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
