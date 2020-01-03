@@ -110,7 +110,7 @@ target_include_directories(motor_graphics PUBLIC include/ thirdparty/shaderc/)
 target_link_libraries(motor_graphics motor_base vulkan-headers glfw)
 
 if(WIN32)
-	target_link_libraries(motor_graphics ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/shaderc/shaderc_shared.dll)
+	target_link_libraries(motor_graphics ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/shaderc/shaderc_shared.lib)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	target_link_libraries(motor_graphics ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/shaderc/libshaderc_shared.so.1)
 endif()
