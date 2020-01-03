@@ -244,8 +244,13 @@ bool asset_init(
         (uint8_t *)shaderc_result_get_bytes(fragment_result),
         shaderc_result_get_length(fragment_result),
         &(MtGraphicsPipelineCreateInfo){
-            .cull_mode  = cull_mode,
-            .front_face = front_face,
+            .blending    = blending,
+            .depth_test  = depth_test,
+            .depth_write = depth_write,
+            .depth_bias  = depth_bias,
+            .cull_mode   = cull_mode,
+            .front_face  = front_face,
+            .line_width  = line_width,
         });
 
     shaderc_compile_options_release(options);
