@@ -8,15 +8,9 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - uses: seanmiddleditch/gha-setup-ninja@master
-    - name: cache
-      uses: actions/cache@v1.0.3
-      with:
-        path: build
-        key: linux-cache
     - name: install dependencies
       run: sudo apt-get install -y libxinerama-dev libxrandr-dev libxkbcommon-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxi-dev libxxf86vm-dev
     - name: cmake
-      if: steps.cache.outputs.cache-hit != 'true'
       run: |
         mkdir build
         cd build
@@ -30,13 +24,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - uses: seanmiddleditch/gha-setup-ninja@master
-    - name: cache
-      uses: actions/cache@v1.0.3
-      with:
-        path: build
-        key: windows-cache
     - name: cmake
-      if: steps.cache.outputs.cache-hit != 'true'
       run: |
         mkdir build
         cd build
