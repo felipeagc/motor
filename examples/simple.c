@@ -73,14 +73,15 @@ int main(int argc, char *argv[]) {
     Game game = {0};
     game_init(&game);
 
-    while (!game.engine.window.vt->should_close(game.engine.window.inst)) {
+    MtIWindow *win = &game.engine.window;
+
+    while (!win->vt->should_close(win->inst)) {
         mt_file_watcher_poll(game.watcher, asset_watcher_handler, &game);
 
         game.engine.window_system.vt->poll_events();
 
         MtEvent event;
-        while (game.engine.window.vt->next_event(
-            game.engine.window.inst, &event)) {
+        while (win->vt->next_event(win->inst, &event)) {
             switch (event.type) {
             case MT_EVENT_WINDOW_CLOSED: {
                 printf("Closed\n");
@@ -89,14 +90,12 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        MtCmdBuffer *cb =
-            game.engine.window.vt->begin_frame(game.engine.window.inst);
+        MtCmdBuffer *cb = win->vt->begin_frame(win->inst);
 
         mt_render.begin_cmd_buffer(cb);
 
         mt_render.cmd_begin_render_pass(
-            cb,
-            game.engine.window.vt->get_render_pass(game.engine.window.inst));
+            cb, win->vt->get_render_pass(win->inst));
 
         // Draw UI
         {
@@ -107,13 +106,8 @@ int main(int argc, char *argv[]) {
             mt_ui_set_font(game.ui, game.font);
             mt_ui_set_font_size(game.ui, 50);
 
-            mt_ui_text(game.ui, "Hello World");
-            mt_ui_set_color(game.ui, V3(1, 0, 0));
-            mt_ui_text(game.ui, "Hello");
-            mt_ui_set_color(game.ui, V3(0, 1, 0));
-            mt_ui_text(game.ui, "Hello");
-            mt_ui_set_color(game.ui, V3(0, 0, 1));
-            mt_ui_text(game.ui, "Hello");
+            mt_ui_printf(
+                game.ui, "Delta: %fms", win->vt->delta_time(win->inst));
 
             mt_ui_draw(game.ui, cb);
         }
@@ -122,7 +116,7 @@ int main(int argc, char *argv[]) {
 
         mt_render.end_cmd_buffer(cb);
 
-        game.engine.window.vt->end_frame(game.engine.window.inst);
+        win->vt->end_frame(win->inst);
     }
 
     game_destroy(&game);
