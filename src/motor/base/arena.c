@@ -1,7 +1,7 @@
-#include "../../include/motor/arena.h"
+#include <motor/base/arena.h>
 
-#include "../../include/motor/util.h"
-#include "../../include/motor/allocator.h"
+#include <motor/base/util.h>
+#include <motor/base/allocator.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>

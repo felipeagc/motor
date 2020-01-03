@@ -1,10 +1,10 @@
-#include "../../include/motor/engine.h"
+#include <motor/engine/engine.h>
 
-#include "../../include/motor/arena.h"
-#include "../../include/motor/allocator.h"
-#include "../../include/motor/renderer.h"
-#include "../../include/motor/vulkan/vulkan_device.h"
-#include "../../include/motor/vulkan/glfw_window.h"
+#include <motor/base/arena.h>
+#include <motor/base/allocator.h>
+#include <motor/graphics/renderer.h>
+#include <motor/graphics/vulkan/vulkan_device.h>
+#include <motor/graphics/vulkan/glfw_window.h>
 #include <shaderc/shaderc.h>
 #include <string.h>
 

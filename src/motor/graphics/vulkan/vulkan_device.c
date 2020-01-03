@@ -1,13 +1,12 @@
-#include "../../../include/motor/vulkan/vulkan_device.h"
+#include <motor/graphics/vulkan/vulkan_device.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "../xxhash.h"
-#include "../../../include/motor/util.h"
-#include "../../../include/motor/allocator.h"
-#include "../../../include/motor/window.h"
+#include <motor/base/util.h>
+#include <motor/base/allocator.h>
+#include <motor/graphics/window.h>
 
 #include "internal.h"
 #include "vk_mem_alloc.h"

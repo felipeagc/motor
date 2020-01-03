@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdint.h>
-#include "math_types.h"
+#include <motor/base/math_types.h>
 
 typedef struct MtAllocator MtAllocator;
 typedef struct MtFontAsset MtFontAsset;

@@ -1,15 +1,15 @@
-#include <motor/ui.h>
+#include <motor/engine/ui.h>
 
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <motor/math.h>
-#include <motor/array.h>
-#include <motor/renderer.h>
-#include <motor/allocator.h>
-#include <motor/asset_manager.h>
-#include <motor/assets/pipeline_asset.h>
-#include <motor/assets/font_asset.h>
+#include <motor/base/math.h>
+#include <motor/base/array.h>
+#include <motor/base/allocator.h>
+#include <motor/graphics/renderer.h>
+#include <motor/engine/asset_manager.h>
+#include <motor/engine/assets/pipeline_asset.h>
+#include <motor/engine/assets/font_asset.h>
 #include "assets/font_asset.inl"
 
 struct MtUIRenderer {

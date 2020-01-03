@@ -1,7 +1,7 @@
 #pragma once
 
+#include <motor/base/hashmap.h>
 #include "asset.h"
-#include "hashmap.h"
 
 typedef struct MtEngine MtEngine;
 typedef struct MtAllocator MtAllocator;

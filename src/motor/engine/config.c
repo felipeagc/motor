@@ -1,8 +1,10 @@
-#include "../../include/motor/config.h"
+#include <motor/engine/config.h>
 
-#include "../../include/motor/arena.h"
-#include "../../include/motor/bump_alloc.h"
-#include "../../include/motor/array.h"
+#include <motor/base/allocator.h>
+#include <motor/base/arena.h>
+#include <motor/base/bump_alloc.h>
+#include <motor/base/string_builder.h>
+#include <motor/base/array.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>

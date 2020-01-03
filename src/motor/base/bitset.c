@@ -1,6 +1,6 @@
-#include "../../include/motor/bitset.h"
+#include <motor/base/bitset.h>
 
-#include "../../include/motor/allocator.h"
+#include <motor/base/allocator.h>
 
 void mt_dynamic_bitset_init(
     MtDynamicBitset *bitset, uint32_t nbits, MtAllocator *alloc) {

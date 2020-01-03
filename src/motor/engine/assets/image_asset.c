@@ -1,10 +1,10 @@
-#include "../../../include/motor/assets/image_asset.h"
+#include <motor/engine/assets/image_asset.h>
 
-#include "../../../include/motor/util.h"
-#include "../../../include/motor/allocator.h"
-#include "../../../include/motor/engine.h"
-#include "../../../include/motor/asset_manager.h"
-#include "../../../include/motor/renderer.h"
+#include <motor/base/util.h>
+#include <motor/base/allocator.h>
+#include <motor/engine/engine.h>
+#include <motor/engine/asset_manager.h>
+#include <motor/graphics/renderer.h>
 #include "../stb_image.h"
 
 static bool

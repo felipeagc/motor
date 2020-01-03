@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "../xxhash.h"
+#include "../../base/xxhash.h"
 
 static uint64_t vulkan_hash_render_pass(VkRenderPassCreateInfo *ci) {
     XXH64_state_t state = {0};

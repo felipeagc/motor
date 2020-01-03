@@ -1,14 +1,14 @@
-#include "../../include/motor/asset_manager.h"
+#include <motor/engine/asset_manager.h>
 
 #include <stdio.h>
 #include <string.h>
-#include "../../include/motor/allocator.h"
-#include "../../include/motor/array.h"
-#include "../../include/motor/engine.h"
+#include <motor/base/allocator.h>
+#include <motor/base/array.h>
+#include <motor/engine/engine.h>
 
-#include "../../include/motor/assets/image_asset.h"
-#include "../../include/motor/assets/pipeline_asset.h"
-#include "../../include/motor/assets/font_asset.h"
+#include <motor/engine/assets/image_asset.h>
+#include <motor/engine/assets/pipeline_asset.h>
+#include <motor/engine/assets/font_asset.h>
 
 void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine) {
     memset(am, 0, sizeof(*am));

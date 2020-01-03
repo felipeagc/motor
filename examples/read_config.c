@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <motor/arena.h>
-#include <motor/config.h>
-#include <motor/array.h>
+#include <motor/base/arena.h>
+#include <motor/base/array.h>
+#include <motor/engine/config.h>
 
 static void print_object(MtConfigObject *obj, uint32_t indent) {
     for (uint32_t i = 0; i < mt_array_size(obj->entries); i++) {

@@ -1,5 +1,5 @@
-#include "../../include/motor/bump_alloc.h"
-#include "../../include/motor/allocator.h"
+#include <motor/base/bump_alloc.h>
+#include <motor/base/allocator.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>

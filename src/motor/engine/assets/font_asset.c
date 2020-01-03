@@ -1,7 +1,7 @@
-#include "../../../include/motor/assets/font_asset.h"
+#include <motor/engine/assets/font_asset.h>
 
-#include "../../../include/motor/util.h"
-#include "../../../include/motor/asset_manager.h"
+#include <motor/base/util.h>
+#include <motor/engine/asset_manager.h>
 #include "font_asset.inl"
 #include <stdio.h>
 

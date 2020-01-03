@@ -1,7 +1,7 @@
-#include "../../../include/motor/renderer.h"
-#include "../../../include/motor/allocator.h"
-#include "../../../include/motor/engine.h"
-#include "../../../include/motor/array.h"
+#include <motor/base/allocator.h>
+#include <motor/base/array.h>
+#include <motor/graphics/renderer.h>
+#include <motor/engine/engine.h>
 #include "../stb_rect_pack.h"
 #include "../stb_truetype.h"
 #include <string.h>

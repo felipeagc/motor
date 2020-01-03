@@ -1,6 +1,6 @@
-#include "../include/motor/allocator.h"
-#include "../include/motor/arena.h"
-#include "../include/motor/util.h"
+#include <motor/base/allocator.h>
+#include <motor/base/arena.h>
+#include <motor/base/util.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>

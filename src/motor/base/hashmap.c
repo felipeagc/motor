@@ -1,7 +1,7 @@
-#include "../../include/motor/hashmap.h"
+#include <motor/base/hashmap.h>
 
 #include <string.h>
-#include "../../include/motor/allocator.h"
+#include <motor/base/allocator.h>
 #include "xxhash.h"
 
 static void hash_grow(MtHashMap *map) {

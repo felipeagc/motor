@@ -1,7 +1,7 @@
 #pragma once
 
 #include "asset_manager.h"
-#include "window.h"
+#include <motor/graphics/window.h>
 
 typedef struct MtDevice MtDevice;
 typedef struct shaderc_compiler *shaderc_compiler_t;

@@ -1,7 +1,7 @@
-#include "../../include/motor/file_watcher.h"
+#include <motor/engine/file_watcher.h>
 
-#include "../../include/motor/allocator.h"
-#include "../../include/motor/array.h"
+#include <motor/base/allocator.h>
+#include <motor/base/array.h>
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
