@@ -80,6 +80,9 @@ set(
 	src/motor/engine/ui.c
 	include/motor/engine/ui.h
 
+	src/motor/engine/camera.c
+	include/motor/engine/camera.h
+
 	src/motor/engine/asset_manager.c
 	include/motor/engine/asset_manager.h
 

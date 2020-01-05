@@ -45,13 +45,9 @@ typedef struct GltfPrimitive {
     bool has_indices;
 } GltfPrimitive;
 
-typedef struct GltfMeshUniform {
-    Mat4 matrix;
-} GltfMeshUniform;
-
 typedef struct GltfMesh {
     /*array*/ GltfPrimitive *primitives;
-    GltfMeshUniform uniform;
+    Mat4 matrix;
 } GltfMesh;
 
 typedef struct GltfNode {
@@ -91,11 +87,10 @@ static void load_node(
 
 static Mat4 node_local_matrix(GltfNode *node) {
     Mat4 result = mat4_identity();
-    result =
-        mat4_mul(result, mat4_translate(mat4_identity(), node->translation));
-    result = mat4_mul(result, mat4_scale(mat4_identity(), node->scale));
-    result = mat4_mul(result, quat_to_mat4(node->rotation));
-    result = mat4_mul(result, node->matrix);
+    result      = mat4_translate(result, node->translation);
+    result      = mat4_mul(result, quat_to_mat4(node->rotation));
+    result      = mat4_scale(result, node->scale);
+    result      = mat4_mul(result, node->matrix);
     return result;
 }
 
@@ -111,7 +106,7 @@ static Mat4 node_get_matrix(GltfNode *node) {
 
 static void node_update(GltfNode *node) {
     if (node->mesh) {
-        node->mesh->uniform.matrix = node_get_matrix(node);
+        node->mesh->matrix = node_get_matrix(node);
     }
 
     for (uint32_t i = 0; i < mt_array_size(node->children); i++) {
@@ -340,7 +335,7 @@ static void load_node(
     new_node->parent      = parent;
     new_node->matrix      = mat4_identity();
     new_node->translation = V3(0.0f, 0.0f, 0.0f);
-    new_node->rotation    = (Quat){};
+    new_node->rotation    = (Quat){0.0f, 0.0f, 0.0f, 1.0f};
     new_node->scale       = V3(1.0f, 1.0f, 1.0f);
 
     if (node->has_translation) {
@@ -376,7 +371,7 @@ static void load_node(
         GltfMesh *new_mesh = mt_alloc(alloc, sizeof(GltfMesh));
         memset(new_mesh, 0, sizeof(*new_mesh));
 
-        new_mesh->uniform.matrix = new_node->matrix;
+        new_mesh->matrix = new_node->matrix;
 
         for (uint32_t i = 0; i < mesh->primitives_count; i++) {
             cgltf_primitive *primitive = &mesh->primitives[i];
@@ -538,12 +533,20 @@ static void load_node(
     mt_array_push(alloc, asset->linear_nodes, new_node);
 }
 
-static void node_draw(GltfNode *node, MtCmdBuffer *cb) {
+static void
+node_draw(GltfNode *node, MtCmdBuffer *cb, Mat4 *transform, uint32_t set) {
     if (node->mesh) {
         for (uint32_t i = 0; i < mt_array_size(node->mesh->primitives); i++) {
             GltfPrimitive *primitive = &node->mesh->primitives[i];
-            mt_render.cmd_bind_uniform(
-                cb, &node->mesh->uniform, sizeof(node->mesh->uniform), 0, 0);
+
+            struct {
+                Mat4 local_model;
+                Mat4 model;
+            } uniform;
+            uniform.local_model = node->mesh->matrix;
+            uniform.model       = *transform;
+
+            mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), set, 0);
             if (primitive->has_indices) {
                 mt_render.cmd_draw_indexed(
                     cb,
@@ -560,18 +563,19 @@ static void node_draw(GltfNode *node, MtCmdBuffer *cb) {
     for (GltfNode **child = node->children;
          child != node->children + mt_array_size(node->children);
          ++child) {
-        node_draw(*child, cb);
+        node_draw(*child, cb, transform, set);
     }
 }
 
-void mt_gltf_asset_draw(MtGltfAsset *asset, MtCmdBuffer *cb) {
+void mt_gltf_asset_draw(
+    MtGltfAsset *asset, MtCmdBuffer *cb, Mat4 *transform, uint32_t set) {
     mt_render.cmd_bind_vertex_buffer(cb, asset->vertex_buffer, 0);
     mt_render.cmd_bind_index_buffer(
         cb, asset->index_buffer, MT_INDEX_TYPE_UINT32, 0);
     for (GltfNode **node = asset->nodes;
          node != asset->nodes + mt_array_size(asset->nodes);
          ++node) {
-        node_draw(*node, cb);
+        node_draw(*node, cb, transform, set);
     }
 }
 

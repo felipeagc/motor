@@ -7,6 +7,7 @@
 #include <motor/engine/ui.h>
 #include <motor/engine/file_watcher.h>
 #include <motor/engine/engine.h>
+#include <motor/engine/camera.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/image_asset.h>
 #include <motor/engine/assets/font_asset.h>
@@ -27,6 +28,7 @@ typedef struct Game {
     MtUIRenderer *ui;
 
     MtFileWatcher *watcher;
+    MtPerspectiveCamera cam;
 
     MtImageAsset *image;
     MtFontAsset *font;
@@ -43,6 +45,8 @@ void game_init(Game *g) {
 
     g->watcher = mt_file_watcher_create(
         g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
+
+    mt_perspective_camera_init(&g->cam);
 
     g->image = (MtImageAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/test.png");
@@ -92,6 +96,7 @@ int main(int argc, char *argv[]) {
 
         MtEvent event;
         while (win->vt->next_event(win->inst, &event)) {
+            mt_perspective_camera_on_event(&game.cam, &event);
             switch (event.type) {
             case MT_EVENT_WINDOW_CLOSED: {
                 printf("Closed\n");
@@ -122,10 +127,18 @@ int main(int argc, char *argv[]) {
             mt_ui_draw(game.ui, cb);
         }
 
+        uint32_t width, height;
+        win->vt->get_size(win->inst, &width, &height);
+        float aspect = (float)width / (float)height;
+        mt_perspective_camera_update(&game.cam, win, aspect);
+
         // Draw model
         {
+            Mat4 transform = mat4_identity();
             mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
-            mt_gltf_asset_draw(game.model, cb);
+            mt_render.cmd_bind_uniform(
+                cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
+            mt_gltf_asset_draw(game.model, cb, &transform, 1);
         }
 
         mt_render.cmd_end_render_pass(cb);
