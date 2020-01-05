@@ -4,6 +4,8 @@
 #include <motor/graphics/window.h>
 
 typedef struct MtDevice MtDevice;
+typedef struct MtImage MtImage;
+typedef struct MtSampler MtSampler;
 typedef struct shaderc_compiler *shaderc_compiler_t;
 
 typedef struct MtEngine {
@@ -15,6 +17,11 @@ typedef struct MtEngine {
     MtAssetManager asset_manager;
 
     shaderc_compiler_t compiler;
+
+    MtImage *white_image;
+    MtImage *black_image;
+
+    MtSampler *default_sampler;
 } MtEngine;
 
 void mt_engine_init(MtEngine *engine);

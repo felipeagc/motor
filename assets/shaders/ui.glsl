@@ -1,6 +1,6 @@
 blending: true
-depth_test: false
-depth_write: false
+depth_test: true
+depth_write: true
 depth_bias: false
 cull_mode: "back"
 front_face: "clockwise"

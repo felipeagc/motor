@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
             mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
             mt_render.cmd_bind_uniform(
                 cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-            mt_gltf_asset_draw(game.model, cb, &transform, 1);
+            mt_gltf_asset_draw(game.model, cb, &transform, 1, 2);
         }
 
         mt_render.cmd_end_render_pass(cb);
