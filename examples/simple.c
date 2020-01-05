@@ -30,7 +30,7 @@ typedef struct Game {
 
     MtImageAsset *image;
     MtFontAsset *font;
-    MtPipelineAsset *text_pipeline;
+    MtPipelineAsset *model_pipeline;
     MtGltfAsset *model;
 } Game;
 
@@ -48,12 +48,16 @@ void game_init(Game *g) {
         &g->engine.asset_manager, "../assets/test.png");
     assert(g->image);
 
+    g->model_pipeline = (MtPipelineAsset *)mt_asset_manager_load(
+        &g->engine.asset_manager, "../assets/shaders/model.glsl");
+    assert(g->model_pipeline);
+
     g->font = (MtFontAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
     assert(g->font);
 
     g->model = (MtGltfAsset *)mt_asset_manager_load(
-        &g->engine.asset_manager, "../assets/Lantern.glb");
+        &g->engine.asset_manager, "../assets/DamagedHelmet.glb");
     assert(g->model);
 }
 
@@ -116,6 +120,12 @@ int main(int argc, char *argv[]) {
                 game.ui, "Delta: %fms", win->vt->delta_time(win->inst));
 
             mt_ui_draw(game.ui, cb);
+        }
+
+        // Draw model
+        {
+            mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
+            mt_gltf_asset_draw(game.model, cb);
         }
 
         mt_render.cmd_end_render_pass(cb);

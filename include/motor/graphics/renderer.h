@@ -277,9 +277,18 @@ typedef struct MtRenderer {
         MtCmdBuffer *, void *data, size_t size, MtIndexType index_type);
 
     void (*cmd_draw)(
-        MtCmdBuffer *, uint32_t vertex_count, uint32_t instance_count);
+        MtCmdBuffer *,
+        uint32_t vertex_count,
+        uint32_t instance_count,
+        uint32_t first_vertex,
+        uint32_t first_instance);
     void (*cmd_draw_indexed)(
-        MtCmdBuffer *, uint32_t index_count, uint32_t instance_count);
+        MtCmdBuffer *,
+        uint32_t index_count,
+        uint32_t instance_count,
+        uint32_t first_index,
+        int32_t vertex_offset,
+        uint32_t first_instance);
 
     void (*cmd_dispatch)(
         MtCmdBuffer *,

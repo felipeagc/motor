@@ -15,7 +15,7 @@
 #include <assert.h>
 
 typedef struct GltfVertex {
-    Vec4 pos;
+    Vec3 pos;
     Vec3 normal;
     Vec2 uv0;
 } GltfVertex;
@@ -50,7 +50,7 @@ typedef struct GltfMeshUniform {
 } GltfMeshUniform;
 
 typedef struct GltfMesh {
-    /*array*/ GltfPrimitive **primitives;
+    /*array*/ GltfPrimitive *primitives;
     GltfMeshUniform uniform;
 } GltfMesh;
 
@@ -287,6 +287,9 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
     mt_render.transfer_to_buffer(
         dev, asset->index_buffer, 0, index_buffer_size, indices);
 
+    mt_array_free(alloc, vertices);
+    mt_array_free(alloc, indices);
+
     cgltf_free(data);
     mt_free(alloc, gltf_data);
 
@@ -297,12 +300,26 @@ static void asset_destroy(MtAsset *asset_) {
     MtGltfAsset *asset = (MtGltfAsset *)asset_;
     if (!asset) return;
 
-    MtDevice *dev = asset->asset_manager->engine->device;
+    MtDevice *dev      = asset->asset_manager->engine->device;
+    MtAllocator *alloc = asset->asset_manager->alloc;
+
+    for (uint32_t i = 0; i < mt_array_size(asset->linear_nodes); i++) {
+        GltfMesh *mesh = asset->linear_nodes[i]->mesh;
+        if (mesh) {
+            mt_array_free(alloc, mesh->primitives);
+            mt_free(alloc, mesh);
+        }
+        mt_free(alloc, asset->linear_nodes[i]);
+    }
+    mt_array_free(alloc, asset->linear_nodes);
+    mt_array_free(alloc, asset->nodes);
+
+    mt_array_free(alloc, asset->materials);
 
     for (uint32_t i = 0; i < mt_array_size(asset->images); i++) {
         mt_render.destroy_image(dev, asset->images[i]);
     }
-    mt_array_free(asset->asset_manager->alloc, asset->images);
+    mt_array_free(alloc, asset->images);
 
     mt_render.destroy_buffer(dev, asset->vertex_buffer);
     mt_render.destroy_buffer(dev, asset->index_buffer);
@@ -320,8 +337,11 @@ static void load_node(
     GltfNode *new_node = mt_alloc(alloc, sizeof(GltfNode));
     memset(new_node, 0, sizeof(*new_node));
 
-    new_node->parent = parent;
-    new_node->matrix = mat4_identity();
+    new_node->parent      = parent;
+    new_node->matrix      = mat4_identity();
+    new_node->translation = V3(0.0f, 0.0f, 0.0f);
+    new_node->rotation    = (Quat){};
+    new_node->scale       = V3(1.0f, 1.0f, 1.0f);
 
     if (node->has_translation) {
         memcpy(&new_node->translation, node->translation, sizeof(Vec3));
@@ -356,6 +376,8 @@ static void load_node(
         GltfMesh *new_mesh = mt_alloc(alloc, sizeof(GltfMesh));
         memset(new_mesh, 0, sizeof(*new_mesh));
 
+        new_mesh->uniform.matrix = new_node->matrix;
+
         for (uint32_t i = 0; i < mesh->primitives_count; i++) {
             cgltf_primitive *primitive = &mesh->primitives[i];
 
@@ -372,17 +394,17 @@ static void load_node(
                 cgltf_accessor *pos_accessor = NULL;
                 cgltf_buffer_view *pos_view  = NULL;
                 uint32_t pos_byte_stride     = 0;
-                float *buffer_pos            = NULL;
+                uint8_t *buffer_pos          = NULL;
 
                 cgltf_accessor *normal_accessor = NULL;
                 cgltf_buffer_view *normal_view  = NULL;
                 uint32_t normal_byte_stride     = 0;
-                float *buffer_normals           = NULL;
+                uint8_t *buffer_normals         = NULL;
 
                 cgltf_accessor *uv0_accessor = NULL;
                 cgltf_buffer_view *uv0_view  = NULL;
                 uint32_t uv0_byte_stride     = 0;
-                float *buffer_uv0            = NULL;
+                uint8_t *buffer_uv0          = NULL;
 
                 for (uint32_t j = 0; j < primitive->attributes_count; j++) {
                     if (primitive->attributes[j].type ==
@@ -425,10 +447,9 @@ static void load_node(
 
                     // Position
                     memcpy(
-                        &vertex->pos.xyz,
+                        &vertex->pos,
                         &buffer_pos[v * pos_byte_stride],
-                        sizeof(vertex->pos.xyz));
-                    vertex->pos.w = 1.0f;
+                        sizeof(vertex->pos));
 
                     // Normal
                     memcpy(
@@ -492,18 +513,15 @@ static void load_node(
                 }
             }
 
-            GltfPrimitive *new_primitive =
-                mt_alloc(alloc, sizeof(GltfPrimitive));
-            memset(new_primitive, 0, sizeof(*new_primitive));
-
-            new_primitive->first_index  = index_start;
-            new_primitive->index_count  = index_count;
-            new_primitive->vertex_count = vertex_count;
+            GltfPrimitive new_primitive = {0};
+            new_primitive.first_index   = index_start;
+            new_primitive.index_count   = index_count;
+            new_primitive.vertex_count  = vertex_count;
             if (primitive->material) {
-                new_primitive->material =
+                new_primitive.material =
                     &asset->materials[primitive->material - model->materials];
             }
-            new_primitive->has_indices = (index_count > 0);
+            new_primitive.has_indices = (index_count > 0);
 
             mt_array_push(alloc, new_mesh->primitives, new_primitive);
         }
@@ -518,6 +536,43 @@ static void load_node(
     }
 
     mt_array_push(alloc, asset->linear_nodes, new_node);
+}
+
+static void node_draw(GltfNode *node, MtCmdBuffer *cb) {
+    if (node->mesh) {
+        for (uint32_t i = 0; i < mt_array_size(node->mesh->primitives); i++) {
+            GltfPrimitive *primitive = &node->mesh->primitives[i];
+            mt_render.cmd_bind_uniform(
+                cb, &node->mesh->uniform, sizeof(node->mesh->uniform), 0, 0);
+            if (primitive->has_indices) {
+                mt_render.cmd_draw_indexed(
+                    cb,
+                    primitive->index_count,
+                    1,
+                    primitive->first_index,
+                    0,
+                    0);
+            } else {
+                mt_render.cmd_draw(cb, primitive->vertex_count, 1, 0, 0);
+            }
+        }
+    }
+    for (GltfNode **child = node->children;
+         child != node->children + mt_array_size(node->children);
+         ++child) {
+        node_draw(*child, cb);
+    }
+}
+
+void mt_gltf_asset_draw(MtGltfAsset *asset, MtCmdBuffer *cb) {
+    mt_render.cmd_bind_vertex_buffer(cb, asset->vertex_buffer, 0);
+    mt_render.cmd_bind_index_buffer(
+        cb, asset->index_buffer, MT_INDEX_TYPE_UINT32, 0);
+    for (GltfNode **node = asset->nodes;
+         node != asset->nodes + mt_array_size(asset->nodes);
+         ++node) {
+        node_draw(*node, cb);
+    }
 }
 
 static const char *g_extensions[] = {
