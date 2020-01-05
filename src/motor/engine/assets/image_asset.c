@@ -2,9 +2,9 @@
 
 #include <motor/base/util.h>
 #include <motor/base/allocator.h>
+#include <motor/graphics/renderer.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/asset_manager.h>
-#include <motor/graphics/renderer.h>
 #include "../stb_image.h"
 
 static bool

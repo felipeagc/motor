@@ -40,7 +40,8 @@ mt_array_grow(MtAllocator *alloc, void *a, uint32_t item_size, uint32_t cap);
     (mt_array_full(a) ? a = mt_array_grow(alloc, a, sizeof(*a), capacity) : 0)
 
 #define mt_array_pushn(alloc, a, count)                                        \
-    (mt_array_reserve(alloc, a, count), mt_array_header(a)->size = count)
+    (mt_array_reserve(alloc, a, mt_array_size(a) + count),                     \
+     mt_array_header(a)->size = (mt_array_size(a) + count))
 
 #define mt_array_pushn_zeroed(alloc, a, count)                                 \
     (mt_array_reserve(alloc, a, count),                                        \

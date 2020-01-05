@@ -10,6 +10,7 @@
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/image_asset.h>
 #include <motor/engine/assets/font_asset.h>
+#include <motor/engine/assets/gltf_asset.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -30,6 +31,7 @@ typedef struct Game {
     MtImageAsset *image;
     MtFontAsset *font;
     MtPipelineAsset *text_pipeline;
+    MtGltfAsset *model;
 } Game;
 
 void game_init(Game *g) {
@@ -49,6 +51,10 @@ void game_init(Game *g) {
     g->font = (MtFontAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
     assert(g->font);
+
+    g->model = (MtGltfAsset *)mt_asset_manager_load(
+        &g->engine.asset_manager, "../assets/Lantern.glb");
+    assert(g->model);
 }
 
 void game_destroy(Game *g) {
