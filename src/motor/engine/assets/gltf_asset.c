@@ -30,11 +30,21 @@ typedef struct MaterialUniform {
 
 typedef struct GltfMaterial {
     MaterialUniform uniform;
-    MtImage **albedo_image;
-    MtImage **normal_image;
-    MtImage **metallic_roughness_image;
-    MtImage **occlusion_image;
-    MtImage **emissive_image;
+
+    MtImage *albedo_image;
+    MtSampler *albedo_sampler;
+
+    MtImage *normal_image;
+    MtSampler *normal_sampler;
+
+    MtImage *metallic_roughness_image;
+    MtSampler *metallic_roughness_sampler;
+
+    MtImage *occlusion_image;
+    MtSampler *occlusion_sampler;
+
+    MtImage *emissive_image;
+    MtSampler *emissive_sampler;
 } GltfMaterial;
 
 typedef struct GltfPrimitive {
@@ -69,6 +79,7 @@ struct MtGltfAsset {
     /*array*/ GltfNode **linear_nodes;
 
     /*array*/ MtImage **images;
+    /*array*/ MtSampler **samplers;
     /*array*/ GltfMaterial *materials;
 
     MtBuffer *vertex_buffer;
@@ -155,6 +166,36 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
     // TODO: support .gltf
     assert(data->file_type == cgltf_file_type_glb);
 
+    // Load samplers
+    mt_array_pushn(alloc, asset->samplers, data->samplers_count);
+    for (uint32_t i = 0; i < data->samplers_count; i++) {
+        cgltf_sampler *sampler = &data->samplers[i];
+        MtSamplerCreateInfo ci = {0};
+        ci.anisotropy          = true;
+        switch (sampler->mag_filter) {
+        case 0x2601: {
+            ci.mag_filter = MT_FILTER_LINEAR;
+        } break;
+        case 0x2600: {
+            ci.mag_filter = MT_FILTER_NEAREST;
+        } break;
+        default: break;
+        }
+
+        switch (sampler->min_filter) {
+        case 0x2601: {
+            ci.min_filter = MT_FILTER_LINEAR;
+        } break;
+        case 0x2600: {
+            ci.min_filter = MT_FILTER_NEAREST;
+        } break;
+        default: break;
+        }
+
+        asset->samplers[i] =
+            mt_render.create_sampler(asset_manager->engine->device, &ci);
+    }
+
     // Load images
     mt_array_pushn(alloc, asset->images, data->images_count);
     for (uint32_t i = 0; i < data->images_count; i++) {
@@ -205,13 +246,28 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
             uint32_t image_index = material->pbr_metallic_roughness
                                        .base_color_texture.texture->image -
                                    data->images;
-            mat->albedo_image = &asset->images[image_index];
+            mat->albedo_image = asset->images[image_index];
+
+            uint32_t sampler_index = material->pbr_metallic_roughness
+                                         .base_color_texture.texture->sampler -
+                                     data->samplers;
+            mat->albedo_sampler = asset->samplers[sampler_index];
+        } else {
+            mat->albedo_image   = asset->asset_manager->engine->white_image;
+            mat->albedo_sampler = asset->asset_manager->engine->default_sampler;
         }
 
         if (material->normal_texture.texture != NULL) {
             uint32_t image_index =
                 material->normal_texture.texture->image - data->images;
-            mat->normal_image = &asset->images[image_index];
+            mat->normal_image = asset->images[image_index];
+
+            uint32_t sampler_index =
+                material->normal_texture.texture->sampler - data->samplers;
+            mat->normal_sampler = asset->samplers[sampler_index];
+        } else {
+            mat->normal_image   = asset->asset_manager->engine->white_image;
+            mat->normal_sampler = asset->asset_manager->engine->default_sampler;
         }
 
         if (material->pbr_metallic_roughness.metallic_roughness_texture
@@ -220,19 +276,46 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
                 material->pbr_metallic_roughness.metallic_roughness_texture
                     .texture->image -
                 data->images;
-            mat->metallic_roughness_image = &asset->images[image_index];
+            mat->metallic_roughness_image = asset->images[image_index];
+
+            uint32_t sampler_index =
+                material->pbr_metallic_roughness.metallic_roughness_texture
+                    .texture->sampler -
+                data->samplers;
+            mat->metallic_roughness_sampler = asset->samplers[sampler_index];
+        } else {
+            mat->metallic_roughness_image =
+                asset->asset_manager->engine->white_image;
+            mat->metallic_roughness_sampler =
+                asset->asset_manager->engine->default_sampler;
         }
 
         if (material->occlusion_texture.texture != NULL) {
             uint32_t image_index =
                 material->occlusion_texture.texture->image - data->images;
-            mat->occlusion_image = &asset->images[image_index];
+            mat->occlusion_image = asset->images[image_index];
+
+            uint32_t sampler_index =
+                material->occlusion_texture.texture->sampler - data->samplers;
+            mat->occlusion_sampler = asset->samplers[sampler_index];
+        } else {
+            mat->occlusion_image = asset->asset_manager->engine->white_image;
+            mat->occlusion_sampler =
+                asset->asset_manager->engine->default_sampler;
         }
 
         if (material->emissive_texture.texture != NULL) {
             uint32_t image_index =
                 material->emissive_texture.texture->image - data->images;
-            mat->emissive_image = &asset->images[image_index];
+            mat->emissive_image = asset->images[image_index];
+
+            uint32_t sampler_index =
+                material->emissive_texture.texture->sampler - data->samplers;
+            mat->emissive_sampler = asset->samplers[sampler_index];
+        } else {
+            mat->emissive_image = asset->asset_manager->engine->black_image;
+            mat->emissive_sampler =
+                asset->asset_manager->engine->default_sampler;
         }
     }
 
@@ -315,6 +398,11 @@ static void asset_destroy(MtAsset *asset_) {
         mt_render.destroy_image(dev, asset->images[i]);
     }
     mt_array_free(alloc, asset->images);
+
+    for (uint32_t i = 0; i < mt_array_size(asset->samplers); i++) {
+        mt_render.destroy_sampler(dev, asset->samplers[i]);
+    }
+    mt_array_free(alloc, asset->samplers);
 
     mt_render.destroy_buffer(dev, asset->vertex_buffer);
     mt_render.destroy_buffer(dev, asset->index_buffer);
@@ -533,8 +621,12 @@ static void load_node(
     mt_array_push(alloc, asset->linear_nodes, new_node);
 }
 
-static void
-node_draw(GltfNode *node, MtCmdBuffer *cb, Mat4 *transform, uint32_t set) {
+static void node_draw(
+    GltfNode *node,
+    MtCmdBuffer *cb,
+    Mat4 *transform,
+    uint32_t model_set,
+    uint32_t material_set) {
     if (node->mesh) {
         for (uint32_t i = 0; i < mt_array_size(node->mesh->primitives); i++) {
             GltfPrimitive *primitive = &node->mesh->primitives[i];
@@ -546,7 +638,46 @@ node_draw(GltfNode *node, MtCmdBuffer *cb, Mat4 *transform, uint32_t set) {
             uniform.local_model = node->mesh->matrix;
             uniform.model       = *transform;
 
-            mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), set, 0);
+            mt_render.cmd_bind_uniform(
+                cb, &uniform, sizeof(uniform), model_set, 0);
+
+            mt_render.cmd_bind_uniform(
+                cb,
+                &primitive->material->uniform,
+                sizeof(primitive->material->uniform),
+                material_set,
+                0);
+            mt_render.cmd_bind_image(
+                cb,
+                primitive->material->albedo_image,
+                primitive->material->albedo_sampler,
+                material_set,
+                1);
+            mt_render.cmd_bind_image(
+                cb,
+                primitive->material->normal_image,
+                primitive->material->normal_sampler,
+                material_set,
+                2);
+            mt_render.cmd_bind_image(
+                cb,
+                primitive->material->metallic_roughness_image,
+                primitive->material->metallic_roughness_sampler,
+                material_set,
+                3);
+            mt_render.cmd_bind_image(
+                cb,
+                primitive->material->occlusion_image,
+                primitive->material->occlusion_sampler,
+                material_set,
+                4);
+            mt_render.cmd_bind_image(
+                cb,
+                primitive->material->emissive_image,
+                primitive->material->emissive_sampler,
+                material_set,
+                5);
+
             if (primitive->has_indices) {
                 mt_render.cmd_draw_indexed(
                     cb,
@@ -563,19 +694,23 @@ node_draw(GltfNode *node, MtCmdBuffer *cb, Mat4 *transform, uint32_t set) {
     for (GltfNode **child = node->children;
          child != node->children + mt_array_size(node->children);
          ++child) {
-        node_draw(*child, cb, transform, set);
+        node_draw(*child, cb, transform, model_set, material_set);
     }
 }
 
 void mt_gltf_asset_draw(
-    MtGltfAsset *asset, MtCmdBuffer *cb, Mat4 *transform, uint32_t set) {
+    MtGltfAsset *asset,
+    MtCmdBuffer *cb,
+    Mat4 *transform,
+    uint32_t model_set,
+    uint32_t material_set) {
     mt_render.cmd_bind_vertex_buffer(cb, asset->vertex_buffer, 0);
     mt_render.cmd_bind_index_buffer(
         cb, asset->index_buffer, MT_INDEX_TYPE_UINT32, 0);
     for (GltfNode **node = asset->nodes;
          node != asset->nodes + mt_array_size(asset->nodes);
          ++node) {
-        node_draw(*node, cb, transform, set);
+        node_draw(*node, cb, transform, model_set, material_set);
     }
 }
 

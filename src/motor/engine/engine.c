@@ -26,11 +26,40 @@ void mt_engine_init(MtEngine *engine) {
 
     engine->compiler = shaderc_compiler_initialize();
 
+    engine->white_image = mt_render.create_image(
+        engine->device,
+        &(MtImageCreateInfo){
+            .format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
+
+    mt_render.transfer_to_image(
+        engine->device,
+        &(MtImageCopyView){.image = engine->white_image},
+        4,
+        (uint8_t[]){255, 255, 255, 255});
+
+    engine->black_image = mt_render.create_image(
+        engine->device,
+        &(MtImageCreateInfo){
+            .format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
+
+    mt_render.transfer_to_image(
+        engine->device,
+        &(MtImageCopyView){.image = engine->black_image},
+        4,
+        (uint8_t[]){0, 0, 0, 255});
+
+    engine->default_sampler =
+        mt_render.create_sampler(engine->device, &(MtSamplerCreateInfo){});
+
     mt_asset_manager_init(&engine->asset_manager, engine);
 }
 
 void mt_engine_destroy(MtEngine *engine) {
     mt_asset_manager_destroy(&engine->asset_manager);
+
+    mt_render.destroy_image(engine->device, engine->white_image);
+    mt_render.destroy_image(engine->device, engine->black_image);
+    mt_render.destroy_sampler(engine->device, engine->default_sampler);
 
     shaderc_compiler_release(engine->compiler);
 
