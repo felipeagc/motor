@@ -9,6 +9,7 @@
 #include <motor/engine/assets/image_asset.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/font_asset.h>
+#include <motor/engine/assets/gltf_asset.h>
 
 void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine) {
     memset(am, 0, sizeof(*am));
@@ -20,6 +21,7 @@ void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine) {
     mt_array_push(am->alloc, am->asset_types, mt_image_asset_vt);
     mt_array_push(am->alloc, am->asset_types, mt_pipeline_asset_vt);
     mt_array_push(am->alloc, am->asset_types, mt_font_asset_vt);
+    mt_array_push(am->alloc, am->asset_types, mt_gltf_asset_vt);
 }
 
 MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path) {

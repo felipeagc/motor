@@ -90,7 +90,11 @@ set(
 	include/motor/engine/assets/pipeline_asset.h
 
 	src/motor/engine/assets/font_asset.c
+	src/motor/engine/assets/font_asset.inl
 	include/motor/engine/assets/font_asset.h
+
+	src/motor/engine/assets/gltf_asset.c
+	include/motor/engine/assets/gltf_asset.h
 
 	# Third party stuff:
 	src/motor/engine/stb_image.c
