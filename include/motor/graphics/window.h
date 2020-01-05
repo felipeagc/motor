@@ -21,6 +21,42 @@ typedef struct MtIWindowSystem {
     MtWindowSystemVT *vt;
 } MtIWindowSystem;
 
+typedef enum MtCursorMode {
+    MT_CURSOR_MODE_NORMAL,
+    MT_CURSOR_MODE_HIDDEN,
+    MT_CURSOR_MODE_DISABLED,
+} MtCursorMode;
+
+typedef enum MtCursorType {
+    MT_CURSOR_TYPE_ARROW,
+    MT_CURSOR_TYPE_IBEAM,
+    MT_CURSOR_TYPE_CROSSHAIR,
+    MT_CURSOR_TYPE_HAND,
+    MT_CURSOR_TYPE_HRESIZE,
+    MT_CURSOR_TYPE_VRESIZE,
+    MT_CURSOR_TYPE_MAX,
+} MtCursorType;
+
+typedef enum MtInputState {
+    MT_INPUT_STATE_RELEASE,
+    MT_INPUT_STATE_PRESS,
+    MT_INPUT_STATE_REPEAT,
+} MtInputState;
+
+typedef enum MtMouseButton {
+    MT_MOUSE_BUTTON1       = 0,
+    MT_MOUSE_BUTTON2       = 1,
+    MT_MOUSE_BUTTON3       = 2,
+    MT_MOUSE_BUTTON4       = 3,
+    MT_MOUSE_BUTTON5       = 4,
+    MT_MOUSE_BUTTON6       = 5,
+    MT_MOUSE_BUTTON7       = 6,
+    MT_MOUSE_BUTTON8       = 7,
+    MT_MOUSE_BUTTON_LEFT   = MT_MOUSE_BUTTON1,
+    MT_MOUSE_BUTTON_RIGHT  = MT_MOUSE_BUTTON2,
+    MT_MOUSE_BUTTON_MIDDLE = MT_MOUSE_BUTTON3,
+} MtMouseButton;
+
 typedef struct MtWindowVT {
     bool (*should_close)(MtWindow *);
     bool (*next_event)(MtWindow *, MtEvent *);
@@ -31,6 +67,17 @@ typedef struct MtWindowVT {
 
     float (*delta_time)(MtWindow *);
     void (*get_size)(MtWindow *, uint32_t *width, uint32_t *height);
+
+    void (*get_cursor_pos)(MtWindow *, double *x, double *y);
+    void (*set_cursor_pos)(MtWindow *, double x, double y);
+
+    MtCursorMode (*get_cursor_mode)(MtWindow *);
+    void (*set_cursor_mode)(MtWindow *, MtCursorMode);
+
+    void (*set_cursor_type)(MtWindow *, MtCursorType);
+
+    MtInputState (*get_key)(MtWindow *, uint32_t key_code);
+    MtInputState (*get_mouse_button)(MtWindow *, MtMouseButton button);
 
     void (*destroy)(MtWindow *);
 } MtWindowVT;

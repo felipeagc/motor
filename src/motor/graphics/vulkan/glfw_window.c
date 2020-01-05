@@ -51,6 +51,8 @@ typedef struct MtWindow {
 
     double last_time;
     double delta_time;
+
+    GLFWcursor *mouse_cursors[MT_CURSOR_TYPE_MAX];
 } MtWindow;
 
 /*
@@ -768,6 +770,10 @@ static void window_destroy(MtWindow *window) {
 
     vkDestroySurfaceKHR(dev->instance, window->surface, NULL);
 
+    for (uint32_t i = 0; i < MT_LENGTH(window->mouse_cursors); i++) {
+        glfwDestroyCursor(window->mouse_cursors[i]);
+    }
+
     glfwDestroyWindow(window->window);
 }
 
@@ -784,6 +790,56 @@ static void get_size(MtWindow *window, uint32_t *width, uint32_t *height) {
 
 static float delta_time(MtWindow *window) { return (float)window->delta_time; }
 
+static void get_cursor_pos(MtWindow *w, double *x, double *y) {
+    glfwGetCursorPos(w->window, x, y);
+}
+
+static void set_cursor_pos(MtWindow *w, double x, double y) {
+    glfwSetCursorPos(w->window, x, y);
+}
+
+static MtCursorMode get_cursor_mode(MtWindow *w) {
+    int mode = glfwGetInputMode(w->window, GLFW_CURSOR);
+    switch (mode) {
+    case GLFW_CURSOR_NORMAL: return MT_CURSOR_MODE_NORMAL;
+    case GLFW_CURSOR_HIDDEN: return MT_CURSOR_MODE_HIDDEN;
+    case GLFW_CURSOR_DISABLED: return MT_CURSOR_MODE_DISABLED;
+    }
+    return MT_CURSOR_MODE_NORMAL;
+}
+
+static void set_cursor_mode(MtWindow *w, MtCursorMode mode) {
+    int cursor_mode = MT_CURSOR_MODE_NORMAL;
+    switch (mode) {
+    case MT_CURSOR_MODE_NORMAL: cursor_mode = GLFW_CURSOR_NORMAL; break;
+    case MT_CURSOR_MODE_HIDDEN: cursor_mode = GLFW_CURSOR_HIDDEN; break;
+    case MT_CURSOR_MODE_DISABLED: cursor_mode = GLFW_CURSOR_DISABLED; break;
+    }
+    glfwSetInputMode(w->window, GLFW_CURSOR, cursor_mode);
+}
+
+static void set_cursor_type(MtWindow *w, MtCursorType type) {
+    glfwSetCursor(w->window, w->mouse_cursors[type]);
+}
+
+static MtInputState get_key(MtWindow *w, uint32_t key_code) {
+    switch (glfwGetKey(w->window, key_code)) {
+    case GLFW_RELEASE: return MT_INPUT_STATE_RELEASE;
+    case GLFW_PRESS: return MT_INPUT_STATE_PRESS;
+    case GLFW_REPEAT: return MT_INPUT_STATE_REPEAT;
+    }
+    return MT_INPUT_STATE_RELEASE;
+}
+
+static MtInputState get_mouse_button(MtWindow *w, MtMouseButton button) {
+    switch (glfwGetMouseButton(w->window, button)) {
+    case GLFW_RELEASE: return MT_INPUT_STATE_RELEASE;
+    case GLFW_PRESS: return MT_INPUT_STATE_PRESS;
+    case GLFW_REPEAT: return MT_INPUT_STATE_REPEAT;
+    }
+    return MT_INPUT_STATE_RELEASE;
+}
+
 static MtWindowVT g_glfw_window_vt = {
     .should_close = should_close,
     .next_event   = next_event,
@@ -794,6 +850,17 @@ static MtWindowVT g_glfw_window_vt = {
 
     .delta_time = delta_time,
     .get_size   = get_size,
+
+    .get_cursor_pos = get_cursor_pos,
+    .set_cursor_pos = set_cursor_pos,
+
+    .get_cursor_mode = get_cursor_mode,
+    .set_cursor_mode = set_cursor_mode,
+
+    .set_cursor_type = set_cursor_type,
+
+    .get_key          = get_key,
+    .get_mouse_button = get_mouse_button,
 
     .destroy = window_destroy,
 };
@@ -842,6 +909,19 @@ void mt_glfw_vulkan_window_init(
 
     interface->vt   = &g_glfw_window_vt;
     interface->inst = (MtWindow *)window;
+
+    window->mouse_cursors[MT_CURSOR_TYPE_ARROW] =
+        glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_IBEAM] =
+        glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_CROSSHAIR] =
+        glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_HAND] =
+        glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_HRESIZE] =
+        glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_VRESIZE] =
+        glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
     glfwSetWindowUserPointer(window->window, interface);
 
