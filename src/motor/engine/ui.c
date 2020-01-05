@@ -162,5 +162,5 @@ void mt_ui_draw(MtUIRenderer *ui, MtCmdBuffer *cb) {
         mt_array_size(ui->indices) * sizeof(uint16_t),
         MT_INDEX_TYPE_UINT16);
 
-    mt_render.cmd_draw_indexed(cb, mt_array_size(ui->indices), 1);
+    mt_render.cmd_draw_indexed(cb, mt_array_size(ui->indices), 1, 0, 0, 0);
 }

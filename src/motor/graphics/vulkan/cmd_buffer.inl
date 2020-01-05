@@ -524,16 +524,36 @@ static void cmd_bind_index_data(
         cb, cb->ibo_block.buffer, index_type, allocation.offset);
 }
 
-static void
-cmd_draw(MtCmdBuffer *cb, uint32_t vertex_count, uint32_t instance_count) {
+static void cmd_draw(
+    MtCmdBuffer *cb,
+    uint32_t vertex_count,
+    uint32_t instance_count,
+    uint32_t first_vertex,
+    uint32_t first_instance) {
     bind_descriptor_sets(cb);
-    vkCmdDraw(cb->cmd_buffer, vertex_count, instance_count, 0, 0);
+    vkCmdDraw(
+        cb->cmd_buffer,
+        vertex_count,
+        instance_count,
+        first_vertex,
+        first_instance);
 }
 
 static void cmd_draw_indexed(
-    MtCmdBuffer *cb, uint32_t index_count, uint32_t instance_count) {
+    MtCmdBuffer *cb,
+    uint32_t index_count,
+    uint32_t instance_count,
+    uint32_t first_index,
+    int32_t vertex_offset,
+    uint32_t first_instance) {
     bind_descriptor_sets(cb);
-    vkCmdDrawIndexed(cb->cmd_buffer, index_count, instance_count, 0, 0, 0);
+    vkCmdDrawIndexed(
+        cb->cmd_buffer,
+        index_count,
+        instance_count,
+        first_index,
+        vertex_offset,
+        first_instance);
 }
 
 static void cmd_dispatch(
