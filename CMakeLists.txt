@@ -99,6 +99,9 @@ set(
 	src/motor/engine/assets/gltf_asset.c
 	include/motor/engine/assets/gltf_asset.h
 
+	src/motor/engine/tinyktx.c
+	src/motor/engine/tinyktx.h
+
 	# Third party stuff:
 	src/motor/engine/stb_image.c
 	src/motor/engine/stb_image.h
