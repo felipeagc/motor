@@ -112,20 +112,14 @@ int main(int argc, char *argv[]) {
         mt_render.cmd_begin_render_pass(
             cb, win->vt->get_render_pass(win->inst));
 
-        // Draw UI
-        {
-            MtViewport viewport;
-            mt_render.cmd_get_viewport(cb, &viewport);
-            mt_ui_begin(game.ui, &viewport);
+        MtViewport viewport;
+        mt_render.cmd_get_viewport(cb, &viewport);
+        mt_ui_begin(game.ui, &viewport);
 
-            mt_ui_set_font(game.ui, game.font);
-            mt_ui_set_font_size(game.ui, 50);
+        mt_ui_set_font(game.ui, game.font);
+        mt_ui_set_font_size(game.ui, 50);
 
-            mt_ui_printf(
-                game.ui, "Delta: %fms", win->vt->delta_time(win->inst));
-
-            mt_ui_draw(game.ui, cb);
-        }
+        mt_ui_printf(game.ui, "Delta: %fms", win->vt->delta_time(win->inst));
 
         uint32_t width, height;
         win->vt->get_size(win->inst, &width, &height);
@@ -134,12 +128,21 @@ int main(int argc, char *argv[]) {
 
         // Draw model
         {
+            mt_ui_printf(
+                game.ui,
+                "Pos: %.2f  %.2f  %.2f",
+                game.cam.uniform.pos.x,
+                game.cam.uniform.pos.y,
+                game.cam.uniform.pos.z);
+
             Mat4 transform = mat4_identity();
             mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
             mt_render.cmd_bind_uniform(
                 cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
             mt_gltf_asset_draw(game.model, cb, &transform, 1, 2);
         }
+
+        mt_ui_draw(game.ui, cb);
 
         mt_render.cmd_end_render_pass(cb);
 

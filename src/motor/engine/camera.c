@@ -12,7 +12,7 @@ void mt_perspective_camera_init(MtPerspectiveCamera *c) {
     c->pitch = 0.0f;
 
     c->pos   = V3(0.0f, 0.0f, 0.0f);
-    c->speed = 10.0f;
+    c->speed = 5.0f;
 
     c->near = 0.1f;
     c->far  = 300.0f;
@@ -22,7 +22,7 @@ void mt_perspective_camera_init(MtPerspectiveCamera *c) {
     c->prev_x = 0.0f;
     c->prev_y = 0.0f;
 
-    c->sensitivity = 0.05f;
+    c->sensitivity = 0.07f;
 }
 
 void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event) {
@@ -86,16 +86,9 @@ void mt_perspective_camera_update(
 
     c->uniform.pos.xyz = c->pos;
     c->uniform.pos.w   = 1.0f;
-    c->uniform.view    = mat4_look_at(c->pos, v3_add(c->pos, front), up);
+
+    c->uniform.view = mat4_look_at(c->pos, v3_add(c->pos, front), up);
 
     c->uniform.proj = mat4_perspective(c->fovy, aspect, c->near, c->far);
-    Mat4 correction = (Mat4){{
-        {1.0f, 0.0f, 0.0f, 0.0f},
-        {0.0f, 1.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.5f, 0.0f},
-        {0.0f, 0.0f, 0.5f, 1.0f},
-    }};
-
-    c->uniform.proj = mat4_mul(correction, c->uniform.proj);
 }
 

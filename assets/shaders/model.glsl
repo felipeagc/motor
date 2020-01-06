@@ -39,11 +39,11 @@ vertex: [[
     void main() {
         normal0 = normal;
         tex_coords0 = tex_coords;
-        tex_coords0.y = 1.0 - tex_coords0.y;
+        tex_coords0.y = 1.0f - tex_coords0.y;
 
         mat4 model0 = model * local_model;
 
-        vec4 loc_pos =  model0 * vec4(pos, 1.0);
+        vec4 loc_pos =  model0 * vec4(pos, 1.0f);
         vec3 world_pos = loc_pos.xyz / loc_pos.w;
 
         gl_Position = cam.proj * cam.view * vec4(world_pos, 1.0f);

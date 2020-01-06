@@ -424,29 +424,30 @@ MT_MATH_INLINE Mat4 mat4_inverse(Mat4 mat) {
 
 // TESTED: compatible with glm
 MT_MATH_INLINE Mat4
-mat4_perspective(float fovy, float aspect_ratio, float znear, float zfar) {
-    Mat4 result = mat4_zero();
+mat4_perspective(float fovy, float aspect, float n, float f) {
+    float c = 1.0f / tan(fovy / 2.0f);
 
-    float tan_half_fovy = tanf(fovy / 2.0f);
-
-    result.cols[0][0] = 1.0f / (aspect_ratio * tan_half_fovy);
-    result.cols[1][1] = 1.0f / tan_half_fovy;
-    result.cols[2][2] = -(zfar + znear) / (zfar - znear);
-    result.cols[2][3] = -1.0f;
-    result.cols[3][2] = -(2.0f * zfar * znear) / (zfar - znear);
-
-    return result;
+    // clang-format off
+    return (Mat4){{
+        {c / aspect, 0.0f,  0.0f,                     0.0f},
+        {0.0f,       c,     0.0f,                     0.0f},
+        {0.0f,       0.0f, -(f + n) / (f - n),       -1.0f},
+        {0.0f,       0.0f, -(2.0f * f * n) / (f - n), 0.0f},
+    }};
+    // clang-format on
 }
 
 // TODO: test
 MT_MATH_INLINE Mat4
 mat4_orthographic(float l, float r, float b, float t, float n, float f) {
+    // clang-format off
     return (Mat4){{
-        {2.0f / (r - l), 0, 0, 0},
-        {0, 2.0f / (t - b), 0, 0},
-        {0, 0, 1.0f / (f - n), 0},
-        {-(r + l) / (r - l), -(t + b) / (t - b), -n / (f - n), 1.0f},
+        {2.0f / (r - l),      0.0f,               0.0f,           0.0f},
+        {0.0f,                2.0f / (t - b),     0.0f,           0.0f},
+        {0.0f,                0.0f,               1.0f / (f - n), 0.0f},
+        {-(r + l) / (r - l), -(t + b) / (t - b), -n / (f - n),    1.0f},
     }};
+    // clang-format on
 }
 
 // TESTED: compatible with glm
