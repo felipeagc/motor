@@ -63,6 +63,11 @@ void game_init(Game *g) {
     g->model = (MtGltfAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/DamagedHelmet.glb");
     assert(g->model);
+
+    mt_asset_manager_load(&g->engine.asset_manager, "../assets/test.png");
+
+    mt_asset_manager_load(
+        &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");
 }
 
 void game_destroy(Game *g) {

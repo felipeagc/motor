@@ -714,8 +714,8 @@ static void transfer_to_image(
         },
         dst,
         (MtExtent3D){
-            .width  = dst->image->width,
-            .height = dst->image->height,
+            .width  = dst->image->width >> dst->mip_level,
+            .height = dst->image->height >> dst->mip_level,
             .depth  = dst->image->depth,
         });
 

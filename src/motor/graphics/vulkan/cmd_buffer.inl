@@ -38,11 +38,6 @@ static void image_barrier(
     VkImageLayout new_image_layout,
     uint32_t mip_level,
     uint32_t array_layer) {
-    if (!image->initialized) {
-        old_image_layout   = VK_IMAGE_LAYOUT_UNDEFINED;
-        image->initialized = true;
-    }
-
     VkImageSubresourceRange subresource_range = {
         .aspectMask     = image->aspect,
         .baseMipLevel   = mip_level,
@@ -265,7 +260,7 @@ static void cmd_copy_buffer_to_image(
     image_barrier(
         cb,
         dst->image,
-        dst->image->layout,
+        VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         dst->mip_level,
         dst->array_layer);
