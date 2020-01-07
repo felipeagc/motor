@@ -8,15 +8,16 @@ typedef struct MtDevice MtDevice;
 typedef struct MtIWindowSystem MtIWindowSystem;
 
 typedef uint32_t MtVulkanDeviceFlags;
-typedef enum MtVulkanDeviceFlagBits {
+typedef enum MtVulkanDeviceFlagBits
+{
     MT_DEVICE_HEADLESS = 1,
 } MtVulkanDeviceFlagBits;
 
-typedef struct MtVulkanDeviceCreateInfo {
+typedef struct MtVulkanDeviceCreateInfo
+{
     MtVulkanDeviceFlags flags;
     uint32_t num_threads;
     MtIWindowSystem *window_system;
 } MtVulkanDeviceCreateInfo;
 
-MtDevice *
-mt_vulkan_device_init(MtVulkanDeviceCreateInfo *descriptor, MtAllocator *alloc);
+MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *descriptor, MtAllocator *alloc);

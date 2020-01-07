@@ -6,12 +6,15 @@
 
 /* #define LOG_ALLOCS */
 
-void *mt_internal_alloc(
-    MtAllocator *alloc, uint64_t size, const char *filename, uint32_t line) {
+void *mt_internal_alloc(MtAllocator *alloc, uint64_t size, const char *filename, uint32_t line)
+{
     void *ptr;
-    if (alloc) {
+    if (alloc)
+    {
         ptr = alloc->realloc(alloc->inst, 0, size);
-    } else {
+    }
+    else
+    {
         ptr = malloc(size);
     }
 #ifdef LOG_ALLOCS
@@ -21,15 +24,15 @@ void *mt_internal_alloc(
 }
 
 void *mt_internal_realloc(
-    MtAllocator *alloc,
-    void *ptr,
-    uint64_t size,
-    const char *filename,
-    uint32_t line) {
+    MtAllocator *alloc, void *ptr, uint64_t size, const char *filename, uint32_t line)
+{
     void *new_ptr;
-    if (alloc) {
+    if (alloc)
+    {
         new_ptr = alloc->realloc(alloc->inst, ptr, size);
-    } else {
+    }
+    else
+    {
         new_ptr = realloc(ptr, size);
     }
 #ifdef LOG_ALLOCS
@@ -38,41 +41,49 @@ void *mt_internal_realloc(
     return new_ptr;
 }
 
-void mt_internal_free(
-    MtAllocator *alloc, void *ptr, const char *filename, uint32_t line) {
+void mt_internal_free(MtAllocator *alloc, void *ptr, const char *filename, uint32_t line)
+{
 #ifdef LOG_ALLOCS
     printf("free\t%p\t%s:%u\n", ptr, filename, line);
 #endif
-    if (alloc) {
+    if (alloc)
+    {
         alloc->realloc(alloc->inst, ptr, 0);
-    } else {
+    }
+    else
+    {
         free(ptr);
     }
 }
 
-char *mt_strdup(MtAllocator *alloc, const char *str) {
+char *mt_strdup(MtAllocator *alloc, const char *str)
+{
     uint64_t len = strlen(str);
     char *s      = mt_alloc(alloc, len + 1);
     memcpy(s, str, len + 1);
     return s;
 }
 
-char *mt_strndup(MtAllocator *alloc, const char *str, uint64_t num_bytes) {
+char *mt_strndup(MtAllocator *alloc, const char *str, uint64_t num_bytes)
+{
     char *s = mt_alloc(alloc, num_bytes);
     strncpy(s, str, num_bytes);
     return s;
 }
 
-char *mt_strcat(MtAllocator *alloc, char *dest, const char *src) {
+char *mt_strcat(MtAllocator *alloc, char *dest, const char *src)
+{
     uint64_t dest_len = strlen(dest);
     uint64_t src_len  = strlen(src);
     char *new_str     = mt_alloc(alloc, dest_len + src_len + 1);
 
     char *c = new_str;
-    for (uint64_t i = 0; i < dest_len; i++) {
+    for (uint64_t i = 0; i < dest_len; i++)
+    {
         *(c++) = dest[i];
     }
-    for (uint64_t i = 0; i < src_len; i++) {
+    for (uint64_t i = 0; i < src_len; i++)
+    {
         *(c++) = src[i];
     }
     *c = '\0';

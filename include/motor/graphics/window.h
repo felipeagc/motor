@@ -11,23 +11,27 @@ typedef struct MtCmdBuffer MtCmdBuffer;
 
 typedef struct MtEvent MtEvent;
 
-typedef struct MtWindowSystemVT {
+typedef struct MtWindowSystemVT
+{
     void (*poll_events)(void);
     void (*destroy)(void);
 } MtWindowSystemVT;
 
-typedef struct MtIWindowSystem {
+typedef struct MtIWindowSystem
+{
     MtWindowSystem *inst;
     MtWindowSystemVT *vt;
 } MtIWindowSystem;
 
-typedef enum MtCursorMode {
+typedef enum MtCursorMode
+{
     MT_CURSOR_MODE_NORMAL,
     MT_CURSOR_MODE_HIDDEN,
     MT_CURSOR_MODE_DISABLED,
 } MtCursorMode;
 
-typedef enum MtCursorType {
+typedef enum MtCursorType
+{
     MT_CURSOR_TYPE_ARROW,
     MT_CURSOR_TYPE_IBEAM,
     MT_CURSOR_TYPE_CROSSHAIR,
@@ -37,13 +41,15 @@ typedef enum MtCursorType {
     MT_CURSOR_TYPE_MAX,
 } MtCursorType;
 
-typedef enum MtInputState {
+typedef enum MtInputState
+{
     MT_INPUT_STATE_RELEASE,
     MT_INPUT_STATE_PRESS,
     MT_INPUT_STATE_REPEAT,
 } MtInputState;
 
-typedef enum MtMouseButton {
+typedef enum MtMouseButton
+{
     MT_MOUSE_BUTTON1       = 0,
     MT_MOUSE_BUTTON2       = 1,
     MT_MOUSE_BUTTON3       = 2,
@@ -57,7 +63,8 @@ typedef enum MtMouseButton {
     MT_MOUSE_BUTTON_MIDDLE = MT_MOUSE_BUTTON3,
 } MtMouseButton;
 
-typedef struct MtWindowVT {
+typedef struct MtWindowVT
+{
     bool (*should_close)(MtWindow *);
     bool (*next_event)(MtWindow *, MtEvent *);
 
@@ -82,12 +89,14 @@ typedef struct MtWindowVT {
     void (*destroy)(MtWindow *);
 } MtWindowVT;
 
-typedef struct MtIWindow {
+typedef struct MtIWindow
+{
     MtWindow *inst;
     MtWindowVT *vt;
 } MtIWindow;
 
-typedef enum MtEventType {
+typedef enum MtEventType
+{
     MT_EVENT_NONE,
     MT_EVENT_WINDOW_MOVED,
     MT_EVENT_WINDOW_RESIZED,
@@ -117,7 +126,8 @@ typedef enum MtEventType {
     MT_EVENT_WINDOW_SCALE_CHANGED,
 } MtEventType;
 
-typedef struct MtEvent {
+typedef struct MtEvent
+{
     MtEventType type;
     union {
         MtIWindow *window;
@@ -125,29 +135,35 @@ typedef struct MtEvent {
         int32_t joystick;
     };
     union {
-        struct {
+        struct
+        {
             int32_t x;
             int32_t y;
         } pos;
-        struct {
+        struct
+        {
             int32_t width;
             int32_t height;
         } size;
-        struct {
+        struct
+        {
             double x;
             double y;
         } scroll;
-        struct {
+        struct
+        {
             int32_t key;
             int32_t scancode;
             int32_t mods;
         } keyboard;
-        struct {
+        struct
+        {
             int32_t button;
             int32_t mods;
         } mouse;
         uint32_t codepoint;
-        struct {
+        struct
+        {
             float x;
             float y;
         } scale;

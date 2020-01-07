@@ -13,13 +13,15 @@ typedef struct MtSampler MtSampler;
 typedef struct MtFence MtFence;
 typedef struct MtCmdBuffer MtCmdBuffer;
 
-typedef enum MtQueueType {
+typedef enum MtQueueType
+{
     MT_QUEUE_GRAPHICS,
     MT_QUEUE_COMPUTE,
     MT_QUEUE_TRANSFER,
 } MtQueueType;
 
-typedef enum MtFormat {
+typedef enum MtFormat
+{
     MT_FORMAT_UNDEFINED,
 
     MT_FORMAT_R8_UINT,
@@ -46,24 +48,28 @@ typedef enum MtFormat {
     MT_FORMAT_D32_SFLOAT_S8_UINT,
 } MtFormat;
 
-typedef enum MtIndexType {
+typedef enum MtIndexType
+{
     MT_INDEX_TYPE_UINT32,
     MT_INDEX_TYPE_UINT16,
 } MtIndexType;
 
-typedef enum MtCullMode {
+typedef enum MtCullMode
+{
     MT_CULL_MODE_NONE,
     MT_CULL_MODE_BACK,
     MT_CULL_MODE_FRONT,
     MT_CULL_MODE_FRONT_AND_BACK,
 } MtCullMode;
 
-typedef enum MtFrontFace {
+typedef enum MtFrontFace
+{
     MT_FRONT_FACE_CLOCKWISE,
     MT_FRONT_FACE_COUNTER_CLOCKWISE,
 } MtFrontFace;
 
-typedef struct MtGraphicsPipelineCreateInfo {
+typedef struct MtGraphicsPipelineCreateInfo
+{
     bool blending;
     bool depth_test;
     bool depth_write;
@@ -73,7 +79,8 @@ typedef struct MtGraphicsPipelineCreateInfo {
     float line_width;
 } MtGraphicsPipelineCreateInfo;
 
-typedef struct MtViewport {
+typedef struct MtViewport
+{
     float x;
     float y;
     float width;
@@ -82,7 +89,8 @@ typedef struct MtViewport {
     float max_depth;
 } MtViewport;
 
-typedef enum MtBufferUsage {
+typedef enum MtBufferUsage
+{
     MT_BUFFER_USAGE_VERTEX,
     MT_BUFFER_USAGE_INDEX,
     MT_BUFFER_USAGE_UNIFORM,
@@ -90,18 +98,21 @@ typedef enum MtBufferUsage {
     MT_BUFFER_USAGE_TRANSFER,
 } MtBufferUsage;
 
-typedef enum MtBufferMemory {
+typedef enum MtBufferMemory
+{
     MT_BUFFER_MEMORY_HOST,
     MT_BUFFER_MEMORY_DEVICE,
 } MtBufferMemory;
 
-typedef struct MtBufferCreateInfo {
+typedef struct MtBufferCreateInfo
+{
     MtBufferUsage usage;
     MtBufferMemory memory;
     size_t size;
 } MtBufferCreateInfo;
 
-typedef enum MtImageUsage {
+typedef enum MtImageUsage
+{
     MT_IMAGE_USAGE_SAMPLED_BIT                  = 1,
     MT_IMAGE_USAGE_STORAGE_BIT                  = 2,
     MT_IMAGE_USAGE_TRANSFER_SRC_BIT             = 4,
@@ -110,13 +121,15 @@ typedef enum MtImageUsage {
     MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT = 32,
 } MtImageUsage;
 
-typedef enum MtImageAspect {
+typedef enum MtImageAspect
+{
     MT_IMAGE_ASPECT_COLOR_BIT   = 1,
     MT_IMAGE_ASPECT_DEPTH_BIT   = 2,
     MT_IMAGE_ASPECT_STENCIL_BIT = 4,
 } MtImageAspect;
 
-typedef struct MtImageCreateInfo {
+typedef struct MtImageCreateInfo
+{
     uint32_t width;
     uint32_t height;
     uint32_t depth;
@@ -128,12 +141,14 @@ typedef struct MtImageCreateInfo {
     MtImageAspect aspect;
 } MtImageCreateInfo;
 
-typedef enum MtFilter {
+typedef enum MtFilter
+{
     MT_FILTER_LINEAR,
     MT_FILTER_NEAREST,
 } MtFilter;
 
-typedef enum MtSamplerAddressMode {
+typedef enum MtSamplerAddressMode
+{
     MT_SAMPLER_ADDRESS_MODE_REPEAT,
     MT_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
     MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -141,7 +156,8 @@ typedef enum MtSamplerAddressMode {
     MT_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
 } MtSamplerAddressMode;
 
-typedef enum MtBorderColor {
+typedef enum MtBorderColor
+{
     MT_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
     MT_BORDER_COLOR_INT_TRANSPARENT_BLACK,
     MT_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
@@ -150,7 +166,8 @@ typedef enum MtBorderColor {
     MT_BORDER_COLOR_INT_OPAQUE_WHITE,
 } MtBorderColor;
 
-typedef struct MtSamplerCreateInfo {
+typedef struct MtSamplerCreateInfo
+{
     bool anisotropy;
     float max_lod;
     MtFilter mag_filter;
@@ -159,38 +176,42 @@ typedef struct MtSamplerCreateInfo {
     MtBorderColor border_color;
 } MtSamplerCreateInfo;
 
-typedef struct MtBufferCopyView {
+typedef struct MtBufferCopyView
+{
     MtBuffer *buffer;
     size_t offset;
     uint32_t row_length;
     uint32_t image_height;
 } MtBufferCopyView;
 
-typedef struct MtExtent3D {
+typedef struct MtExtent3D
+{
     uint32_t width;
     uint32_t height;
     uint32_t depth;
 } MtExtent3D;
 
-typedef struct MtOffset3D {
+typedef struct MtOffset3D
+{
     int32_t x;
     int32_t y;
     int32_t z;
 } MtOffset3D;
 
-typedef struct MtImageCopyView {
+typedef struct MtImageCopyView
+{
     MtImage *image;
     uint32_t mip_level;
     uint32_t array_layer;
     MtOffset3D offset;
 } MtImageCopyView;
 
-typedef struct MtRenderer {
+typedef struct MtRenderer
+{
     void (*destroy_device)(MtDevice *);
     void (*device_wait_idle)(MtDevice *);
 
-    void (*allocate_cmd_buffers)(
-        MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
+    void (*allocate_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
     void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
 
     MtFence *(*create_fence)(MtDevice *);
@@ -223,8 +244,7 @@ typedef struct MtRenderer {
         uint8_t *fragment_code,
         size_t fragment_code_size,
         MtGraphicsPipelineCreateInfo *);
-    MtPipeline *(*create_compute_pipeline)(
-        MtDevice *, uint8_t *code, size_t code_size);
+    MtPipeline *(*create_compute_pipeline)(MtDevice *, uint8_t *code, size_t code_size);
     void (*destroy_pipeline)(MtDevice *, MtPipeline *);
 
     void (*begin_cmd_buffer)(MtCmdBuffer *);
@@ -240,41 +260,27 @@ typedef struct MtRenderer {
         size_t dst_offset,
         size_t size);
     void (*cmd_copy_buffer_to_image)(
-        MtCmdBuffer *,
-        const MtBufferCopyView *src,
-        const MtImageCopyView *dst,
-        MtExtent3D extent);
+        MtCmdBuffer *, const MtBufferCopyView *src, const MtImageCopyView *dst, MtExtent3D extent);
     void (*cmd_copy_image_to_buffer)(
-        MtCmdBuffer *,
-        const MtImageCopyView *src,
-        const MtBufferCopyView *dst,
-        MtExtent3D extent);
+        MtCmdBuffer *, const MtImageCopyView *src, const MtBufferCopyView *dst, MtExtent3D extent);
 
     void (*cmd_begin_render_pass)(MtCmdBuffer *, MtRenderPass *);
     void (*cmd_end_render_pass)(MtCmdBuffer *);
 
     void (*cmd_set_viewport)(MtCmdBuffer *, MtViewport *);
-    void (*cmd_set_scissor)(
-        MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
+    void (*cmd_set_scissor)(MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
 
     void (*cmd_bind_uniform)(
-        MtCmdBuffer *,
-        const void *data,
-        size_t size,
-        uint32_t set,
-        uint32_t binding);
-    void (*cmd_bind_image)(
-        MtCmdBuffer *, MtImage *, MtSampler *, uint32_t set, uint32_t binding);
+        MtCmdBuffer *, const void *data, size_t size, uint32_t set, uint32_t binding);
+    void (*cmd_bind_image)(MtCmdBuffer *, MtImage *, MtSampler *, uint32_t set, uint32_t binding);
 
     void (*cmd_bind_pipeline)(MtCmdBuffer *, MtPipeline *pipeline);
 
     void (*cmd_bind_vertex_buffer)(MtCmdBuffer *, MtBuffer *, size_t offset);
-    void (*cmd_bind_index_buffer)(
-        MtCmdBuffer *, MtBuffer *, MtIndexType index_type, size_t offset);
+    void (*cmd_bind_index_buffer)(MtCmdBuffer *, MtBuffer *, MtIndexType index_type, size_t offset);
 
     void (*cmd_bind_vertex_data)(MtCmdBuffer *, void *data, size_t size);
-    void (*cmd_bind_index_data)(
-        MtCmdBuffer *, void *data, size_t size, MtIndexType index_type);
+    void (*cmd_bind_index_data)(MtCmdBuffer *, void *data, size_t size, MtIndexType index_type);
 
     void (*cmd_draw)(
         MtCmdBuffer *,
@@ -291,10 +297,7 @@ typedef struct MtRenderer {
         uint32_t first_instance);
 
     void (*cmd_dispatch)(
-        MtCmdBuffer *,
-        uint32_t group_count_x,
-        uint32_t group_count_y,
-        uint32_t group_count_z);
+        MtCmdBuffer *, uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z);
 } MtRenderer;
 
 extern MtRenderer mt_render;

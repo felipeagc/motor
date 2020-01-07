@@ -11,12 +11,14 @@ typedef struct MtSampler MtSampler;
 
 #define MT_MAX_POINT_LIGHTS 20
 
-typedef struct MtPointLight {
+typedef struct MtPointLight
+{
     Vec4 pos;
     Vec4 color;
 } MtPointLight;
 
-typedef struct MtEnvironmentUniform {
+typedef struct MtEnvironmentUniform
+{
     Vec3 sun_direction;
     float exposure;
 
@@ -34,7 +36,8 @@ typedef struct MtEnvironmentUniform {
     MtPointLight point_lights[MT_MAX_POINT_LIGHTS];
 } MtEnvironmentUniform;
 
-typedef struct MtEnvironment {
+typedef struct MtEnvironment
+{
     MtAssetManager *asset_manager;
 
     MtPipelineAsset *skybox_pipeline;

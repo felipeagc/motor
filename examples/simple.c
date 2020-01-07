@@ -17,13 +17,15 @@
 #include <assert.h>
 #include <string.h>
 
-typedef struct Vertex {
+typedef struct Vertex
+{
     Vec3 pos;
     Vec3 normal;
     Vec2 tex_coords;
 } Vertex;
 
-typedef struct Game {
+typedef struct Game
+{
     MtEngine engine;
 
     MtUIRenderer *ui;
@@ -40,20 +42,20 @@ typedef struct Game {
     MtEnvironment env;
 } Game;
 
-void game_init(Game *g) {
+void game_init(Game *g)
+{
     memset(g, 0, sizeof(*g));
 
     mt_engine_init(&g->engine);
 
     g->ui = mt_ui_create(g->engine.alloc, &g->engine.asset_manager);
 
-    g->watcher = mt_file_watcher_create(
-        g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
+    g->watcher = mt_file_watcher_create(g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
 
     mt_perspective_camera_init(&g->cam);
 
-    g->image = (MtImageAsset *)mt_asset_manager_load(
-        &g->engine.asset_manager, "../assets/test.png");
+    g->image =
+        (MtImageAsset *)mt_asset_manager_load(&g->engine.asset_manager, "../assets/test.png");
     assert(g->image);
 
     g->model_pipeline = (MtPipelineAsset *)mt_asset_manager_load(
@@ -71,11 +73,11 @@ void game_init(Game *g) {
     MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");
 
-    mt_environment_init(
-        &g->env, &g->engine.asset_manager, skybox_asset, NULL, NULL);
+    mt_environment_init(&g->env, &g->engine.asset_manager, skybox_asset, NULL, NULL);
 }
 
-void game_destroy(Game *g) {
+void game_destroy(Game *g)
+{
     mt_file_watcher_destroy(g->watcher);
     mt_ui_destroy(g->ui);
     mt_environment_destroy(&g->env);
@@ -83,36 +85,46 @@ void game_destroy(Game *g) {
     mt_engine_destroy(&g->engine);
 }
 
-void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data) {
+void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data)
+{
     Game *g = (Game *)user_data;
 
-    switch (e->type) {
-    case MT_FILE_WATCHER_EVENT_MODIFY: {
-        mt_asset_manager_load(&g->engine.asset_manager, e->src);
-    } break;
-    default: break;
+    switch (e->type)
+    {
+        case MT_FILE_WATCHER_EVENT_MODIFY:
+        {
+            mt_asset_manager_load(&g->engine.asset_manager, e->src);
+            break;
+        }
+        default: break;
     }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     Game game = {0};
     game_init(&game);
 
     MtIWindow *win = &game.engine.window;
 
-    while (!win->vt->should_close(win->inst)) {
+    while (!win->vt->should_close(win->inst))
+    {
         mt_file_watcher_poll(game.watcher, asset_watcher_handler, &game);
 
         game.engine.window_system.vt->poll_events();
 
         MtEvent event;
-        while (win->vt->next_event(win->inst, &event)) {
+        while (win->vt->next_event(win->inst, &event))
+        {
             mt_perspective_camera_on_event(&game.cam, &event);
-            switch (event.type) {
-            case MT_EVENT_WINDOW_CLOSED: {
-                printf("Closed\n");
-            } break;
-            default: break;
+            switch (event.type)
+            {
+                case MT_EVENT_WINDOW_CLOSED:
+                {
+                    printf("Closed\n");
+                    break;
+                }
+                default: break;
             }
         }
 
@@ -120,8 +132,7 @@ int main(int argc, char *argv[]) {
 
         mt_render.begin_cmd_buffer(cb);
 
-        mt_render.cmd_begin_render_pass(
-            cb, win->vt->get_render_pass(win->inst));
+        mt_render.cmd_begin_render_pass(cb, win->vt->get_render_pass(win->inst));
 
         MtViewport viewport;
         mt_render.cmd_get_viewport(cb, &viewport);
@@ -139,8 +150,7 @@ int main(int argc, char *argv[]) {
 
         // Draw skybox
         {
-            mt_render.cmd_bind_uniform(
-                cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
+            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
             mt_environment_draw_skybox(&game.env, cb);
         }
 
@@ -155,8 +165,7 @@ int main(int argc, char *argv[]) {
 
             Mat4 transform = mat4_identity();
             mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
-            mt_render.cmd_bind_uniform(
-                cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
+            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
             mt_gltf_asset_draw(game.model, cb, &transform, 1, 2);
         }
 

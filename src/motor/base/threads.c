@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct {
+typedef struct
+{
     MtThreadStart func;
     void *arg;
 } ThreadStartInfo;
@@ -28,7 +29,8 @@ static void *thread_wrapper_function(void *_arg)
 #endif
 }
 
-void mt_thread_create(MtThread *thread, MtThreadStart func, void *arg) {
+void mt_thread_create(MtThread *thread, MtThreadStart func, void *arg)
+{
     ThreadStartInfo *start_info = malloc(sizeof(ThreadStartInfo));
     *start_info                 = (ThreadStartInfo){
         .func = func,
@@ -36,14 +38,14 @@ void mt_thread_create(MtThread *thread, MtThreadStart func, void *arg) {
     };
 
 #if defined(MT_THREADS_WIN32)
-    *thread = CreateThread(
-        NULL, 0, thread_wrapper_function, (LPVOID)start_info, 0, NULL);
+    *thread = CreateThread(NULL, 0, thread_wrapper_function, (LPVOID)start_info, 0, NULL);
 #elif defined(MT_THREADS_POSIX)
     pthread_create(thread, NULL, thread_wrapper_function, start_info);
 #endif
 }
 
-MtThread mt_thread_current(void) {
+MtThread mt_thread_current(void)
+{
 #if defined(MT_THREADS_WIN32)
     return GetCurrentThread();
 #elif defined(MT_THREADS_POSIX)
@@ -51,7 +53,8 @@ MtThread mt_thread_current(void) {
 #endif
 }
 
-int mt_thread_detach(MtThread thread) {
+int mt_thread_detach(MtThread thread)
+{
 #if defined(MT_THREADS_WIN32)
     return CloseHandle(thread) != 0;
 #elif defined(MT_THREADS_POSIX)
@@ -59,7 +62,8 @@ int mt_thread_detach(MtThread thread) {
 #endif
 }
 
-int mt_thread_equal(MtThread thread1, MtThread thread2) {
+int mt_thread_equal(MtThread thread1, MtThread thread2)
+{
 #if defined(MT_THREADS_WIN32)
     return GetThreadId(thread1) == GetThreadId(thread2);
 #elif defined(MT_THREADS_POSIX)
@@ -67,7 +71,8 @@ int mt_thread_equal(MtThread thread1, MtThread thread2) {
 #endif
 }
 
-void mt_thread_exit(int res) {
+void mt_thread_exit(int res)
+{
 #if defined(MT_THREADS_WIN32)
     ExitThread((DWORD)res);
 #elif defined(MT_THREADS_POSIX)
@@ -75,27 +80,35 @@ void mt_thread_exit(int res) {
 #endif
 }
 
-int mt_thread_join(MtThread thread, int *res) {
+int mt_thread_join(MtThread thread, int *res)
+{
 #if defined(MT_THREADS_WIN32)
     DWORD dw_res;
 
-    if (WaitForSingleObject(thread, INFINITE) == WAIT_FAILED) {
+    if (WaitForSingleObject(thread, INFINITE) == WAIT_FAILED)
+    {
         return 0;
     }
-    if (res != NULL) {
-        if (GetExitCodeThread(thread, &dw_res) != 0) {
+    if (res != NULL)
+    {
+        if (GetExitCodeThread(thread, &dw_res) != 0)
+        {
             *res = (int)dw_res;
-        } else {
+        }
+        else
+        {
             return 0;
         }
     }
     CloseHandle(thread);
 #elif defined(MT_THREADS_POSIX)
     void *pres;
-    if (pthread_join(thread, &pres) != 0) {
+    if (pthread_join(thread, &pres) != 0)
+    {
         return 0;
     }
-    if (res != NULL) {
+    if (res != NULL)
+    {
         *res = (int)(intptr_t)pres;
     }
 #endif

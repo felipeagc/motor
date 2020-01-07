@@ -5,13 +5,15 @@
 typedef struct MtIWindow MtIWindow;
 typedef struct MtEvent MtEvent;
 
-typedef struct MtCameraUniform {
+typedef struct MtCameraUniform
+{
     Mat4 view;
     Mat4 proj;
     Vec4 pos;
 } MtCameraUniform;
 
-typedef struct MtPerspectiveCamera {
+typedef struct MtPerspectiveCamera
+{
     MtCameraUniform uniform;
 
     float yaw;
@@ -34,5 +36,4 @@ void mt_perspective_camera_init(MtPerspectiveCamera *c);
 
 void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event);
 
-void mt_perspective_camera_update(
-    MtPerspectiveCamera *c, MtIWindow *win, float aspect);
+void mt_perspective_camera_update(MtPerspectiveCamera *c, MtIWindow *win, float aspect);

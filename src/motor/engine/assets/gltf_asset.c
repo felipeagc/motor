@@ -14,13 +14,15 @@
 #include <stdlib.h>
 #include <assert.h>
 
-typedef struct GltfVertex {
+typedef struct GltfVertex
+{
     Vec3 pos;
     Vec3 normal;
     Vec2 uv0;
 } GltfVertex;
 
-typedef struct MaterialUniform {
+typedef struct MaterialUniform
+{
     Vec4 base_color_factor;
     float metallic;
     float roughness;
@@ -28,7 +30,8 @@ typedef struct MaterialUniform {
     uint32_t has_normal_texture;
 } MaterialUniform;
 
-typedef struct GltfMaterial {
+typedef struct GltfMaterial
+{
     MaterialUniform uniform;
 
     MtImage *albedo_image;
@@ -47,7 +50,8 @@ typedef struct GltfMaterial {
     MtSampler *emissive_sampler;
 } GltfMaterial;
 
-typedef struct GltfPrimitive {
+typedef struct GltfPrimitive
+{
     uint32_t first_index;
     uint32_t index_count;
     uint32_t vertex_count;
@@ -55,12 +59,14 @@ typedef struct GltfPrimitive {
     bool has_indices;
 } GltfPrimitive;
 
-typedef struct GltfMesh {
+typedef struct GltfMesh
+{
     /*array*/ GltfPrimitive *primitives;
     Mat4 matrix;
 } GltfMesh;
 
-typedef struct GltfNode {
+typedef struct GltfNode
+{
     struct GltfNode *parent;
     /*array*/ struct GltfNode **children;
 
@@ -72,7 +78,8 @@ typedef struct GltfNode {
     Quat rotation;
 } GltfNode;
 
-struct MtGltfAsset {
+struct MtGltfAsset
+{
     MtAssetManager *asset_manager;
 
     /*array*/ GltfNode **nodes;
@@ -96,7 +103,8 @@ static void load_node(
     uint32_t **index_buffer,
     GltfVertex **vertex_buffer);
 
-static Mat4 node_local_matrix(GltfNode *node) {
+static Mat4 node_local_matrix(GltfNode *node)
+{
     Mat4 result = mat4_identity();
     result      = mat4_translate(result, node->translation);
     result      = mat4_mul(result, quat_to_mat4(node->rotation));
@@ -105,28 +113,33 @@ static Mat4 node_local_matrix(GltfNode *node) {
     return result;
 }
 
-static Mat4 node_get_matrix(GltfNode *node) {
+static Mat4 node_get_matrix(GltfNode *node)
+{
     Mat4 m      = node_local_matrix(node);
     GltfNode *p = node->parent;
-    while (p) {
+    while (p)
+    {
         m = mat4_mul(node_local_matrix(p), m);
         p = p->parent;
     }
     return m;
 }
 
-static void node_update(GltfNode *node) {
-    if (node->mesh) {
+static void node_update(GltfNode *node)
+{
+    if (node->mesh)
+    {
         node->mesh->matrix = node_get_matrix(node);
     }
 
-    for (uint32_t i = 0; i < mt_array_size(node->children); i++) {
+    for (uint32_t i = 0; i < mt_array_size(node->children); i++)
+    {
         node_update(node->children[i]);
     }
 }
 
-static bool
-asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
+static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path)
+{
     MtGltfAsset *asset = (MtGltfAsset *)asset_;
     memset(asset, 0, sizeof(*asset));
     asset->asset_manager = asset_manager;
@@ -134,7 +147,8 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
     MtAllocator *alloc = asset_manager->alloc;
 
     FILE *f = fopen(path, "rb");
-    if (!f) {
+    if (!f)
+    {
         return false;
     }
 
@@ -149,15 +163,16 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
 
     cgltf_options gltf_options = {0};
     cgltf_data *data           = NULL;
-    cgltf_result result =
-        cgltf_parse(&gltf_options, gltf_data, gltf_size, &data);
-    if (result != cgltf_result_success) {
+    cgltf_result result        = cgltf_parse(&gltf_options, gltf_data, gltf_size, &data);
+    if (result != cgltf_result_success)
+    {
         mt_free(alloc, gltf_data);
         return false;
     }
 
     result = cgltf_load_buffers(&gltf_options, data, path);
-    if (result != cgltf_result_success) {
+    if (result != cgltf_result_success)
+    {
         cgltf_free(data);
         mt_free(alloc, gltf_data);
         return false;
@@ -168,45 +183,55 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
 
     // Load samplers
     mt_array_pushn(alloc, asset->samplers, data->samplers_count);
-    for (uint32_t i = 0; i < data->samplers_count; i++) {
+    for (uint32_t i = 0; i < data->samplers_count; i++)
+    {
         cgltf_sampler *sampler = &data->samplers[i];
         MtSamplerCreateInfo ci = {0};
         ci.anisotropy          = true;
-        switch (sampler->mag_filter) {
-        case 0x2601: {
-            ci.mag_filter = MT_FILTER_LINEAR;
-        } break;
-        case 0x2600: {
-            ci.mag_filter = MT_FILTER_NEAREST;
-        } break;
-        default: break;
+        switch (sampler->mag_filter)
+        {
+            case 0x2601:
+            {
+                ci.mag_filter = MT_FILTER_LINEAR;
+            }
+            break;
+            case 0x2600:
+            {
+                ci.mag_filter = MT_FILTER_NEAREST;
+            }
+            break;
+            default: break;
         }
 
-        switch (sampler->min_filter) {
-        case 0x2601: {
-            ci.min_filter = MT_FILTER_LINEAR;
-        } break;
-        case 0x2600: {
-            ci.min_filter = MT_FILTER_NEAREST;
-        } break;
-        default: break;
+        switch (sampler->min_filter)
+        {
+            case 0x2601:
+            {
+                ci.min_filter = MT_FILTER_LINEAR;
+            }
+            break;
+            case 0x2600:
+            {
+                ci.min_filter = MT_FILTER_NEAREST;
+            }
+            break;
+            default: break;
         }
 
-        asset->samplers[i] =
-            mt_render.create_sampler(asset_manager->engine->device, &ci);
+        asset->samplers[i] = mt_render.create_sampler(asset_manager->engine->device, &ci);
     }
 
     // Load images
     mt_array_pushn(alloc, asset->images, data->images_count);
-    for (uint32_t i = 0; i < data->images_count; i++) {
-        cgltf_image *image = &data->images[i];
-        uint8_t *buffer_data =
-            image->buffer_view->buffer->data + image->buffer_view->offset;
-        size_t buffer_size = image->buffer_view->size;
+    for (uint32_t i = 0; i < data->images_count; i++)
+    {
+        cgltf_image *image   = &data->images[i];
+        uint8_t *buffer_data = image->buffer_view->buffer->data + image->buffer_view->offset;
+        size_t buffer_size   = image->buffer_view->size;
 
         int width, height, n_channels;
-        uint8_t *image_data = stbi_load_from_memory(
-            buffer_data, (int)buffer_size, &width, &height, &n_channels, 4);
+        uint8_t *image_data =
+            stbi_load_from_memory(buffer_data, (int)buffer_size, &width, &height, &n_channels, 4);
         assert(image_data);
 
         asset->images[i] = mt_render.create_image(
@@ -228,7 +253,8 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
 
     // Load materials
     mt_array_pushn(alloc, asset->materials, data->materials_count);
-    for (uint32_t i = 0; i < data->materials_count; i++) {
+    for (uint32_t i = 0; i < data->materials_count; i++)
+    {
         cgltf_material *material = &data->materials[i];
         assert(material->has_pbr_metallic_roughness);
 
@@ -241,81 +267,81 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
         mat->uniform.emissive_factor    = V4(1.0f, 1.0f, 1.0f, 1.0f);
         mat->uniform.has_normal_texture = 1;
 
-        if (material->pbr_metallic_roughness.base_color_texture.texture !=
-            NULL) {
-            uint32_t image_index = material->pbr_metallic_roughness
-                                       .base_color_texture.texture->image -
-                                   data->images;
+        if (material->pbr_metallic_roughness.base_color_texture.texture != NULL)
+        {
+            uint32_t image_index =
+                material->pbr_metallic_roughness.base_color_texture.texture->image - data->images;
             mat->albedo_image = asset->images[image_index];
 
-            uint32_t sampler_index = material->pbr_metallic_roughness
-                                         .base_color_texture.texture->sampler -
-                                     data->samplers;
+            uint32_t sampler_index =
+                material->pbr_metallic_roughness.base_color_texture.texture->sampler -
+                data->samplers;
             mat->albedo_sampler = asset->samplers[sampler_index];
-        } else {
+        }
+        else
+        {
             mat->albedo_image   = asset->asset_manager->engine->white_image;
             mat->albedo_sampler = asset->asset_manager->engine->default_sampler;
         }
 
-        if (material->normal_texture.texture != NULL) {
-            uint32_t image_index =
-                material->normal_texture.texture->image - data->images;
-            mat->normal_image = asset->images[image_index];
+        if (material->normal_texture.texture != NULL)
+        {
+            uint32_t image_index = material->normal_texture.texture->image - data->images;
+            mat->normal_image    = asset->images[image_index];
 
-            uint32_t sampler_index =
-                material->normal_texture.texture->sampler - data->samplers;
-            mat->normal_sampler = asset->samplers[sampler_index];
-        } else {
+            uint32_t sampler_index = material->normal_texture.texture->sampler - data->samplers;
+            mat->normal_sampler    = asset->samplers[sampler_index];
+        }
+        else
+        {
             mat->normal_image   = asset->asset_manager->engine->white_image;
             mat->normal_sampler = asset->asset_manager->engine->default_sampler;
         }
 
-        if (material->pbr_metallic_roughness.metallic_roughness_texture
-                .texture != NULL) {
+        if (material->pbr_metallic_roughness.metallic_roughness_texture.texture != NULL)
+        {
             uint32_t image_index =
-                material->pbr_metallic_roughness.metallic_roughness_texture
-                    .texture->image -
+                material->pbr_metallic_roughness.metallic_roughness_texture.texture->image -
                 data->images;
             mat->metallic_roughness_image = asset->images[image_index];
 
             uint32_t sampler_index =
-                material->pbr_metallic_roughness.metallic_roughness_texture
-                    .texture->sampler -
+                material->pbr_metallic_roughness.metallic_roughness_texture.texture->sampler -
                 data->samplers;
             mat->metallic_roughness_sampler = asset->samplers[sampler_index];
-        } else {
-            mat->metallic_roughness_image =
-                asset->asset_manager->engine->white_image;
-            mat->metallic_roughness_sampler =
-                asset->asset_manager->engine->default_sampler;
+        }
+        else
+        {
+            mat->metallic_roughness_image   = asset->asset_manager->engine->white_image;
+            mat->metallic_roughness_sampler = asset->asset_manager->engine->default_sampler;
         }
 
-        if (material->occlusion_texture.texture != NULL) {
-            uint32_t image_index =
-                material->occlusion_texture.texture->image - data->images;
+        if (material->occlusion_texture.texture != NULL)
+        {
+            uint32_t image_index = material->occlusion_texture.texture->image - data->images;
             mat->occlusion_image = asset->images[image_index];
 
-            uint32_t sampler_index =
-                material->occlusion_texture.texture->sampler - data->samplers;
+            uint32_t sampler_index = material->occlusion_texture.texture->sampler - data->samplers;
             mat->occlusion_sampler = asset->samplers[sampler_index];
-        } else {
-            mat->occlusion_image = asset->asset_manager->engine->white_image;
-            mat->occlusion_sampler =
-                asset->asset_manager->engine->default_sampler;
+        }
+        else
+        {
+            mat->occlusion_image   = asset->asset_manager->engine->white_image;
+            mat->occlusion_sampler = asset->asset_manager->engine->default_sampler;
         }
 
-        if (material->emissive_texture.texture != NULL) {
-            uint32_t image_index =
-                material->emissive_texture.texture->image - data->images;
-            mat->emissive_image = asset->images[image_index];
+        if (material->emissive_texture.texture != NULL)
+        {
+            uint32_t image_index = material->emissive_texture.texture->image - data->images;
+            mat->emissive_image  = asset->images[image_index];
 
-            uint32_t sampler_index =
-                material->emissive_texture.texture->sampler - data->samplers;
-            mat->emissive_sampler = asset->samplers[sampler_index];
-        } else {
-            mat->emissive_image = asset->asset_manager->engine->black_image;
-            mat->emissive_sampler =
-                asset->asset_manager->engine->default_sampler;
+            uint32_t sampler_index = material->emissive_texture.texture->sampler - data->samplers;
+            mat->emissive_sampler  = asset->samplers[sampler_index];
+        }
+        else
+        {
+            mat->emissive_image   = asset->asset_manager->engine->black_image;
+            mat->emissive_sampler = asset->asset_manager->engine->default_sampler;
         }
     }
 
@@ -324,14 +350,17 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
     uint32_t *indices    = NULL;
 
     cgltf_scene *scene = data->scene;
-    for (uint32_t i = 0; i < scene->nodes_count; i++) {
+    for (uint32_t i = 0; i < scene->nodes_count; i++)
+    {
         cgltf_node *node = scene->nodes[i];
         load_node(asset, NULL, node, data, &indices, &vertices);
     }
 
-    for (uint32_t i = 0; i < mt_array_size(asset->linear_nodes); i++) {
+    for (uint32_t i = 0; i < mt_array_size(asset->linear_nodes); i++)
+    {
         GltfNode *node = asset->linear_nodes[i];
-        if (node->mesh) {
+        if (node->mesh)
+        {
             node_update(node);
         }
     }
@@ -360,10 +389,8 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
             .size   = index_buffer_size,
         });
 
-    mt_render.transfer_to_buffer(
-        dev, asset->vertex_buffer, 0, vertex_buffer_size, vertices);
-    mt_render.transfer_to_buffer(
-        dev, asset->index_buffer, 0, index_buffer_size, indices);
+    mt_render.transfer_to_buffer(dev, asset->vertex_buffer, 0, vertex_buffer_size, vertices);
+    mt_render.transfer_to_buffer(dev, asset->index_buffer, 0, index_buffer_size, indices);
 
     mt_array_free(alloc, vertices);
     mt_array_free(alloc, indices);
@@ -374,16 +401,20 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
     return true;
 }
 
-static void asset_destroy(MtAsset *asset_) {
+static void asset_destroy(MtAsset *asset_)
+{
     MtGltfAsset *asset = (MtGltfAsset *)asset_;
-    if (!asset) return;
+    if (!asset)
+        return;
 
     MtDevice *dev      = asset->asset_manager->engine->device;
     MtAllocator *alloc = asset->asset_manager->alloc;
 
-    for (uint32_t i = 0; i < mt_array_size(asset->linear_nodes); i++) {
+    for (uint32_t i = 0; i < mt_array_size(asset->linear_nodes); i++)
+    {
         GltfMesh *mesh = asset->linear_nodes[i]->mesh;
-        if (mesh) {
+        if (mesh)
+        {
             mt_array_free(alloc, mesh->primitives);
             mt_free(alloc, mesh);
         }
@@ -394,12 +425,14 @@ static void asset_destroy(MtAsset *asset_) {
 
     mt_array_free(alloc, asset->materials);
 
-    for (uint32_t i = 0; i < mt_array_size(asset->images); i++) {
+    for (uint32_t i = 0; i < mt_array_size(asset->images); i++)
+    {
         mt_render.destroy_image(dev, asset->images[i]);
     }
     mt_array_free(alloc, asset->images);
 
-    for (uint32_t i = 0; i < mt_array_size(asset->samplers); i++) {
+    for (uint32_t i = 0; i < mt_array_size(asset->samplers); i++)
+    {
         mt_render.destroy_sampler(dev, asset->samplers[i]);
     }
     mt_array_free(alloc, asset->samplers);
@@ -414,7 +447,8 @@ static void load_node(
     cgltf_node *node,
     cgltf_data *model,
     uint32_t **index_buffer,
-    GltfVertex **vertex_buffer) {
+    GltfVertex **vertex_buffer)
+{
     MtAllocator *alloc = asset->asset_manager->alloc;
 
     GltfNode *new_node = mt_alloc(alloc, sizeof(GltfNode));
@@ -426,42 +460,44 @@ static void load_node(
     new_node->rotation    = (Quat){0.0f, 0.0f, 0.0f, 1.0f};
     new_node->scale       = V3(1.0f, 1.0f, 1.0f);
 
-    if (node->has_translation) {
+    if (node->has_translation)
+    {
         memcpy(&new_node->translation, node->translation, sizeof(Vec3));
     }
 
-    if (node->has_rotation) {
+    if (node->has_rotation)
+    {
         memcpy(&new_node->rotation, node->rotation, sizeof(Quat));
     }
 
-    if (node->has_scale) {
+    if (node->has_scale)
+    {
         memcpy(&new_node->scale, node->scale, sizeof(Vec3));
     }
 
-    if (node->has_matrix) {
+    if (node->has_matrix)
+    {
         memcpy(&new_node->matrix, node->matrix, sizeof(Mat4));
     }
 
-    if (node->children_count > 0) {
-        for (uint32_t i = 0; i < node->children_count; i++) {
-            load_node(
-                asset,
-                new_node,
-                node->children[i],
-                model,
-                index_buffer,
-                vertex_buffer);
+    if (node->children_count > 0)
+    {
+        for (uint32_t i = 0; i < node->children_count; i++)
+        {
+            load_node(asset, new_node, node->children[i], model, index_buffer, vertex_buffer);
         }
     }
 
-    if (node->mesh != NULL) {
+    if (node->mesh != NULL)
+    {
         cgltf_mesh *mesh   = node->mesh;
         GltfMesh *new_mesh = mt_alloc(alloc, sizeof(GltfMesh));
         memset(new_mesh, 0, sizeof(*new_mesh));
 
         new_mesh->matrix = new_node->matrix;
 
-        for (uint32_t i = 0; i < mesh->primitives_count; i++) {
+        for (uint32_t i = 0; i < mesh->primitives_count; i++)
+        {
             cgltf_primitive *primitive = &mesh->primitives[i];
 
             uint32_t index_start  = (uint32_t)mt_array_size(*index_buffer);
@@ -489,50 +525,46 @@ static void load_node(
                 uint32_t uv0_byte_stride     = 0;
                 uint8_t *buffer_uv0          = NULL;
 
-                for (uint32_t j = 0; j < primitive->attributes_count; j++) {
-                    if (primitive->attributes[j].type ==
-                        cgltf_attribute_type_position) {
+                for (uint32_t j = 0; j < primitive->attributes_count; j++)
+                {
+                    if (primitive->attributes[j].type == cgltf_attribute_type_position)
+                    {
                         pos_accessor    = primitive->attributes[j].data;
                         pos_view        = pos_accessor->buffer_view;
                         pos_byte_stride = pos_accessor->stride;
                         buffer_pos =
-                            &pos_view->buffer->data
-                                 [pos_accessor->offset + pos_view->offset];
+                            &pos_view->buffer->data[pos_accessor->offset + pos_view->offset];
 
                         vertex_count = (uint32_t)pos_accessor->count;
                     }
 
-                    if (primitive->attributes[j].type ==
-                        cgltf_attribute_type_normal) {
+                    if (primitive->attributes[j].type == cgltf_attribute_type_normal)
+                    {
                         normal_accessor    = primitive->attributes[j].data;
                         normal_view        = normal_accessor->buffer_view;
                         normal_byte_stride = normal_accessor->stride;
-                        buffer_normals     = &normal_view->buffer->data
-                                              [normal_accessor->offset +
-                                               normal_view->offset];
+                        buffer_normals     = &normal_view->buffer
+                                              ->data[normal_accessor->offset + normal_view->offset];
                     }
 
-                    if (primitive->attributes[j].type ==
-                        cgltf_attribute_type_texcoord) {
+                    if (primitive->attributes[j].type == cgltf_attribute_type_texcoord)
+                    {
                         uv0_accessor    = primitive->attributes[j].data;
                         uv0_view        = uv0_accessor->buffer_view;
                         uv0_byte_stride = uv0_accessor->stride;
                         buffer_uv0 =
-                            &uv0_view->buffer->data
-                                 [uv0_accessor->offset + uv0_view->offset];
+                            &uv0_view->buffer->data[uv0_accessor->offset + uv0_view->offset];
                     }
                 }
 
                 uint32_t first_vertex = mt_array_size(*vertex_buffer);
                 mt_array_pushn(alloc, *vertex_buffer, pos_accessor->count);
-                for (size_t v = 0; v < pos_accessor->count; v++) {
+                for (size_t v = 0; v < pos_accessor->count; v++)
+                {
                     GltfVertex *vertex = &(*vertex_buffer)[first_vertex];
 
                     // Position
-                    memcpy(
-                        &vertex->pos,
-                        &buffer_pos[v * pos_byte_stride],
-                        sizeof(vertex->pos));
+                    memcpy(&vertex->pos, &buffer_pos[v * pos_byte_stride], sizeof(vertex->pos));
 
                     // Normal
                     memcpy(
@@ -541,11 +573,9 @@ static void load_node(
                         sizeof(vertex->normal));
 
                     // UV0
-                    if (buffer_uv0) {
-                        memcpy(
-                            &vertex->uv0,
-                            &buffer_uv0[v * uv0_byte_stride],
-                            sizeof(vertex->uv0));
+                    if (buffer_uv0)
+                    {
+                        memcpy(&vertex->uv0, &buffer_uv0[v * uv0_byte_stride], sizeof(vertex->uv0));
                     }
 
                     ++first_vertex;
@@ -553,46 +583,55 @@ static void load_node(
             }
 
             // Indices
-            if (has_indices) {
+            if (has_indices)
+            {
                 cgltf_accessor *accessor       = primitive->indices;
                 cgltf_buffer_view *buffer_view = accessor->buffer_view;
                 cgltf_buffer *buffer           = buffer_view->buffer;
 
-                index_count = (uint32_t)accessor->count;
-                const void *data_ptr =
-                    &buffer->data[accessor->offset + buffer_view->offset];
+                index_count          = (uint32_t)accessor->count;
+                const void *data_ptr = &buffer->data[accessor->offset + buffer_view->offset];
 
                 uint32_t first_index = mt_array_size(*index_buffer);
                 mt_array_pushn(alloc, *index_buffer, accessor->count);
 
-                switch (accessor->component_type) {
-                case cgltf_component_type_r_32u: {
-                    const uint32_t *buf = data_ptr;
-                    for (size_t index = 0; index < accessor->count; index++) {
-                        (*index_buffer)[first_index] =
-                            buf[index] + vertex_start;
-                        ++first_index;
+                switch (accessor->component_type)
+                {
+                    case cgltf_component_type_r_32u:
+                    {
+                        const uint32_t *buf = data_ptr;
+                        for (size_t index = 0; index < accessor->count; index++)
+                        {
+                            (*index_buffer)[first_index] = buf[index] + vertex_start;
+                            ++first_index;
+                        }
                     }
-                } break;
-                case cgltf_component_type_r_16u: {
-                    const uint16_t *buf = data_ptr;
-                    for (size_t index = 0; index < accessor->count; index++) {
-                        (*index_buffer)[first_index] =
-                            ((uint32_t)buf[index]) + vertex_start;
-                        ++first_index;
+                    break;
+                    case cgltf_component_type_r_16u:
+                    {
+                        const uint16_t *buf = data_ptr;
+                        for (size_t index = 0; index < accessor->count; index++)
+                        {
+                            (*index_buffer)[first_index] = ((uint32_t)buf[index]) + vertex_start;
+                            ++first_index;
+                        }
                     }
-                } break;
-                case cgltf_component_type_r_8u: {
-                    const uint8_t *buf = data_ptr;
-                    for (size_t index = 0; index < accessor->count; index++) {
-                        (*index_buffer)[first_index] =
-                            ((uint32_t)buf[index]) + vertex_start;
-                        ++first_index;
+                    break;
+                    case cgltf_component_type_r_8u:
+                    {
+                        const uint8_t *buf = data_ptr;
+                        for (size_t index = 0; index < accessor->count; index++)
+                        {
+                            (*index_buffer)[first_index] = ((uint32_t)buf[index]) + vertex_start;
+                            ++first_index;
+                        }
                     }
-                } break;
-                default: {
-                    assert(!"Invalid component type");
-                } break;
+                    break;
+                    default:
+                    {
+                        assert(!"Invalid component type");
+                    }
+                    break;
                 }
             }
 
@@ -600,9 +639,9 @@ static void load_node(
             new_primitive.first_index   = index_start;
             new_primitive.index_count   = index_count;
             new_primitive.vertex_count  = vertex_count;
-            if (primitive->material) {
-                new_primitive.material =
-                    &asset->materials[primitive->material - model->materials];
+            if (primitive->material)
+            {
+                new_primitive.material = &asset->materials[primitive->material - model->materials];
             }
             new_primitive.has_indices = (index_count > 0);
 
@@ -612,9 +651,12 @@ static void load_node(
         new_node->mesh = new_mesh;
     }
 
-    if (parent) {
+    if (parent)
+    {
         mt_array_push(alloc, parent->children, new_node);
-    } else {
+    }
+    else
+    {
         mt_array_push(alloc, asset->nodes, new_node);
     }
 
@@ -622,24 +664,23 @@ static void load_node(
 }
 
 static void node_draw(
-    GltfNode *node,
-    MtCmdBuffer *cb,
-    Mat4 *transform,
-    uint32_t model_set,
-    uint32_t material_set) {
-    if (node->mesh) {
-        for (uint32_t i = 0; i < mt_array_size(node->mesh->primitives); i++) {
+    GltfNode *node, MtCmdBuffer *cb, Mat4 *transform, uint32_t model_set, uint32_t material_set)
+{
+    if (node->mesh)
+    {
+        for (uint32_t i = 0; i < mt_array_size(node->mesh->primitives); i++)
+        {
             GltfPrimitive *primitive = &node->mesh->primitives[i];
 
-            struct {
+            struct
+            {
                 Mat4 local_model;
                 Mat4 model;
             } uniform;
             uniform.local_model = node->mesh->matrix;
             uniform.model       = *transform;
 
-            mt_render.cmd_bind_uniform(
-                cb, &uniform, sizeof(uniform), model_set, 0);
+            mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), model_set, 0);
 
             mt_render.cmd_bind_uniform(
                 cb,
@@ -678,38 +719,31 @@ static void node_draw(
                 material_set,
                 5);
 
-            if (primitive->has_indices) {
+            if (primitive->has_indices)
+            {
                 mt_render.cmd_draw_indexed(
-                    cb,
-                    primitive->index_count,
-                    1,
-                    primitive->first_index,
-                    0,
-                    0);
-            } else {
+                    cb, primitive->index_count, 1, primitive->first_index, 0, 0);
+            }
+            else
+            {
                 mt_render.cmd_draw(cb, primitive->vertex_count, 1, 0, 0);
             }
         }
     }
-    for (GltfNode **child = node->children;
-         child != node->children + mt_array_size(node->children);
-         ++child) {
+    for (GltfNode **child = node->children; child != node->children + mt_array_size(node->children);
+         ++child)
+    {
         node_draw(*child, cb, transform, model_set, material_set);
     }
 }
 
 void mt_gltf_asset_draw(
-    MtGltfAsset *asset,
-    MtCmdBuffer *cb,
-    Mat4 *transform,
-    uint32_t model_set,
-    uint32_t material_set) {
+    MtGltfAsset *asset, MtCmdBuffer *cb, Mat4 *transform, uint32_t model_set, uint32_t material_set)
+{
     mt_render.cmd_bind_vertex_buffer(cb, asset->vertex_buffer, 0);
-    mt_render.cmd_bind_index_buffer(
-        cb, asset->index_buffer, MT_INDEX_TYPE_UINT32, 0);
-    for (GltfNode **node = asset->nodes;
-         node != asset->nodes + mt_array_size(asset->nodes);
-         ++node) {
+    mt_render.cmd_bind_index_buffer(cb, asset->index_buffer, MT_INDEX_TYPE_UINT32, 0);
+    for (GltfNode **node = asset->nodes; node != asset->nodes + mt_array_size(asset->nodes); ++node)
+    {
         node_draw(*node, cb, transform, model_set, material_set);
     }
 }

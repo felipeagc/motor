@@ -1,27 +1,34 @@
-static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
+static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci)
+{
     MtImage *image = mt_alloc(dev->alloc, sizeof(MtImage));
     memset(image, 0, sizeof(*image));
 
-    if (ci->depth == 0) {
+    if (ci->depth == 0)
+    {
         ci->depth = 1;
     }
-    if (ci->sample_count == 0) {
+    if (ci->sample_count == 0)
+    {
         ci->sample_count = 1;
     }
-    if (ci->mip_count == 0) {
+    if (ci->mip_count == 0)
+    {
         ci->mip_count = 1;
     }
-    if (ci->layer_count == 0) {
+    if (ci->layer_count == 0)
+    {
         ci->layer_count = 1;
     }
-    if (ci->format == 0) {
+    if (ci->format == 0)
+    {
         ci->format = MT_FORMAT_RGBA8_UNORM;
     }
-    if (ci->usage == 0) {
-        ci->usage =
-            MT_IMAGE_USAGE_TRANSFER_DST_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
+    if (ci->usage == 0)
+    {
+        ci->usage = MT_IMAGE_USAGE_TRANSFER_DST_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
     }
-    if (ci->aspect == 0) {
+    if (ci->aspect == 0)
+    {
         ci->aspect = MT_IMAGE_ASPECT_COLOR_BIT;
     }
 
@@ -35,13 +42,14 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
 
     assert(image->format != VK_FORMAT_UNDEFINED);
 
-    switch (ci->sample_count) {
-    case 1: image->sample_count = VK_SAMPLE_COUNT_1_BIT; break;
-    case 2: image->sample_count = VK_SAMPLE_COUNT_2_BIT; break;
-    case 4: image->sample_count = VK_SAMPLE_COUNT_4_BIT; break;
-    case 8: image->sample_count = VK_SAMPLE_COUNT_8_BIT; break;
-    case 16: image->sample_count = VK_SAMPLE_COUNT_16_BIT; break;
-    default: assert(0);
+    switch (ci->sample_count)
+    {
+        case 1: image->sample_count = VK_SAMPLE_COUNT_1_BIT; break;
+        case 2: image->sample_count = VK_SAMPLE_COUNT_2_BIT; break;
+        case 4: image->sample_count = VK_SAMPLE_COUNT_4_BIT; break;
+        case 8: image->sample_count = VK_SAMPLE_COUNT_8_BIT; break;
+        case 16: image->sample_count = VK_SAMPLE_COUNT_16_BIT; break;
+        default: assert(0);
     }
 
     if (ci->aspect & MT_IMAGE_ASPECT_COLOR_BIT)
@@ -84,15 +92,15 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
         if (ci->usage & MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
             image_create_info.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         if (ci->usage & MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-            image_create_info.usage |=
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            image_create_info.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-        if (image->layer_count == 6) {
+        if (image->layer_count == 6)
+        {
             image_create_info.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
         }
 
         VmaAllocationCreateInfo image_alloc_create_info = {0};
-        image_alloc_create_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        image_alloc_create_info.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
 
         VK_CHECK(vmaCreateImage(
             dev->gpu_allocator,
@@ -127,18 +135,19 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci) {
                 },
         };
 
-        if (image->layer_count == 6) {
+        if (image->layer_count == 6)
+        {
             image_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
         }
 
-        VK_CHECK(vkCreateImageView(
-            dev->device, &image_view_create_info, NULL, &image->image_view));
+        VK_CHECK(vkCreateImageView(dev->device, &image_view_create_info, NULL, &image->image_view));
     }
 
     return image;
 }
 
-static void destroy_image(MtDevice *dev, MtImage *image) {
+static void destroy_image(MtDevice *dev, MtImage *image)
+{
     VK_CHECK(vkDeviceWaitIdle(dev->device));
     if (image->image_view)
         vkDestroyImageView(dev->device, image->image_view, NULL);

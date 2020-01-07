@@ -11,7 +11,8 @@ typedef struct MtAssetManager MtAssetManager;
 
 typedef struct MtUIRenderer MtUIRenderer;
 
-typedef struct MtUIVertex {
+typedef struct MtUIVertex
+{
     Vec2 pos;
     Vec2 tex_coords;
     Vec3 color;

@@ -12,15 +12,13 @@
 #include <windows.h>
 #endif
 
-#if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) &&           \
-    !defined(_Thread_local)
-#if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) ||  \
-    defined(__IBMCPP__)
+#if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) && !defined(_Thread_local)
+#if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
 #define _Thread_local __thread
 #else
 #define _Thread_local __declspec(thread)
 #endif
-#elif defined(__GNUC__) && defined(__GNUC_MINOR__) &&                          \
+#elif defined(__GNUC__) && defined(__GNUC_MINOR__) &&                                              \
     (((__GNUC__ << 8) | __GNUC_MINOR__) < ((4 << 8) | 9))
 #define _Thread_local __thread
 #endif

@@ -8,7 +8,8 @@
 #include <shaderc/shaderc.h>
 #include <string.h>
 
-void mt_engine_init(MtEngine *engine) {
+void mt_engine_init(MtEngine *engine)
+{
     memset(engine, 0, sizeof(*engine));
 #if 0
     engine->alloc = mt_alloc(NULL, sizeof(MtAllocator));
@@ -18,18 +19,15 @@ void mt_engine_init(MtEngine *engine) {
     mt_glfw_vulkan_init(&engine->window_system);
 
     engine->device = mt_vulkan_device_init(
-        &(MtVulkanDeviceCreateInfo){.window_system = &engine->window_system},
-        engine->alloc);
+        &(MtVulkanDeviceCreateInfo){.window_system = &engine->window_system}, engine->alloc);
 
-    mt_glfw_vulkan_window_init(
-        &engine->window, engine->device, 800, 600, "Hello", engine->alloc);
+    mt_glfw_vulkan_window_init(&engine->window, engine->device, 800, 600, "Hello", engine->alloc);
 
     engine->compiler = shaderc_compiler_initialize();
 
     engine->white_image = mt_render.create_image(
         engine->device,
-        &(MtImageCreateInfo){
-            .format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
+        &(MtImageCreateInfo){.format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
 
     mt_render.transfer_to_image(
         engine->device,
@@ -39,8 +37,7 @@ void mt_engine_init(MtEngine *engine) {
 
     engine->black_image = mt_render.create_image(
         engine->device,
-        &(MtImageCreateInfo){
-            .format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
+        &(MtImageCreateInfo){.format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
 
     mt_render.transfer_to_image(
         engine->device,
@@ -48,13 +45,13 @@ void mt_engine_init(MtEngine *engine) {
         4,
         (uint8_t[]){0, 0, 0, 255});
 
-    engine->default_sampler =
-        mt_render.create_sampler(engine->device, &(MtSamplerCreateInfo){});
+    engine->default_sampler = mt_render.create_sampler(engine->device, &(MtSamplerCreateInfo){});
 
     mt_asset_manager_init(&engine->asset_manager, engine);
 }
 
-void mt_engine_destroy(MtEngine *engine) {
+void mt_engine_destroy(MtEngine *engine)
+{
     mt_asset_manager_destroy(&engine->asset_manager);
 
     mt_render.destroy_image(engine->device, engine->white_image);
