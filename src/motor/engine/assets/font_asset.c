@@ -5,14 +5,15 @@
 #include "font_asset.inl"
 #include <stdio.h>
 
-static bool
-asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
+static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path)
+{
     MtFontAsset *asset = (MtFontAsset *)asset_;
     memset(asset, 0, sizeof(*asset));
     asset->asset_manager = asset_manager;
 
     FILE *f = fopen(path, "rb");
-    if (!f) {
+    if (!f)
+    {
         printf("Failed to open font file: %s\n", path);
         return false;
     }
@@ -30,19 +31,21 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
 
     asset->sampler = mt_render.create_sampler(
         asset_manager->engine->device,
-        &(MtSamplerCreateInfo){.min_filter = MT_FILTER_LINEAR,
-                               .mag_filter = MT_FILTER_LINEAR});
+        &(MtSamplerCreateInfo){.min_filter = MT_FILTER_LINEAR, .mag_filter = MT_FILTER_LINEAR});
 
     return true;
 }
 
-static void asset_destroy(MtAsset *asset_) {
+static void asset_destroy(MtAsset *asset_)
+{
     MtFontAsset *asset = (MtFontAsset *)asset_;
-    if (!asset) return;
+    if (!asset)
+        return;
 
     MtDevice *dev = asset->asset_manager->engine->device;
 
-    for (uint32_t i = 0; i < mt_array_size(asset->atlases); i++) {
+    for (uint32_t i = 0; i < mt_array_size(asset->atlases); i++)
+    {
         FontAtlas *atlas = &asset->atlases[i];
         mt_render.destroy_image(dev, atlas->image);
         mt_free(asset->asset_manager->alloc, atlas->chardata);

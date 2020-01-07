@@ -10,14 +10,14 @@
 #include "../stb_image.h"
 #include "../tinyktx.h"
 
-static bool
-asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
+static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path)
+{
     MtImageAsset *asset  = (MtImageAsset *)asset_;
     asset->asset_manager = asset_manager;
 
     const char *ext = mt_path_ext(path, strlen(path));
-    if (strcmp(ext, ".png") == 0 || strcmp(ext, ".jpg") == 0 ||
-        strcmp(ext, ".jpeg") == 0) {
+    if (strcmp(ext, ".png") == 0 || strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0)
+    {
         int32_t w, h, num_channels;
         uint8_t *image_data = stbi_load(path, &w, &h, &num_channels, 4);
 
@@ -40,25 +40,28 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
         return true;
     }
 
-    if (strcmp(ext, ".ktx") == 0) {
+    if (strcmp(ext, ".ktx") == 0)
+    {
         ktx_data_t data     = {0};
         ktx_result_t result = ktx_read_from_file(path, &data);
-        if (result != KTX_SUCCESS) {
+        if (result != KTX_SUCCESS)
+        {
             return false;
         }
 
         uint32_t pixel_size = 0;
         MtFormat format;
-        switch (data.internal_format) {
-        case KTX_RGBA8:
-            format     = MT_FORMAT_RGBA8_UNORM;
-            pixel_size = sizeof(uint32_t);
-            break;
-        case KTX_RGBA16F:
-            format     = MT_FORMAT_RGBA16_SFLOAT;
-            pixel_size = 2 * sizeof(uint32_t);
-            break;
-        default: assert(!"Unsupported image format");
+        switch (data.internal_format)
+        {
+            case KTX_RGBA8:
+                format     = MT_FORMAT_RGBA8_UNORM;
+                pixel_size = sizeof(uint32_t);
+                break;
+            case KTX_RGBA16F:
+                format     = MT_FORMAT_RGBA16_SFLOAT;
+                pixel_size = 2 * sizeof(uint32_t);
+                break;
+            default: assert(!"Unsupported image format");
         }
 
         asset->image = mt_render.create_image(
@@ -72,16 +75,17 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
                 .format      = format,
             });
 
-        for (uint32_t li = 0; li < data.mipmap_level_count; li++) {
-            for (uint32_t fi = 0; fi < data.face_count; fi++) {
-                for (uint32_t si = 0; si < data.pixel_depth; si++) {
+        for (uint32_t li = 0; li < data.mipmap_level_count; li++)
+        {
+            for (uint32_t fi = 0; fi < data.face_count; fi++)
+            {
+                for (uint32_t si = 0; si < data.pixel_depth; si++)
+                {
                     uint32_t mip_width  = data.pixel_width >> li;
                     uint32_t mip_height = data.pixel_height >> li;
 
-                    ktx_slice_t *slice = &data.mip_levels[li]
-                                              .array_elements[0]
-                                              .faces[fi]
-                                              .slices[si];
+                    ktx_slice_t *slice =
+                        &data.mip_levels[li].array_elements[0].faces[fi].slices[si];
 
                     mt_render.transfer_to_image(
                         asset_manager->engine->device,
@@ -103,9 +107,11 @@ asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path) {
     return false;
 }
 
-static void asset_destroy(MtAsset *asset_) {
+static void asset_destroy(MtAsset *asset_)
+{
     MtImageAsset *asset = (MtImageAsset *)asset_;
-    if (!asset) return;
+    if (!asset)
+        return;
 
     MtDevice *dev = asset->asset_manager->engine->device;
 

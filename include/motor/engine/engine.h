@@ -8,7 +8,8 @@ typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
 typedef struct shaderc_compiler *shaderc_compiler_t;
 
-typedef struct MtEngine {
+typedef struct MtEngine
+{
     MtDevice *device;
     MtIWindowSystem window_system;
     MtIWindow window;

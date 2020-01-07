@@ -8,7 +8,8 @@ typedef struct MtAssetVT MtAssetVT;
 
 extern MtAssetVT *mt_pipeline_asset_vt;
 
-typedef struct MtPipelineAsset {
+typedef struct MtPipelineAsset
+{
     MtAssetManager *asset_manager;
     MtPipeline *pipeline;
 } MtPipelineAsset;

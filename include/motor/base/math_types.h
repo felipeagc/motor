@@ -30,50 +30,60 @@
 #endif
 
 typedef union Vec2 {
-    struct {
+    struct
+    {
         float x, y;
     };
-    struct {
+    struct
+    {
         float r, g;
     };
     float v[2];
 } Vec2;
 
 typedef union Vec3 {
-    struct {
+    struct
+    {
         float x, y, z;
     };
-    struct {
+    struct
+    {
         float r, g, b;
     };
-    struct {
+    struct
+    {
         Vec2 xy;
     };
     float v[3];
 } Vec3;
 
 typedef union MT_MATH_ALIGNAS(16) Vec4 {
-    struct {
+    struct
+    {
         union {
             Vec3 xyz;
-            struct {
+            struct
+            {
                 float x, y, z;
             };
         };
         float w;
     };
 
-    struct {
+    struct
+    {
         union {
             Vec3 rgb;
-            struct {
+            struct
+            {
                 float r, g, b;
             };
         };
         float a;
     };
 
-    struct {
+    struct
+    {
         Vec2 xy;
     };
 
@@ -90,10 +100,12 @@ typedef union MT_MATH_ALIGNAS(16) Mat4 {
 } Mat4;
 
 typedef union Quat {
-    struct {
+    struct
+    {
         float x, y, z, w;
     };
-    struct {
+    struct
+    {
         Vec3 xyz;
     };
 } Quat;

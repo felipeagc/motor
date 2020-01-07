@@ -6,13 +6,15 @@
 #include "../stb_truetype.h"
 #include <string.h>
 
-typedef struct FontAtlas {
+typedef struct FontAtlas
+{
     MtImage *image;
     stbtt_packedchar *chardata;
     uint32_t dim;
 } FontAtlas;
 
-struct MtFontAsset {
+struct MtFontAsset
+{
     MtAssetManager *asset_manager;
     MtSampler *sampler;
     uint8_t *font_data;
@@ -20,9 +22,11 @@ struct MtFontAsset {
     MtHashMap map;
 };
 
-static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height) {
+static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height)
+{
     FontAtlas *atlas = mt_hash_get_ptr(&asset->map, (uint64_t)height);
-    if (!atlas) {
+    if (!atlas)
+    {
         MtAllocator *alloc = asset->asset_manager->alloc;
 
         // Create atlas
@@ -34,9 +38,9 @@ static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height) {
         uint8_t *pixels = mt_alloc(alloc, atlas->dim * atlas->dim);
 
         stbtt_pack_context spc;
-        int res =
-            stbtt_PackBegin(&spc, pixels, atlas->dim, atlas->dim, 0, 1, NULL);
-        if (!res) {
+        int res = stbtt_PackBegin(&spc, pixels, atlas->dim, atlas->dim, 0, 1, NULL);
+        if (!res)
+        {
             return NULL;
         }
 
@@ -44,8 +48,7 @@ static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height) {
 
         int first_char  = 0;
         int char_count  = 255;
-        atlas->chardata = mt_alloc(
-            alloc, sizeof(stbtt_packedchar) * (char_count - first_char));
+        atlas->chardata = mt_alloc(alloc, sizeof(stbtt_packedchar) * (char_count - first_char));
 
         res = stbtt_PackFontRange(
             &spc,
@@ -55,7 +58,8 @@ static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height) {
             first_char,
             char_count,
             atlas->chardata);
-        if (!res) {
+        if (!res)
+        {
             return NULL;
         }
 

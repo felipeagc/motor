@@ -6,7 +6,8 @@
 typedef struct MtEngine MtEngine;
 typedef struct MtAllocator MtAllocator;
 
-typedef struct MtAssetManager {
+typedef struct MtAssetManager
+{
     MtEngine *engine;
     MtAllocator *alloc;
     /*array*/ MtAssetVT **asset_types;

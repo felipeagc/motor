@@ -7,7 +7,8 @@
 
 typedef struct MtAllocator MtAllocator;
 
-typedef struct MtHashMap {
+typedef struct MtHashMap
+{
     MtAllocator *alloc;
     uint64_t *keys;
     uintptr_t *values;

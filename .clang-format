@@ -1,11 +1,19 @@
 BasedOnStyle: LLVM
+
+UseTab: Never
 IndentWidth: 4
+ColumnLimit: 100
+
+IndentCaseLabels: true
+BreakBeforeBraces: Allman
+
 BinPackParameters: false
 BinPackArguments: false 
-ConstructorInitializerAllOnOneLineOrOnePerLine: true
+
+AllowShortFunctionsOnASingleLine: false
 AlignAfterOpenBracket: AlwaysBreak
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortCaseLabelsOnASingleLine: true
-AllowShortIfStatementsOnASingleLine: true
 AlignConsecutiveAssignments: true
+AllowShortIfStatementsOnASingleLine: false
 SortIncludes: false

@@ -7,7 +7,8 @@
 typedef struct MtAsset MtAsset;
 typedef struct MtAssetManager MtAssetManager;
 
-typedef struct MtAssetVT {
+typedef struct MtAssetVT
+{
     const char *name;
 
     const char **extensions;
@@ -19,7 +20,8 @@ typedef struct MtAssetVT {
     void (*destroy)(MtAsset *inst);
 } MtAssetVT;
 
-typedef struct MtIAsset {
+typedef struct MtIAsset
+{
     MtAsset *inst;
     MtAssetVT *vt;
 } MtIAsset;

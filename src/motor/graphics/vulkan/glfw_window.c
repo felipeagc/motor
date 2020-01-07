@@ -18,7 +18,8 @@
  * Window
  */
 
-typedef struct MtWindow {
+typedef struct MtWindow
+{
     MtDevice *dev;
     MtAllocator *alloc;
 
@@ -60,9 +61,13 @@ typedef struct MtWindow {
  * Event queue
  *
  */
-enum { EVENT_QUEUE_CAPACITY = 65535 };
+enum
+{
+    EVENT_QUEUE_CAPACITY = 65535
+};
 
-typedef struct EventQueue {
+typedef struct EventQueue
+{
     MtEvent events[EVENT_QUEUE_CAPACITY];
     size_t head;
     size_t tail;
@@ -81,34 +86,31 @@ static void window_close_callback(GLFWwindow *window);
 static void window_refresh_callback(GLFWwindow *window);
 static void window_focus_callback(GLFWwindow *window, int focused);
 static void window_iconify_callback(GLFWwindow *window, int iconified);
-static void
-framebuffer_size_callback(GLFWwindow *window, int width, int height);
-static void
-mouse_button_callback(GLFWwindow *window, int button, int action, int mods);
+static void framebuffer_size_callback(GLFWwindow *window, int width, int height);
+static void mouse_button_callback(GLFWwindow *window, int button, int action, int mods);
 static void cursor_pos_callback(GLFWwindow *window, double x, double y);
 static void cursor_enter_callback(GLFWwindow *window, int entered);
 static void scroll_callback(GLFWwindow *window, double x, double y);
-static void
-key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 static void char_callback(GLFWwindow *window, unsigned int codepoint);
 static void monitor_callback(GLFWmonitor *monitor, int action);
 static void joystick_callback(int jid, int action);
 static void window_maximize_callback(GLFWwindow *window, int maximized);
-static void
-window_content_scale_callback(GLFWwindow *window, float xscale, float yscale);
+static void window_content_scale_callback(GLFWwindow *window, float xscale, float yscale);
 
 /*
  * Window System
  */
 
-static const char **get_instance_extensions(uint32_t *count) {
+static const char **get_instance_extensions(uint32_t *count)
+{
     return glfwGetRequiredInstanceExtensions(count);
 }
 
 static int32_t get_physical_device_presentation_support(
-    VkInstance instance, VkPhysicalDevice device, uint32_t queue_family) {
-    return (int32_t)glfwGetPhysicalDevicePresentationSupport(
-        instance, device, queue_family);
+    VkInstance instance, VkPhysicalDevice device, uint32_t queue_family)
+{
+    return (int32_t)glfwGetPhysicalDevicePresentationSupport(instance, device, queue_family);
 }
 
 MtWindowSystem g_glfw_window_system;
@@ -117,9 +119,15 @@ MtWindowSystem g_glfw_window_system;
  * Window System VT
  */
 
-static void poll_events(void) { glfwPollEvents(); }
+static void poll_events(void)
+{
+    glfwPollEvents();
+}
 
-static void glfw_destroy(void) { glfwTerminate(); }
+static void glfw_destroy(void)
+{
+    glfwTerminate();
+}
 
 static MtWindowSystemVT g_glfw_window_system_vt = {
     .poll_events = poll_events,
@@ -130,7 +138,8 @@ static MtWindowSystemVT g_glfw_window_system_vt = {
  * Setup functions
  */
 
-typedef struct SwapchainSupport {
+typedef struct SwapchainSupport
+{
     VkSurfaceCapabilitiesKHR capabilities;
     VkSurfaceFormatKHR *formats;
     uint32_t format_count;
@@ -138,40 +147,38 @@ typedef struct SwapchainSupport {
     uint32_t present_mode_count;
 } SwapchainSupport;
 
-static void create_semaphores(MtWindow *window) {
+static void create_semaphores(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     VkSemaphoreCreateInfo semaphore_info = {0};
-    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphore_info.sType                 = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
+    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
+    {
         VK_CHECK(vkCreateSemaphore(
-            dev->device,
-            &semaphore_info,
-            NULL,
-            &window->image_available_semaphores[i]));
+            dev->device, &semaphore_info, NULL, &window->image_available_semaphores[i]));
         VK_CHECK(vkCreateSemaphore(
-            dev->device,
-            &semaphore_info,
-            NULL,
-            &window->render_finished_semaphores[i]));
+            dev->device, &semaphore_info, NULL, &window->render_finished_semaphores[i]));
     }
 }
 
-static void create_fences(MtWindow *window) {
+static void create_fences(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     VkFenceCreateInfo fence_info = {0};
     fence_info.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags             = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
-        VK_CHECK(vkCreateFence(
-            dev->device, &fence_info, NULL, &window->in_flight_fences[i]));
+    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
+    {
+        VK_CHECK(vkCreateFence(dev->device, &fence_info, NULL, &window->in_flight_fences[i]));
     }
 }
 
-static SwapchainSupport query_swapchain_support(MtWindow *window) {
+static SwapchainSupport query_swapchain_support(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     SwapchainSupport details = {0};
@@ -183,26 +190,21 @@ static SwapchainSupport query_swapchain_support(MtWindow *window) {
     // Formats
     vkGetPhysicalDeviceSurfaceFormatsKHR(
         dev->physical_device, window->surface, &details.format_count, NULL);
-    if (details.format_count != 0) {
-        details.formats = mt_alloc(
-            window->alloc, sizeof(VkSurfaceFormatKHR) * details.format_count);
+    if (details.format_count != 0)
+    {
+        details.formats =
+            mt_alloc(window->alloc, sizeof(VkSurfaceFormatKHR) * details.format_count);
         vkGetPhysicalDeviceSurfaceFormatsKHR(
-            dev->physical_device,
-            window->surface,
-            &details.format_count,
-            details.formats);
+            dev->physical_device, window->surface, &details.format_count, details.formats);
     }
 
     // Present modes
     vkGetPhysicalDeviceSurfacePresentModesKHR(
-        dev->physical_device,
-        window->surface,
-        &details.present_mode_count,
-        NULL);
-    if (details.present_mode_count != 0) {
-        details.present_modes = mt_alloc(
-            window->alloc,
-            sizeof(VkPresentModeKHR) * details.present_mode_count);
+        dev->physical_device, window->surface, &details.present_mode_count, NULL);
+    if (details.present_mode_count != 0)
+    {
+        details.present_modes =
+            mt_alloc(window->alloc, sizeof(VkPresentModeKHR) * details.present_mode_count);
         vkGetPhysicalDeviceSurfacePresentModesKHR(
             dev->physical_device,
             window->surface,
@@ -214,8 +216,10 @@ static SwapchainSupport query_swapchain_support(MtWindow *window) {
 }
 
 static VkSurfaceFormatKHR
-choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t count) {
-    if (count == 1 && formats[0].format == VK_FORMAT_UNDEFINED) {
+choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t count)
+{
+    if (count == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
+    {
         VkSurfaceFormatKHR fmt = {
             .format     = VK_FORMAT_B8G8R8A8_UNORM,
             .colorSpace = formats[0].colorSpace,
@@ -224,10 +228,12 @@ choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t count) {
         return fmt;
     }
 
-    for (uint32_t i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++)
+    {
         VkSurfaceFormatKHR format = formats[i];
         if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
-            format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        {
             return format;
         }
     }
@@ -236,24 +242,31 @@ choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t count) {
 }
 
 static VkPresentModeKHR
-choose_swapchain_present_mode(VkPresentModeKHR *present_modes, uint32_t count) {
-    for (uint32_t i = 0; i < count; i++) {
+choose_swapchain_present_mode(VkPresentModeKHR *present_modes, uint32_t count)
+{
+    for (uint32_t i = 0; i < count; i++)
+    {
         VkPresentModeKHR mode = present_modes[i];
-        if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+        if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+        {
             return mode;
         }
     }
 
-    for (uint32_t i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++)
+    {
         VkPresentModeKHR mode = present_modes[i];
-        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+        if (mode == VK_PRESENT_MODE_MAILBOX_KHR)
+        {
             return mode;
         }
     }
 
-    for (uint32_t i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++)
+    {
         VkPresentModeKHR mode = present_modes[i];
-        if (mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
+        if (mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR)
+        {
             return mode;
         }
     }
@@ -261,11 +274,14 @@ choose_swapchain_present_mode(VkPresentModeKHR *present_modes, uint32_t count) {
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-static VkExtent2D choose_swapchain_extent(
-    MtWindow *window, VkSurfaceCapabilitiesKHR capabilities) {
-    if (capabilities.currentExtent.width != UINT32_MAX) {
+static VkExtent2D choose_swapchain_extent(MtWindow *window, VkSurfaceCapabilitiesKHR capabilities)
+{
+    if (capabilities.currentExtent.width != UINT32_MAX)
+    {
         return capabilities.currentExtent;
-    } else {
+    }
+    else
+    {
         int width = 0, height = 0;
         glfwGetFramebufferSize(window->window, &width, &height);
         VkExtent2D actual_extent = {(uint32_t)width, (uint32_t)height};
@@ -284,38 +300,38 @@ static VkExtent2D choose_swapchain_extent(
     }
 }
 
-static void create_swapchain(MtWindow *window) {
+static void create_swapchain(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     SwapchainSupport swapchain_support = query_swapchain_support(window);
 
-    if (swapchain_support.format_count == 0 ||
-        swapchain_support.present_mode_count == 0) {
+    if (swapchain_support.format_count == 0 || swapchain_support.present_mode_count == 0)
+    {
         printf("Physical device does not support swapchain creation\n");
         exit(1);
     }
 
-    VkSurfaceFormatKHR surface_format = choose_swapchain_surface_format(
-        swapchain_support.formats, swapchain_support.format_count);
+    VkSurfaceFormatKHR surface_format =
+        choose_swapchain_surface_format(swapchain_support.formats, swapchain_support.format_count);
     VkPresentModeKHR present_mode = choose_swapchain_present_mode(
         swapchain_support.present_modes, swapchain_support.present_mode_count);
-    VkExtent2D extent =
-        choose_swapchain_extent(window, swapchain_support.capabilities);
+    VkExtent2D extent = choose_swapchain_extent(window, swapchain_support.capabilities);
 
     uint32_t image_count = swapchain_support.capabilities.minImageCount + 1;
 
     if (swapchain_support.capabilities.maxImageCount > 0 &&
-        image_count > swapchain_support.capabilities.maxImageCount) {
+        image_count > swapchain_support.capabilities.maxImageCount)
+    {
         image_count = swapchain_support.capabilities.maxImageCount;
     }
 
     VkImageUsageFlags image_usage =
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    if (!(swapchain_support.capabilities.supportedUsageFlags &
-          VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
-        printf(
-            "Physical device does not support VK_IMAGE_USAGE_TRANSFER_DST_BIT "
-            "in swapchains\n");
+    if (!(swapchain_support.capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+    {
+        printf("Physical device does not support VK_IMAGE_USAGE_TRANSFER_DST_BIT "
+               "in swapchains\n");
         exit(1);
     }
 
@@ -330,20 +346,22 @@ static void create_swapchain(MtWindow *window) {
         .imageUsage       = image_usage,
     };
 
-    uint32_t queue_family_indices[2] = {dev->indices.graphics,
-                                        dev->indices.present};
+    uint32_t queue_family_indices[2] = {dev->indices.graphics, dev->indices.present};
 
-    if (dev->indices.graphics != dev->indices.present) {
+    if (dev->indices.graphics != dev->indices.present)
+    {
         create_info.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
         create_info.queueFamilyIndexCount = 2;
         create_info.pQueueFamilyIndices   = queue_family_indices;
-    } else {
+    }
+    else
+    {
         create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
         create_info.queueFamilyIndexCount = 0;
         create_info.pQueueFamilyIndices   = NULL;
     }
 
-    create_info.preTransform = swapchain_support.capabilities.currentTransform;
+    create_info.preTransform   = swapchain_support.capabilities.currentTransform;
     create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
     create_info.presentMode = present_mode;
@@ -352,18 +370,17 @@ static void create_swapchain(MtWindow *window) {
     VkSwapchainKHR old_swapchain = window->swapchain;
     create_info.oldSwapchain     = old_swapchain;
 
-    VK_CHECK(vkCreateSwapchainKHR(
-        dev->device, &create_info, NULL, &window->swapchain));
+    VK_CHECK(vkCreateSwapchainKHR(dev->device, &create_info, NULL, &window->swapchain));
 
-    if (old_swapchain) {
+    if (old_swapchain)
+    {
         vkDestroySwapchainKHR(dev->device, old_swapchain, NULL);
     }
 
     vkGetSwapchainImagesKHR(dev->device, window->swapchain, &image_count, NULL);
-    window->swapchain_images = mt_realloc(
-        window->alloc, window->swapchain_images, sizeof(VkImage) * image_count);
-    vkGetSwapchainImagesKHR(
-        dev->device, window->swapchain, &image_count, window->swapchain_images);
+    window->swapchain_images =
+        mt_realloc(window->alloc, window->swapchain_images, sizeof(VkImage) * image_count);
+    vkGetSwapchainImagesKHR(dev->device, window->swapchain, &image_count, window->swapchain_images);
 
     window->swapchain_image_count  = image_count;
     window->swapchain_image_format = surface_format.format;
@@ -373,7 +390,8 @@ static void create_swapchain(MtWindow *window) {
     mt_free(window->alloc, swapchain_support.present_modes);
 }
 
-static void create_swapchain_image_views(MtWindow *window) {
+static void create_swapchain_image_views(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     window->swapchain_image_views = mt_realloc(
@@ -381,16 +399,17 @@ static void create_swapchain_image_views(MtWindow *window) {
         window->swapchain_image_views,
         sizeof(VkImageView) * window->swapchain_image_count);
 
-    for (size_t i = 0; i < window->swapchain_image_count; i++) {
+    for (size_t i = 0; i < window->swapchain_image_count; i++)
+    {
         VkImageViewCreateInfo create_info = {
-            .sType        = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image        = window->swapchain_images[i],
-            .viewType     = VK_IMAGE_VIEW_TYPE_2D,
-            .format       = window->swapchain_image_format,
-            .components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .components.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image                           = window->swapchain_images[i],
+            .viewType                        = VK_IMAGE_VIEW_TYPE_2D,
+            .format                          = window->swapchain_image_format,
+            .components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY,
             .subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
             .subresourceRange.baseMipLevel   = 0,
             .subresourceRange.levelCount     = 1,
@@ -398,15 +417,13 @@ static void create_swapchain_image_views(MtWindow *window) {
             .subresourceRange.layerCount     = 1,
         };
 
-        VK_CHECK(vkCreateImageView(
-            dev->device,
-            &create_info,
-            NULL,
-            &window->swapchain_image_views[i]));
+        VK_CHECK(
+            vkCreateImageView(dev->device, &create_info, NULL, &window->swapchain_image_views[i]));
     }
 }
 
-static void create_depth_images(MtWindow *window) {
+static void create_depth_images(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     VkImageCreateInfo image_create_info = {
@@ -440,27 +457,26 @@ static void create_depth_images(MtWindow *window) {
         NULL));
 
     VkImageViewCreateInfo create_info = {
-        .sType        = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image        = window->depth_image,
-        .viewType     = VK_IMAGE_VIEW_TYPE_2D,
-        .format       = dev->preferred_depth_format,
-        .components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .components.a = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .subresourceRange.aspectMask =
-            VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+        .sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image                           = window->depth_image,
+        .viewType                        = VK_IMAGE_VIEW_TYPE_2D,
+        .format                          = dev->preferred_depth_format,
+        .components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY,
+        .subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
         .subresourceRange.baseMipLevel   = 0,
         .subresourceRange.levelCount     = 1,
         .subresourceRange.baseArrayLayer = 0,
         .subresourceRange.layerCount     = 1,
     };
 
-    VK_CHECK(vkCreateImageView(
-        dev->device, &create_info, NULL, &window->depth_image_view));
+    VK_CHECK(vkCreateImageView(dev->device, &create_info, NULL, &window->depth_image_view));
 }
 
-static void create_renderpass(MtWindow *window) {
+static void create_renderpass(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     VkAttachmentDescription color_attachment = {
@@ -508,12 +524,10 @@ static void create_renderpass(MtWindow *window) {
         .srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         .dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-                         VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
     };
 
-    VkAttachmentDescription attachments[2] = {color_attachment,
-                                              depth_attachment};
+    VkAttachmentDescription attachments[2] = {color_attachment, depth_attachment};
 
     VkRenderPassCreateInfo renderpass_create_info = {
         .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
@@ -526,15 +540,13 @@ static void create_renderpass(MtWindow *window) {
     };
 
     VK_CHECK(vkCreateRenderPass(
-        dev->device,
-        &renderpass_create_info,
-        NULL,
-        &window->render_pass.renderpass));
+        dev->device, &renderpass_create_info, NULL, &window->render_pass.renderpass));
 
     window->render_pass.hash = vulkan_hash_render_pass(&renderpass_create_info);
 }
 
-static void create_framebuffers(MtWindow *window) {
+static void create_framebuffers(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     window->swapchain_framebuffers = mt_realloc(
@@ -542,9 +554,9 @@ static void create_framebuffers(MtWindow *window) {
         window->swapchain_framebuffers,
         sizeof(VkFramebuffer) * window->swapchain_image_count);
 
-    for (size_t i = 0; i < window->swapchain_image_count; i++) {
-        VkImageView attachments[2] = {window->swapchain_image_views[i],
-                                      window->depth_image_view};
+    for (size_t i = 0; i < window->swapchain_image_count; i++)
+    {
+        VkImageView attachments[2] = {window->swapchain_image_views[i], window->depth_image_view};
 
         VkFramebufferCreateInfo create_info = {
             .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -557,18 +569,17 @@ static void create_framebuffers(MtWindow *window) {
         };
 
         VK_CHECK(vkCreateFramebuffer(
-            dev->device,
-            &create_info,
-            NULL,
-            &window->swapchain_framebuffers[i]));
+            dev->device, &create_info, NULL, &window->swapchain_framebuffers[i]));
     }
 }
 
-static void create_resizables(MtWindow *window) {
+static void create_resizables(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     int width = 0, height = 0;
-    while (width == 0 || height == 0) {
+    while (width == 0 || height == 0)
+    {
         glfwGetFramebufferSize(window->window, &width, &height);
         glfwWaitEvents();
     }
@@ -582,52 +593,59 @@ static void create_resizables(MtWindow *window) {
     create_framebuffers(window);
 }
 
-static void destroy_resizables(MtWindow *window) {
+static void destroy_resizables(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     VK_CHECK(vkDeviceWaitIdle(dev->device));
 
-    for (uint32_t i = 0; i < window->swapchain_image_count; i++) {
+    for (uint32_t i = 0; i < window->swapchain_image_count; i++)
+    {
         VkFramebuffer *framebuffer = &window->swapchain_framebuffers[i];
-        if (framebuffer) {
+        if (framebuffer)
+        {
             vkDestroyFramebuffer(dev->device, *framebuffer, NULL);
             *framebuffer = VK_NULL_HANDLE;
         }
     }
 
-    if (window->render_pass.renderpass) {
+    if (window->render_pass.renderpass)
+    {
         vkDestroyRenderPass(dev->device, window->render_pass.renderpass, NULL);
         window->render_pass.renderpass = VK_NULL_HANDLE;
     }
 
-    for (uint32_t i = 0; i < window->swapchain_image_count; i++) {
+    for (uint32_t i = 0; i < window->swapchain_image_count; i++)
+    {
         VkImageView *image_view = &window->swapchain_image_views[i];
-        if (image_view) {
+        if (image_view)
+        {
             vkDestroyImageView(dev->device, *image_view, NULL);
             *image_view = VK_NULL_HANDLE;
         }
     }
 
-    if (window->depth_image) {
-        vmaDestroyImage(
-            dev->gpu_allocator,
-            window->depth_image,
-            window->depth_image_allocation);
+    if (window->depth_image)
+    {
+        vmaDestroyImage(dev->gpu_allocator, window->depth_image, window->depth_image_allocation);
         vkDestroyImageView(dev->device, window->depth_image_view, NULL);
     }
 
-    if (window->swapchain) {
+    if (window->swapchain)
+    {
         vkDestroySwapchainKHR(dev->device, window->swapchain, NULL);
         window->swapchain = VK_NULL_HANDLE;
     }
 }
 
-static void allocate_cmd_buffers(MtWindow *window) {
+static void allocate_cmd_buffers(MtWindow *window)
+{
     mt_render.allocate_cmd_buffers(
         window->dev, MT_QUEUE_GRAPHICS, FRAMES_IN_FLIGHT, window->cmd_buffers);
 }
 
-static void free_cmd_buffers(MtWindow *window) {
+static void free_cmd_buffers(MtWindow *window)
+{
     mt_render.free_cmd_buffers(
         window->dev, MT_QUEUE_GRAPHICS, FRAMES_IN_FLIGHT, window->cmd_buffers);
 }
@@ -636,14 +654,17 @@ static void free_cmd_buffers(MtWindow *window) {
  * Window VT
  */
 
-static bool should_close(MtWindow *window) {
+static bool should_close(MtWindow *window)
+{
     return glfwWindowShouldClose(window->window);
 }
 
-static bool next_event(MtWindow *window, MtEvent *event) {
+static bool next_event(MtWindow *window, MtEvent *event)
+{
     memset(event, 0, sizeof(MtEvent));
 
-    if (g_event_queue.head != g_event_queue.tail) {
+    if (g_event_queue.head != g_event_queue.tail)
+    {
         *event             = g_event_queue.events[g_event_queue.tail];
         g_event_queue.tail = (g_event_queue.tail + 1) % EVENT_QUEUE_CAPACITY;
     }
@@ -659,17 +680,14 @@ static bool next_event(MtWindow *window, MtEvent *event) {
     return event->type != MT_EVENT_NONE;
 }
 
-static MtCmdBuffer *begin_frame(MtWindow *window) {
+static MtCmdBuffer *begin_frame(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     window->last_time = glfwGetTime();
 
     vkWaitForFences(
-        dev->device,
-        1,
-        &window->in_flight_fences[window->current_frame],
-        VK_TRUE,
-        UINT64_MAX);
+        dev->device, 1, &window->in_flight_fences[window->current_frame], VK_TRUE, UINT64_MAX);
 
     VkResult res = vkAcquireNextImageKHR(
         dev->device,
@@ -679,11 +697,14 @@ static MtCmdBuffer *begin_frame(MtWindow *window) {
         VK_NULL_HANDLE,
         &window->current_image_index);
 
-    if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+    if (res == VK_ERROR_OUT_OF_DATE_KHR)
+    {
         destroy_resizables(window);
         create_resizables(window);
         return begin_frame(window);
-    } else {
+    }
+    else
+    {
         VK_CHECK(res);
     }
 
@@ -693,23 +714,21 @@ static MtCmdBuffer *begin_frame(MtWindow *window) {
     return window->cmd_buffers[window->current_frame];
 }
 
-static void end_frame(MtWindow *window) {
+static void end_frame(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     VkSubmitInfo submit_info = {0};
     submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore wait_semaphores[1] = {
-        window->image_available_semaphores[window->current_frame]};
-    VkSemaphore signal_semaphores[1] = {
-        window->render_finished_semaphores[window->current_frame]};
+    VkSemaphore wait_semaphores[1]   = {window->image_available_semaphores[window->current_frame]};
+    VkSemaphore signal_semaphores[1] = {window->render_finished_semaphores[window->current_frame]};
 
     submit_info.waitSemaphoreCount = MT_LENGTH(wait_semaphores);
     submit_info.pWaitSemaphores    = wait_semaphores;
 
-    VkPipelineStageFlags wait_stage =
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    submit_info.pWaitDstStageMask = &wait_stage;
+    VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    submit_info.pWaitDstStageMask   = &wait_stage;
 
     MtCmdBuffer *cmd_buffer = window->cmd_buffers[window->current_frame];
 
@@ -719,13 +738,9 @@ static void end_frame(MtWindow *window) {
     submit_info.signalSemaphoreCount = MT_LENGTH(signal_semaphores);
     submit_info.pSignalSemaphores    = signal_semaphores;
 
-    vkResetFences(
-        dev->device, 1, &window->in_flight_fences[window->current_frame]);
+    vkResetFences(dev->device, 1, &window->in_flight_fences[window->current_frame]);
     VK_CHECK(vkQueueSubmit(
-        dev->graphics_queue,
-        1,
-        &submit_info,
-        window->in_flight_fences[window->current_frame]));
+        dev->graphics_queue, 1, &submit_info, window->in_flight_fences[window->current_frame]));
 
     VkPresentInfoKHR present_info = {
         .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -737,12 +752,14 @@ static void end_frame(MtWindow *window) {
     };
 
     VkResult res = vkQueuePresentKHR(dev->present_queue, &present_info);
-    if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR ||
-        window->framebuffer_resized) {
+    if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR || window->framebuffer_resized)
+    {
         window->framebuffer_resized = false;
         destroy_resizables(window);
         create_resizables(window);
-    } else {
+    }
+    else
+    {
         VK_CHECK(res);
     }
 
@@ -751,7 +768,8 @@ static void end_frame(MtWindow *window) {
     window->delta_time = glfwGetTime() - window->last_time;
 }
 
-static void window_destroy(MtWindow *window) {
+static void window_destroy(MtWindow *window)
+{
     MtDevice *dev = window->dev;
 
     VK_CHECK(vkDeviceWaitIdle(dev->device));
@@ -760,82 +778,98 @@ static void window_destroy(MtWindow *window) {
 
     destroy_resizables(window);
 
-    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++) {
-        vkDestroySemaphore(
-            dev->device, window->image_available_semaphores[i], NULL);
-        vkDestroySemaphore(
-            dev->device, window->render_finished_semaphores[i], NULL);
+    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
+    {
+        vkDestroySemaphore(dev->device, window->image_available_semaphores[i], NULL);
+        vkDestroySemaphore(dev->device, window->render_finished_semaphores[i], NULL);
         vkDestroyFence(dev->device, window->in_flight_fences[i], NULL);
     }
 
     vkDestroySurfaceKHR(dev->instance, window->surface, NULL);
 
-    for (uint32_t i = 0; i < MT_LENGTH(window->mouse_cursors); i++) {
+    for (uint32_t i = 0; i < MT_LENGTH(window->mouse_cursors); i++)
+    {
         glfwDestroyCursor(window->mouse_cursors[i]);
     }
 
     glfwDestroyWindow(window->window);
 }
 
-static MtRenderPass *get_render_pass(MtWindow *window) {
+static MtRenderPass *get_render_pass(MtWindow *window)
+{
     return &window->render_pass;
 }
 
-static void get_size(MtWindow *window, uint32_t *width, uint32_t *height) {
+static void get_size(MtWindow *window, uint32_t *width, uint32_t *height)
+{
     int w = 0, h = 0;
     glfwGetFramebufferSize(window->window, &w, &h);
     *width  = (uint32_t)w;
     *height = (uint32_t)h;
 }
 
-static float delta_time(MtWindow *window) { return (float)window->delta_time; }
+static float delta_time(MtWindow *window)
+{
+    return (float)window->delta_time;
+}
 
-static void get_cursor_pos(MtWindow *w, double *x, double *y) {
+static void get_cursor_pos(MtWindow *w, double *x, double *y)
+{
     glfwGetCursorPos(w->window, x, y);
 }
 
-static void set_cursor_pos(MtWindow *w, double x, double y) {
+static void set_cursor_pos(MtWindow *w, double x, double y)
+{
     glfwSetCursorPos(w->window, x, y);
 }
 
-static MtCursorMode get_cursor_mode(MtWindow *w) {
+static MtCursorMode get_cursor_mode(MtWindow *w)
+{
     int mode = glfwGetInputMode(w->window, GLFW_CURSOR);
-    switch (mode) {
-    case GLFW_CURSOR_NORMAL: return MT_CURSOR_MODE_NORMAL;
-    case GLFW_CURSOR_HIDDEN: return MT_CURSOR_MODE_HIDDEN;
-    case GLFW_CURSOR_DISABLED: return MT_CURSOR_MODE_DISABLED;
+    switch (mode)
+    {
+        case GLFW_CURSOR_NORMAL: return MT_CURSOR_MODE_NORMAL;
+        case GLFW_CURSOR_HIDDEN: return MT_CURSOR_MODE_HIDDEN;
+        case GLFW_CURSOR_DISABLED: return MT_CURSOR_MODE_DISABLED;
     }
     return MT_CURSOR_MODE_NORMAL;
 }
 
-static void set_cursor_mode(MtWindow *w, MtCursorMode mode) {
+static void set_cursor_mode(MtWindow *w, MtCursorMode mode)
+{
     int cursor_mode = MT_CURSOR_MODE_NORMAL;
-    switch (mode) {
-    case MT_CURSOR_MODE_NORMAL: cursor_mode = GLFW_CURSOR_NORMAL; break;
-    case MT_CURSOR_MODE_HIDDEN: cursor_mode = GLFW_CURSOR_HIDDEN; break;
-    case MT_CURSOR_MODE_DISABLED: cursor_mode = GLFW_CURSOR_DISABLED; break;
+    switch (mode)
+    {
+        case MT_CURSOR_MODE_NORMAL: cursor_mode = GLFW_CURSOR_NORMAL; break;
+        case MT_CURSOR_MODE_HIDDEN: cursor_mode = GLFW_CURSOR_HIDDEN; break;
+        case MT_CURSOR_MODE_DISABLED: cursor_mode = GLFW_CURSOR_DISABLED; break;
     }
     glfwSetInputMode(w->window, GLFW_CURSOR, cursor_mode);
 }
 
-static void set_cursor_type(MtWindow *w, MtCursorType type) {
+static void set_cursor_type(MtWindow *w, MtCursorType type)
+{
     glfwSetCursor(w->window, w->mouse_cursors[type]);
 }
 
-static MtInputState get_key(MtWindow *w, uint32_t key_code) {
-    switch (glfwGetKey(w->window, key_code)) {
-    case GLFW_RELEASE: return MT_INPUT_STATE_RELEASE;
-    case GLFW_PRESS: return MT_INPUT_STATE_PRESS;
-    case GLFW_REPEAT: return MT_INPUT_STATE_REPEAT;
+static MtInputState get_key(MtWindow *w, uint32_t key_code)
+{
+    switch (glfwGetKey(w->window, key_code))
+    {
+        case GLFW_RELEASE: return MT_INPUT_STATE_RELEASE;
+        case GLFW_PRESS: return MT_INPUT_STATE_PRESS;
+        case GLFW_REPEAT: return MT_INPUT_STATE_REPEAT;
     }
     return MT_INPUT_STATE_RELEASE;
 }
 
-static MtInputState get_mouse_button(MtWindow *w, MtMouseButton button) {
-    switch (glfwGetMouseButton(w->window, button)) {
-    case GLFW_RELEASE: return MT_INPUT_STATE_RELEASE;
-    case GLFW_PRESS: return MT_INPUT_STATE_PRESS;
-    case GLFW_REPEAT: return MT_INPUT_STATE_REPEAT;
+static MtInputState get_mouse_button(MtWindow *w, MtMouseButton button)
+{
+    switch (glfwGetMouseButton(w->window, button))
+    {
+        case GLFW_RELEASE: return MT_INPUT_STATE_RELEASE;
+        case GLFW_PRESS: return MT_INPUT_STATE_PRESS;
+        case GLFW_REPEAT: return MT_INPUT_STATE_REPEAT;
     }
     return MT_INPUT_STATE_RELEASE;
 }
@@ -869,21 +903,22 @@ static MtWindowVT g_glfw_window_vt = {
  * Public functions
  */
 
-void mt_glfw_vulkan_init(MtIWindowSystem *system) {
+void mt_glfw_vulkan_init(MtIWindowSystem *system)
+{
     VK_CHECK(volkInitialize());
 
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    if (!glfwVulkanSupported()) {
+    if (!glfwVulkanSupported())
+    {
         printf("Vulkan is not supported\n");
         exit(1);
     }
 
     g_glfw_window_system = (MtWindowSystem){
-        .get_vulkan_instance_extensions = get_instance_extensions,
-        .get_physical_device_presentation_support =
-            get_physical_device_presentation_support,
+        .get_vulkan_instance_extensions           = get_instance_extensions,
+        .get_physical_device_presentation_support = get_physical_device_presentation_support,
     };
 
     system->inst = (MtWindowSystem *)&g_glfw_window_system;
@@ -896,32 +931,27 @@ void mt_glfw_vulkan_window_init(
     uint32_t width,
     uint32_t height,
     const char *title,
-    MtAllocator *alloc) {
+    MtAllocator *alloc)
+{
     MtWindow *window = mt_alloc(alloc, sizeof(MtWindow));
     memset(window, 0, sizeof(*window));
 
     window->last_time = 0.0f;
 
-    window->window =
-        glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
-    window->alloc = alloc;
-    window->dev   = dev;
+    window->window = glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
+    window->alloc  = alloc;
+    window->dev    = dev;
 
     interface->vt   = &g_glfw_window_vt;
     interface->inst = (MtWindow *)window;
 
-    window->mouse_cursors[MT_CURSOR_TYPE_ARROW] =
-        glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_IBEAM] =
-        glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_ARROW] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_IBEAM] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
     window->mouse_cursors[MT_CURSOR_TYPE_CROSSHAIR] =
         glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_HAND] =
-        glfwCreateStandardCursor(GLFW_HAND_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_HRESIZE] =
-        glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_VRESIZE] =
-        glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_HAND]    = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_HRESIZE] = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_VRESIZE] = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
     glfwSetWindowUserPointer(window->window, interface);
 
@@ -943,19 +973,15 @@ void mt_glfw_vulkan_window_init(
     glfwSetKeyCallback(window->window, key_callback);
     glfwSetCharCallback(window->window, char_callback);
     glfwSetWindowMaximizeCallback(window->window, window_maximize_callback);
-    glfwSetWindowContentScaleCallback(
-        window->window, window_content_scale_callback);
+    glfwSetWindowContentScaleCallback(window->window, window_content_scale_callback);
 
-    VK_CHECK(glfwCreateWindowSurface(
-        dev->instance, window->window, NULL, &window->surface));
+    VK_CHECK(glfwCreateWindowSurface(dev->instance, window->window, NULL, &window->surface));
 
     VkBool32 supported;
     vkGetPhysicalDeviceSurfaceSupportKHR(
-        dev->physical_device,
-        dev->indices.present,
-        window->surface,
-        &supported);
-    if (!supported) {
+        dev->physical_device, dev->indices.present, window->surface, &supported);
+    if (!supported)
+    {
         printf("Physical device does not support surface\n");
         exit(1);
     }
@@ -968,7 +994,8 @@ void mt_glfw_vulkan_window_init(
     allocate_cmd_buffers(window);
 }
 
-static MtEvent *new_event() {
+static MtEvent *new_event()
+{
     MtEvent *event     = g_event_queue.events + g_event_queue.head;
     g_event_queue.head = (g_event_queue.head + 1) % EVENT_QUEUE_CAPACITY;
     assert(g_event_queue.head != g_event_queue.tail);
@@ -976,7 +1003,8 @@ static MtEvent *new_event() {
     return event;
 }
 
-static void window_pos_callback(GLFWwindow *window, int x, int y) {
+static void window_pos_callback(GLFWwindow *window, int x, int y)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->type    = MT_EVENT_WINDOW_MOVED;
@@ -985,7 +1013,8 @@ static void window_pos_callback(GLFWwindow *window, int x, int y) {
     event->pos.y   = y;
 }
 
-static void window_size_callback(GLFWwindow *window, int width, int height) {
+static void window_size_callback(GLFWwindow *window, int width, int height)
+{
     MtIWindow *win     = glfwGetWindowUserPointer(window);
     MtEvent *event     = new_event();
     event->type        = MT_EVENT_WINDOW_RESIZED;
@@ -994,21 +1023,24 @@ static void window_size_callback(GLFWwindow *window, int width, int height) {
     event->size.height = height;
 }
 
-static void window_close_callback(GLFWwindow *window) {
+static void window_close_callback(GLFWwindow *window)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->type    = MT_EVENT_WINDOW_CLOSED;
     event->window  = win;
 }
 
-static void window_refresh_callback(GLFWwindow *window) {
+static void window_refresh_callback(GLFWwindow *window)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->type    = MT_EVENT_WINDOW_REFRESH;
     event->window  = win;
 }
 
-static void window_focus_callback(GLFWwindow *window, int focused) {
+static void window_focus_callback(GLFWwindow *window, int focused)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
@@ -1019,7 +1051,8 @@ static void window_focus_callback(GLFWwindow *window, int focused) {
         event->type = MT_EVENT_WINDOW_DEFOCUSED;
 }
 
-static void window_iconify_callback(GLFWwindow *window, int iconified) {
+static void window_iconify_callback(GLFWwindow *window, int iconified)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
@@ -1030,8 +1063,8 @@ static void window_iconify_callback(GLFWwindow *window, int iconified) {
         event->type = MT_EVENT_WINDOW_UNICONIFIED;
 }
 
-static void
-framebuffer_size_callback(GLFWwindow *window, int width, int height) {
+static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
+{
     MtIWindow *win     = glfwGetWindowUserPointer(window);
     MtEvent *event     = new_event();
     event->type        = MT_EVENT_FRAMEBUFFER_RESIZED;
@@ -1040,8 +1073,8 @@ framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     event->size.height = height;
 }
 
-static void
-mouse_button_callback(GLFWwindow *window, int button, int action, int mods) {
+static void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
+{
     MtIWindow *win      = glfwGetWindowUserPointer(window);
     MtEvent *event      = new_event();
     event->window       = win;
@@ -1054,7 +1087,8 @@ mouse_button_callback(GLFWwindow *window, int button, int action, int mods) {
         event->type = MT_EVENT_BUTTON_RELEASED;
 }
 
-static void cursor_pos_callback(GLFWwindow *window, double x, double y) {
+static void cursor_pos_callback(GLFWwindow *window, double x, double y)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->type    = MT_EVENT_CURSOR_MOVED;
@@ -1063,7 +1097,8 @@ static void cursor_pos_callback(GLFWwindow *window, double x, double y) {
     event->pos.y   = (int)y;
 }
 
-static void cursor_enter_callback(GLFWwindow *window, int entered) {
+static void cursor_enter_callback(GLFWwindow *window, int entered)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
@@ -1074,7 +1109,8 @@ static void cursor_enter_callback(GLFWwindow *window, int entered) {
         event->type = MT_EVENT_CURSOR_LEFT;
 }
 
-static void scroll_callback(GLFWwindow *window, double x, double y) {
+static void scroll_callback(GLFWwindow *window, double x, double y)
+{
     MtIWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event  = new_event();
     event->type     = MT_EVENT_SCROLLED;
@@ -1083,8 +1119,8 @@ static void scroll_callback(GLFWwindow *window, double x, double y) {
     event->scroll.y = y;
 }
 
-static void
-key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
     MtIWindow *win           = glfwGetWindowUserPointer(window);
     MtEvent *event           = new_event();
     event->window            = win;
@@ -1100,7 +1136,8 @@ key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
         event->type = MT_EVENT_KEY_REPEATED;
 }
 
-static void char_callback(GLFWwindow *window, unsigned int codepoint) {
+static void char_callback(GLFWwindow *window, unsigned int codepoint)
+{
     MtIWindow *win   = glfwGetWindowUserPointer(window);
     MtEvent *event   = new_event();
     event->type      = MT_EVENT_CODEPOINT_INPUT;
@@ -1108,7 +1145,8 @@ static void char_callback(GLFWwindow *window, unsigned int codepoint) {
     event->codepoint = codepoint;
 }
 
-static void monitor_callback(GLFWmonitor *monitor, int action) {
+static void monitor_callback(GLFWmonitor *monitor, int action)
+{
     MtEvent *event = new_event();
     event->monitor = monitor;
 
@@ -1118,7 +1156,8 @@ static void monitor_callback(GLFWmonitor *monitor, int action) {
         event->type = MT_EVENT_MONITOR_DISCONNECTED;
 }
 
-static void joystick_callback(int jid, int action) {
+static void joystick_callback(int jid, int action)
+{
     MtEvent *event  = new_event();
     event->joystick = jid;
 
@@ -1128,7 +1167,8 @@ static void joystick_callback(int jid, int action) {
         event->type = MT_EVENT_JOYSTICK_DISCONNECTED;
 }
 
-static void window_maximize_callback(GLFWwindow *window, int maximized) {
+static void window_maximize_callback(GLFWwindow *window, int maximized)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
@@ -1139,8 +1179,8 @@ static void window_maximize_callback(GLFWwindow *window, int maximized) {
         event->type = MT_EVENT_WINDOW_UNMAXIMIZED;
 }
 
-static void
-window_content_scale_callback(GLFWwindow *window, float xscale, float yscale) {
+static void window_content_scale_callback(GLFWwindow *window, float xscale, float yscale)
+{
     MtIWindow *win = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;

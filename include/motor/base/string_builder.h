@@ -4,7 +4,8 @@
 
 typedef struct MtAllocator MtAllocator;
 
-typedef struct MtStringBuilder {
+typedef struct MtStringBuilder
+{
     MtAllocator *alloc;
     char *buf;
     uint64_t capacity;

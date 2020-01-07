@@ -5,41 +5,60 @@
 #include <motor/base/array.h>
 #include <motor/engine/config.h>
 
-static void print_object(MtConfigObject *obj, uint32_t indent) {
-    for (uint32_t i = 0; i < mt_array_size(obj->entries); i++) {
-        for (uint32_t j = 0; j < indent; j++) {
+static void print_object(MtConfigObject *obj, uint32_t indent)
+{
+    for (uint32_t i = 0; i < mt_array_size(obj->entries); i++)
+    {
+        for (uint32_t j = 0; j < indent; j++)
+        {
             printf("    ");
         }
 
         MtConfigEntry *entry = &obj->entries[i];
         printf("%s: ", entry->key);
-        switch (entry->value.type) {
-        case MT_CONFIG_VALUE_STRING: {
-            printf("\"%s\"\n", entry->value.string);
-        } break;
-        case MT_CONFIG_VALUE_BOOL: {
-            if (entry->value.boolean) {
-                printf("true\n");
-            } else {
-                printf("false\n");
+        switch (entry->value.type)
+        {
+            case MT_CONFIG_VALUE_STRING:
+            {
+                printf("\"%s\"\n", entry->value.string);
+                break;
             }
-        } break;
-        case MT_CONFIG_VALUE_INT: {
-            printf("%ld\n", entry->value.i64);
-        } break;
-        case MT_CONFIG_VALUE_FLOAT: {
-            printf("%lf\n", entry->value.f64);
-        } break;
-        case MT_CONFIG_VALUE_OBJECT: {
-            puts("");
-            print_object(&entry->value.object, indent + 1);
-        } break;
-        default: assert(0);
+            case MT_CONFIG_VALUE_BOOL:
+            {
+                if (entry->value.boolean)
+                {
+                    printf("true\n");
+                }
+                else
+                {
+                    printf("false\n");
+                }
+
+                break;
+            }
+            case MT_CONFIG_VALUE_INT:
+            {
+                printf("%ld\n", entry->value.i64);
+                break;
+            }
+            case MT_CONFIG_VALUE_FLOAT:
+            {
+                printf("%lf\n", entry->value.f64);
+                break;
+            }
+            case MT_CONFIG_VALUE_OBJECT:
+            {
+                puts("");
+                print_object(&entry->value.object, indent + 1);
+                break;
+            }
+            default: assert(0);
         }
     }
 }
 
-int main() {
+int main()
+{
     FILE *f = fopen("../assets/test.config", "rb");
     assert(f);
 
@@ -54,7 +73,8 @@ int main() {
     fclose(f);
 
     MtConfig *config = mt_config_parse(NULL, input, input_size);
-    if (!config) {
+    if (!config)
+    {
         printf("Failed to parse\n");
         exit(1);
     }

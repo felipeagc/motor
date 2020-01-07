@@ -12,7 +12,8 @@
 #include <motor/engine/assets/font_asset.h>
 #include "assets/font_asset.inl"
 
-struct MtUIRenderer {
+struct MtUIRenderer
+{
     MtAllocator *alloc;
 
     MtPipelineAsset *pipeline;
@@ -29,14 +30,15 @@ struct MtUIRenderer {
     uint16_t *indices;
 };
 
-MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtAssetManager *asset_manager) {
+MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtAssetManager *asset_manager)
+{
     MtUIRenderer *ui = mt_alloc(alloc, sizeof(MtUIRenderer));
     memset(ui, 0, sizeof(*ui));
 
     ui->alloc = alloc;
 
-    ui->pipeline = (MtPipelineAsset *)mt_asset_manager_load(
-        asset_manager, "../assets/shaders/ui.glsl");
+    ui->pipeline =
+        (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/ui.glsl");
     assert(ui->pipeline);
 
     ui->font_height = 20;
@@ -46,19 +48,33 @@ MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtAssetManager *asset_manager) {
     return ui;
 }
 
-void mt_ui_destroy(MtUIRenderer *ui) { mt_free(ui->alloc, ui); }
+void mt_ui_destroy(MtUIRenderer *ui)
+{
+    mt_free(ui->alloc, ui);
+}
 
-void mt_ui_set_font(MtUIRenderer *ui, MtFontAsset *font) { ui->font = font; }
+void mt_ui_set_font(MtUIRenderer *ui, MtFontAsset *font)
+{
+    ui->font = font;
+}
 
-void mt_ui_set_font_size(MtUIRenderer *ui, uint32_t height) {
+void mt_ui_set_font_size(MtUIRenderer *ui, uint32_t height)
+{
     ui->font_height = height;
 }
 
-void mt_ui_set_pos(MtUIRenderer *ui, Vec2 pos) { ui->pos = pos; }
+void mt_ui_set_pos(MtUIRenderer *ui, Vec2 pos)
+{
+    ui->pos = pos;
+}
 
-void mt_ui_set_color(MtUIRenderer *ui, Vec3 color) { ui->color = color; }
+void mt_ui_set_color(MtUIRenderer *ui, Vec3 color)
+{
+    ui->color = color;
+}
 
-static void draw_text(MtUIRenderer *ui, const char *text) {
+static void draw_text(MtUIRenderer *ui, const char *text)
+{
     FontAtlas *atlas = get_atlas(ui->font, ui->font_height);
 
     ui->pos.y += (float)ui->font_height;
@@ -66,7 +82,8 @@ static void draw_text(MtUIRenderer *ui, const char *text) {
     float last_x = 0.0f;
 
     uint32_t ci = 0;
-    while (text[ci]) {
+    while (text[ci])
+    {
         stbtt_packedchar *cd = &atlas->chardata[text[ci]];
 
         uint16_t first_vertex = mt_array_size(ui->vertices);
@@ -117,7 +134,8 @@ static void draw_text(MtUIRenderer *ui, const char *text) {
     }
 }
 
-void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...) {
+void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...)
+{
     char buf[512];
     va_list vl;
     va_start(vl, fmt);
@@ -129,7 +147,8 @@ void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...) {
     draw_text(ui, buf);
 }
 
-void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport) {
+void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport)
+{
     ui->viewport = *viewport;
     mt_array_set_size(ui->vertices, 0);
     mt_array_set_size(ui->indices, 0);
@@ -137,14 +156,10 @@ void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport) {
     ui->color = V3(1.0f, 1.0f, 1.0f);
 }
 
-void mt_ui_draw(MtUIRenderer *ui, MtCmdBuffer *cb) {
+void mt_ui_draw(MtUIRenderer *ui, MtCmdBuffer *cb)
+{
     Mat4 transform = mat4_orthographic(
-        0.0f,
-        (float)ui->viewport.width,
-        0.0f,
-        (float)ui->viewport.height,
-        0.0f,
-        1.0f);
+        0.0f, (float)ui->viewport.width, 0.0f, (float)ui->viewport.height, 0.0f, 1.0f);
 
     mt_render.cmd_bind_pipeline(cb, ui->pipeline->pipeline);
 
@@ -157,10 +172,7 @@ void mt_ui_draw(MtUIRenderer *ui, MtCmdBuffer *cb) {
     mt_render.cmd_bind_vertex_data(
         cb, ui->vertices, mt_array_size(ui->vertices) * sizeof(MtUIVertex));
     mt_render.cmd_bind_index_data(
-        cb,
-        ui->indices,
-        mt_array_size(ui->indices) * sizeof(uint16_t),
-        MT_INDEX_TYPE_UINT16);
+        cb, ui->indices, mt_array_size(ui->indices) * sizeof(uint16_t), MT_INDEX_TYPE_UINT16);
 
     mt_render.cmd_draw_indexed(cb, mt_array_size(ui->indices), 1, 0, 0, 0);
 }

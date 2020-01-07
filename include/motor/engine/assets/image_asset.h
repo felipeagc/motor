@@ -8,7 +8,8 @@ typedef struct MtAssetVT MtAssetVT;
 
 extern MtAssetVT *mt_image_asset_vt;
 
-typedef struct MtImageAsset {
+typedef struct MtImageAsset
+{
     MtAssetManager *asset_manager;
     MtImage *image;
 } MtImageAsset;

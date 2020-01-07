@@ -7,12 +7,14 @@
 typedef struct MtAllocator MtAllocator;
 typedef struct MtConfigEntry MtConfigEntry;
 
-typedef struct MtConfigObject {
+typedef struct MtConfigObject
+{
     /*array*/ MtConfigEntry *entries;
     MtHashMap map;
 } MtConfigObject;
 
-typedef enum MtConfigValueType {
+typedef enum MtConfigValueType
+{
     MT_CONFIG_VALUE_STRING,
     MT_CONFIG_VALUE_INT,
     MT_CONFIG_VALUE_FLOAT,
@@ -20,7 +22,8 @@ typedef enum MtConfigValueType {
     MT_CONFIG_VALUE_OBJECT,
 } MtConfigValueType;
 
-typedef struct MtConfigValue {
+typedef struct MtConfigValue
+{
     MtConfigValueType type;
     union {
         char *string;
@@ -31,7 +34,8 @@ typedef struct MtConfigValue {
     };
 } MtConfigValue;
 
-typedef struct MtConfigEntry {
+typedef struct MtConfigEntry
+{
     char *key;
     MtConfigValue value;
 } MtConfigEntry;
