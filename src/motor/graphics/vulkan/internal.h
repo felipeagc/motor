@@ -216,7 +216,6 @@ typedef struct MtImage {
     VkImageAspectFlags aspect;
     VkFormat format;
     VkImageLayout layout;
-    bool initialized;
 } MtImage;
 
 typedef struct MtSampler {

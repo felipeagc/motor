@@ -11,5 +11,4 @@ extern MtAssetVT *mt_image_asset_vt;
 typedef struct MtImageAsset {
     MtAssetManager *asset_manager;
     MtImage *image;
-    MtSampler *sampler;
 } MtImageAsset;

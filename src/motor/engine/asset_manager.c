@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <motor/base/util.h>
 #include <motor/base/allocator.h>
 #include <motor/base/array.h>
 #include <motor/engine/engine.h>
@@ -29,15 +30,10 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path) {
         MtAssetVT *vt = am->asset_types[i];
 
         for (uint32_t j = 0; j < vt->extension_count; j++) {
-            const char *ext = vt->extensions[j];
-            size_t ext_len  = strlen(ext);
+            const char *ext      = vt->extensions[j];
+            const char *path_ext = mt_path_ext(path, strlen(path));
 
-            size_t path_len = strlen(path);
-
-            if (ext_len >= path_len) continue;
-
-            const char *path_ext = &path[path_len - ext_len];
-            if (strncmp(ext, path_ext, ext_len) == 0) {
+            if (strcmp(ext, path_ext) == 0) {
                 uint64_t path_hash = mt_hash_str(path);
                 MtIAsset *existing = mt_hash_get_ptr(&am->asset_map, path_hash);
 
