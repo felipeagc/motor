@@ -83,6 +83,9 @@ set(
 	src/motor/engine/camera.c
 	include/motor/engine/camera.h
 
+	src/motor/engine/environment.c
+	include/motor/engine/environment.h
+
 	src/motor/engine/asset_manager.c
 	include/motor/engine/asset_manager.h
 

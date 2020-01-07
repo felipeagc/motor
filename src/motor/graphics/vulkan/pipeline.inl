@@ -134,12 +134,16 @@ shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size) {
         uint32_t location_count = 0;
         for (uint32_t i = 0; i < reflect_mod.input_variable_count; i++) {
             SpvReflectInterfaceVariable *var = &reflect_mod.input_variables[i];
-            location_count = MT_MAX(var->location + 1, location_count);
+            if (var->location != UINT32_MAX) {
+                location_count = MT_MAX(var->location + 1, location_count);
+            }
         }
 
         mt_array_pushn(dev->alloc, shader->vertex_attributes, location_count);
         for (uint32_t i = 0; i < reflect_mod.input_variable_count; i++) {
             SpvReflectInterfaceVariable *var = &reflect_mod.input_variables[i];
+            if (var->location == UINT32_MAX) continue;
+
             VertexAttribute *attrib = &shader->vertex_attributes[var->location];
             attrib->format          = (VkFormat)var->format;
 
