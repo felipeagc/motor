@@ -8,6 +8,7 @@
 #include <motor/engine/file_watcher.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/camera.h>
+#include <motor/engine/environment.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/image_asset.h>
 #include <motor/engine/assets/font_asset.h>
@@ -32,8 +33,11 @@ typedef struct Game {
 
     MtImageAsset *image;
     MtFontAsset *font;
-    MtPipelineAsset *model_pipeline;
     MtGltfAsset *model;
+
+    MtPipelineAsset *model_pipeline;
+
+    MtEnvironment env;
 } Game;
 
 void game_init(Game *g) {
@@ -64,15 +68,17 @@ void game_init(Game *g) {
         &g->engine.asset_manager, "../assets/DamagedHelmet.glb");
     assert(g->model);
 
-    mt_asset_manager_load(&g->engine.asset_manager, "../assets/test.png");
-
-    mt_asset_manager_load(
+    MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");
+
+    mt_environment_init(
+        &g->env, &g->engine.asset_manager, skybox_asset, NULL, NULL);
 }
 
 void game_destroy(Game *g) {
     mt_file_watcher_destroy(g->watcher);
     mt_ui_destroy(g->ui);
+    mt_environment_destroy(&g->env);
 
     mt_engine_destroy(&g->engine);
 }
@@ -130,6 +136,13 @@ int main(int argc, char *argv[]) {
         win->vt->get_size(win->inst, &width, &height);
         float aspect = (float)width / (float)height;
         mt_perspective_camera_update(&game.cam, win, aspect);
+
+        // Draw skybox
+        {
+            mt_render.cmd_bind_uniform(
+                cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
+            mt_environment_draw_skybox(&game.env, cb);
+        }
 
         // Draw model
         {
