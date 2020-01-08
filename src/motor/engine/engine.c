@@ -72,7 +72,13 @@ void mt_engine_init(MtEngine *engine)
         }
     }
 
-    engine->default_sampler = mt_render.create_sampler(engine->device, &(MtSamplerCreateInfo){});
+    engine->default_sampler = mt_render.create_sampler(
+        engine->device,
+        &(MtSamplerCreateInfo){
+            .anisotropy = true,
+            .mag_filter = MT_FILTER_LINEAR,
+            .min_filter = MT_FILTER_LINEAR,
+        });
 
     mt_asset_manager_init(&engine->asset_manager, engine);
 }

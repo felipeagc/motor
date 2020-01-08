@@ -1,8 +1,10 @@
 #include <motor/engine/environment.h>
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <motor/base/allocator.h>
+#include <motor/base/math.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/asset_manager.h>
 #include <motor/engine/assets/pipeline_asset.h>
@@ -10,6 +12,13 @@
 #include <motor/graphics/renderer.h>
 #include "pipeline_utils.inl"
 
+typedef enum CubemapType
+{
+    CUBEMAP_IRRADIANCE,
+    CUBEMAP_RADIANCE,
+} CubemapType;
+
+// BRDF LUT {{{
 static MtImage *generate_brdf_lut(MtEngine *engine)
 {
     // Create pipeline
@@ -19,7 +28,7 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     if (!f)
     {
         printf("Failed to open file: %s\n", path);
-        return false;
+        return NULL;
     }
 
     fseek(f, 0, SEEK_END);
@@ -80,71 +89,292 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
 
     return brdf;
 }
+// }}}
+
+// Cubemap generation {{{
+static MtImage *generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type)
+{
+    const char *path = NULL;
+    switch (type)
+    {
+        case CUBEMAP_IRRADIANCE: path = "../assets/shaders/irradiance_cube.glsl"; break;
+        case CUBEMAP_RADIANCE: path = "../assets/shaders/prefilter_env_map.glsl"; break;
+    }
+
+    FILE *f = fopen(path, "rb");
+    if (!f)
+    {
+        printf("Failed to open file: %s\n", path);
+        return NULL;
+    }
+
+    fseek(f, 0, SEEK_END);
+    size_t input_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *input = mt_alloc(engine->alloc, input_size);
+    fread(input, input_size, 1, f);
+    fclose(f);
+
+    MtPipeline *pipeline = create_pipeline(engine, "", input, input_size);
+
+    mt_free(engine->alloc, input);
+
+    // Create image
+    uint32_t dim;
+    MtFormat format;
+    uint32_t mip_count;
+
+    switch (type)
+    {
+        case CUBEMAP_IRRADIANCE:
+            dim       = 64;
+            format    = MT_FORMAT_RGBA32_SFLOAT;
+            mip_count = 1;
+            break;
+        case CUBEMAP_RADIANCE:
+            dim       = 512;
+            format    = MT_FORMAT_RGBA16_SFLOAT;
+            mip_count = (uint32_t)(floor(log2(dim))) + 1;
+            break;
+    }
+
+    MtImage *cubemap = mt_render.create_image(
+        engine->device,
+        &(MtImageCreateInfo){
+            .width       = dim,
+            .height      = dim,
+            .format      = format,
+            .usage       = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_TRANSFER_DST_BIT,
+            .layer_count = 6,
+            .mip_count   = mip_count,
+        });
+
+    MtImage *offscreen = mt_render.create_image(
+        engine->device,
+        &(MtImageCreateInfo){
+            .width  = dim,
+            .height = dim,
+            .format = format,
+            .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                     MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        });
+
+    MtRenderPass *rp = mt_render.create_render_pass(
+        engine->device,
+        &(MtRenderPassCreateInfo){
+            .color_attachment = offscreen,
+        });
+
+    MtFence *fence = mt_render.create_fence(engine->device);
+
+    MtCmdBuffer *cb;
+    mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
+
+    // clang-format off
+    const Mat4 matrices[6] = {
+        {{
+            0.0, 0.0, -1.0, 0.0, 
+            0.0, -1.0, -0.0, 0.0,
+            -1.0, 0.0, -0.0, 0.0,
+            -0.0, -0.0, 0.0, 1.0,
+        }},
+        {{
+            0.0, 0.0, 1.0, 0.0,
+            0.0, -1.0, -0.0, 0.0,
+            1.0, 0.0, -0.0, 0.0,
+            -0.0, -0.0, 0.0, 1.0,
+        }},
+        {{
+            1.0, 0.0, -0.0, 0.0,
+            0.0, 0.0, -1.0, 0.0,
+            0.0, 1.0, -0.0, 0.0,
+            -0.0, -0.0, 0.0, 1.0,
+        }},
+        {{
+            1.0, 0.0, -0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, -1.0, -0.0, 0.0,
+            -0.0, -0.0, 0.0, 1.0,
+        }},
+        {{
+            1.0, 0.0, -0.0, 0.0,
+            0.0, -1.0, -0.0, 0.0,
+            -0.0, 0.0, -1.0, 0.0,
+            -0.0, -0.0, 0.0, 1.0,
+        }},
+        {{
+            -1.0, 0.0, -0.0, 0.0,
+            -0.0, -1.0, -0.0, 0.0,
+            -0.0, 0.0, 1.0, 0.0,
+            0.0, -0.0, 0.0, 1.0,
+        }},
+    };
+    // clang-format on
+
+    struct
+    {
+        Mat4 mvp;
+        union {
+            struct
+            {
+                float delta_phi;
+                float delta_theta;
+            };
+            struct
+            {
+                float roughness;
+                uint32_t num_samples;
+            };
+        };
+    } uniform;
+
+    switch (type)
+    {
+        case CUBEMAP_IRRADIANCE:
+            uniform.delta_phi   = (2.0f * (float)(MT_PI)) / 180.0f;
+            uniform.delta_theta = (0.5f * (float)(MT_PI)) / 64.0f;
+            break;
+        case CUBEMAP_RADIANCE: uniform.num_samples = 32; break;
+    }
+
+    for (uint32_t m = 0; m < mip_count; m++)
+    {
+        for (uint32_t f = 0; f < 6; f++)
+        {
+            uniform.mvp =
+                mat4_mul(matrices[f], mat4_perspective((float)(MT_PI / 2.0), 1.0f, 0.1f, 512.0f));
+
+            if (type == CUBEMAP_RADIANCE)
+            {
+                uniform.roughness = (float)m / (float)(mip_count - 1);
+            }
+
+            mt_render.begin_cmd_buffer(cb);
+
+            mt_render.cmd_begin_render_pass(cb, rp);
+
+            uint32_t mip_dim = dim >> m;
+
+            mt_render.cmd_set_viewport(
+                cb,
+                &(MtViewport){
+                    .width     = (float)mip_dim,
+                    .height    = (float)mip_dim,
+                    .min_depth = 0.0f,
+                    .max_depth = 1.0f,
+                });
+
+            mt_render.cmd_bind_pipeline(cb, pipeline);
+            mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), 0, 0);
+            mt_render.cmd_bind_image(cb, skybox, engine->default_sampler, 0, 1);
+            mt_render.cmd_draw(cb, 36, 1, 0, 0);
+
+            mt_render.cmd_end_render_pass(cb);
+
+            mt_render.cmd_copy_image_to_image(
+                cb,
+                &(MtImageCopyView){
+                    .image       = offscreen,
+                    .mip_level   = 0,
+                    .array_layer = 0,
+                },
+                &(MtImageCopyView){
+                    .image       = cubemap,
+                    .mip_level   = m,
+                    .array_layer = f,
+                },
+                (MtExtent3D){
+                    .width  = mip_dim,
+                    .height = mip_dim,
+                    .depth  = 1,
+                });
+
+            mt_render.end_cmd_buffer(cb);
+
+            mt_render.submit(engine->device, cb, fence);
+            mt_render.wait_for_fence(engine->device, fence);
+            mt_render.reset_fence(engine->device, fence);
+        }
+    }
+
+    mt_render.destroy_fence(engine->device, fence);
+    mt_render.free_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
+
+    mt_render.destroy_render_pass(engine->device, rp);
+    mt_render.destroy_image(engine->device, offscreen);
+    mt_render.destroy_pipeline(engine->device, pipeline);
+
+    return cubemap;
+}
+// }}}
 
 static void maybe_generate_images(MtEnvironment *env)
 {
     MtEngine *engine = env->asset_manager->engine;
 
+    MtImage *old_skybox     = env->skybox_image;
+    MtImage *old_irradiance = env->irradiance_image;
+    MtImage *old_radiance   = env->radiance_image;
+
+    env->skybox_image = (env->skybox_asset) ? env->skybox_asset->image : engine->default_cubemap;
+
     if (env->irradiance_asset)
-    {
-        if (env->irradiance_image != env->irradiance_asset->image)
-        {
-            env->irradiance_image = env->irradiance_asset->image;
-        }
-    }
-    else
-    {
-        env->irradiance_image = env->asset_manager->engine->default_cubemap;
-    }
+        env->irradiance_image = env->irradiance_asset->image;
 
     if (env->radiance_asset)
+        env->radiance_image = env->radiance_asset->image;
+
+    if (env->skybox_image != old_skybox)
     {
-        if (env->radiance_image != env->radiance_asset->image)
+        if (old_skybox)
         {
-            env->radiance_image = env->radiance_asset->image;
+            mt_render.destroy_image(engine->device, old_skybox);
+        }
+
+        if (!env->irradiance_asset)
+        {
+            printf("Generating irradiance cubemap\n");
+            env->irradiance_image = generate_cubemap(engine, env->skybox_image, CUBEMAP_IRRADIANCE);
+            printf("Generated irradiance cubemap\n");
+        }
+
+        if (!env->radiance_asset)
+        {
+            printf("Generating radiance cubemap\n");
+            env->radiance_image = generate_cubemap(engine, env->skybox_image, CUBEMAP_RADIANCE);
+            printf("Generated radiance cubemap\n");
         }
     }
-    else
-    {
-        env->radiance_image              = env->asset_manager->engine->default_cubemap;
-        env->uniform.radiance_mip_levels = 1.0f;
-    }
 
-    if (env->skybox_asset)
+    if (env->irradiance_image != old_irradiance)
     {
-        if (env->skybox_image != env->skybox_asset->image)
+        if (old_irradiance)
         {
-            env->skybox_image = env->skybox_asset->image;
-
-            if (env->irradiance_asset == NULL)
-            {
-                // TODO: Generate image
-            }
-
-            if (env->radiance_asset == NULL)
-            {
-                // TODO: Generate image
-            }
+            mt_render.destroy_image(engine->device, old_irradiance);
         }
     }
-    else
-    {
-        env->skybox_image = env->asset_manager->engine->default_cubemap;
-    }
 
-    if (env->radiance_sampler)
+    if (env->radiance_image != old_radiance)
     {
-        mt_render.destroy_sampler(engine->device, env->radiance_sampler);
-    }
+        if (old_radiance)
+        {
+            mt_render.destroy_image(engine->device, old_radiance);
+        }
 
-    env->radiance_sampler = mt_render.create_sampler(
-        engine->device,
-        &(MtSamplerCreateInfo){
-            .anisotropy = true,
-            .mag_filter = MT_FILTER_LINEAR,
-            .min_filter = MT_FILTER_LINEAR,
-            .max_lod    = env->uniform.radiance_mip_levels,
-        });
+        if (env->radiance_sampler)
+        {
+            mt_render.destroy_sampler(engine->device, env->radiance_sampler);
+        }
+
+        env->radiance_sampler = mt_render.create_sampler(
+            engine->device,
+            &(MtSamplerCreateInfo){
+                .anisotropy = true,
+                .mag_filter = MT_FILTER_LINEAR,
+                .min_filter = MT_FILTER_LINEAR,
+                .max_lod    = env->uniform.radiance_mip_levels,
+            });
+    }
 }
 
 void mt_environment_init(
@@ -166,14 +396,6 @@ void mt_environment_init(
     env->skybox_asset     = skybox_asset;
     env->irradiance_asset = irradiance_asset;
     env->radiance_asset   = radiance_asset;
-
-    env->regular_sampler = mt_render.create_sampler(
-        engine->device,
-        &(MtSamplerCreateInfo){
-            .anisotropy = true,
-            .mag_filter = MT_FILTER_LINEAR,
-            .min_filter = MT_FILTER_LINEAR,
-        });
 
     env->brdf_image = generate_brdf_lut(engine);
 
@@ -198,7 +420,7 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
     mt_render.cmd_bind_pipeline(cb, env->skybox_pipeline->pipeline);
 
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 0);
-    mt_render.cmd_bind_image(cb, env->skybox_image, env->regular_sampler, 1, 1);
+    mt_render.cmd_bind_image(cb, env->skybox_image, engine->default_sampler, 1, 1);
 
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
 }
@@ -206,7 +428,21 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 void mt_environment_destroy(MtEnvironment *env)
 {
     MtEngine *engine = env->asset_manager->engine;
+
+    if (!env->irradiance_asset && env->irradiance_image)
+    {
+        mt_render.destroy_image(engine->device, env->irradiance_image);
+    }
+
+    if (!env->radiance_asset && env->radiance_image)
+    {
+        mt_render.destroy_image(engine->device, env->radiance_image);
+    }
+
+    if (env->radiance_sampler)
+    {
+        mt_render.destroy_sampler(engine->device, env->radiance_sampler);
+    }
+
     mt_render.destroy_image(engine->device, env->brdf_image);
-    mt_render.destroy_sampler(engine->device, env->regular_sampler);
-    mt_render.destroy_sampler(engine->device, env->radiance_sampler);
 }

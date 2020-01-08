@@ -224,6 +224,7 @@ typedef struct MtRenderer
     MtFence *(*create_fence)(MtDevice *);
     void (*destroy_fence)(MtDevice *, MtFence *fence);
 
+    void (*reset_fence)(MtDevice *, MtFence *);
     void (*wait_for_fence)(MtDevice *, MtFence *);
     void (*submit)(MtDevice *, MtCmdBuffer *, MtFence *fence);
 
