@@ -19,6 +19,86 @@ MT_MATH_INLINE Vec2 v2_one()
     return (Vec2){1.0f, 1.0f};
 }
 
+MT_MATH_INLINE float v2_mag(Vec2 vec)
+{
+    return sqrtf((vec.x * vec.x) + (vec.y * vec.y));
+}
+
+MT_MATH_INLINE Vec2 v2_add(Vec2 left, Vec2 right)
+{
+    Vec2 result;
+    result.x = left.x + right.x;
+    result.y = left.y + right.y;
+    return result;
+}
+
+MT_MATH_INLINE Vec2 v2_adds(Vec2 left, float right)
+{
+    Vec2 result;
+    result.x = left.x + right;
+    result.y = left.y + right;
+    return result;
+}
+
+MT_MATH_INLINE Vec2 v2_sub(Vec2 left, Vec2 right)
+{
+    Vec2 result;
+    result.x = left.x - right.x;
+    result.y = left.y - right.y;
+    return result;
+}
+
+MT_MATH_INLINE Vec2 v2_subs(Vec2 left, float right)
+{
+    Vec2 result;
+    result.x = left.x - right;
+    result.y = left.y - right;
+    return result;
+}
+
+MT_MATH_INLINE Vec2 v2_mul(Vec2 left, Vec2 right)
+{
+    Vec2 result;
+    result.x = left.x * right.x;
+    result.y = left.y * right.y;
+    return result;
+}
+
+MT_MATH_INLINE Vec2 v2_muls(Vec2 left, float right)
+{
+    Vec2 result;
+    result.x = left.x * right;
+    result.y = left.y * right;
+    return result;
+}
+
+MT_MATH_INLINE Vec2 v2_div(Vec2 left, Vec2 right)
+{
+    Vec2 result;
+    result.x = left.x / right.x;
+    result.y = left.y / right.y;
+    return result;
+}
+
+MT_MATH_INLINE Vec2 v2_divs(Vec2 left, float right)
+{
+    Vec2 result;
+    result.x = left.x / right;
+    result.y = left.y / right;
+    return result;
+}
+
+MT_MATH_INLINE float v2_distance(Vec2 left, Vec2 right)
+{
+    return v2_mag(v2_sub(left, right));
+}
+
+// TESTED
+MT_MATH_INLINE float v2_dot(Vec2 left, Vec2 right)
+{
+    return (left.x * right.x) + (left.y * right.y);
+}
+
 /*
  * Vec3 functions
  */
@@ -38,7 +118,6 @@ MT_MATH_INLINE float v3_mag(Vec3 vec)
     return sqrtf((vec.x * vec.x) + (vec.y * vec.y) + (vec.z * vec.z));
 }
 
-// TESTED
 MT_MATH_INLINE Vec3 v3_add(Vec3 left, Vec3 right)
 {
     Vec3 result;
@@ -48,7 +127,6 @@ MT_MATH_INLINE Vec3 v3_add(Vec3 left, Vec3 right)
     return result;
 }
 
-// TODO: test
 MT_MATH_INLINE Vec3 v3_adds(Vec3 left, float right)
 {
     Vec3 result;
@@ -58,7 +136,6 @@ MT_MATH_INLINE Vec3 v3_adds(Vec3 left, float right)
     return result;
 }
 
-// TODO: test
 MT_MATH_INLINE Vec3 v3_sub(Vec3 left, Vec3 right)
 {
     Vec3 result;
@@ -68,7 +145,6 @@ MT_MATH_INLINE Vec3 v3_sub(Vec3 left, Vec3 right)
     return result;
 }
 
-// TODO: test
 MT_MATH_INLINE Vec3 v3_subs(Vec3 left, float right)
 {
     Vec3 result;
@@ -78,7 +154,6 @@ MT_MATH_INLINE Vec3 v3_subs(Vec3 left, float right)
     return result;
 }
 
-// TESTED
 MT_MATH_INLINE Vec3 v3_mul(Vec3 left, Vec3 right)
 {
     Vec3 result;
@@ -88,7 +163,6 @@ MT_MATH_INLINE Vec3 v3_mul(Vec3 left, Vec3 right)
     return result;
 }
 
-// TODO: test
 MT_MATH_INLINE Vec3 v3_muls(Vec3 left, float right)
 {
     Vec3 result;
@@ -98,7 +172,6 @@ MT_MATH_INLINE Vec3 v3_muls(Vec3 left, float right)
     return result;
 }
 
-// TODO: test
 MT_MATH_INLINE Vec3 v3_div(Vec3 left, Vec3 right)
 {
     Vec3 result;
@@ -108,7 +181,6 @@ MT_MATH_INLINE Vec3 v3_div(Vec3 left, Vec3 right)
     return result;
 }
 
-// TODO: test
 MT_MATH_INLINE Vec3 v3_divs(Vec3 left, float right)
 {
     Vec3 result;
@@ -123,7 +195,6 @@ MT_MATH_INLINE float v3_distance(Vec3 left, Vec3 right)
     return v3_mag(v3_sub(left, right));
 }
 
-// TESTED
 MT_MATH_INLINE float v3_dot(Vec3 left, Vec3 right)
 {
     return (left.x * right.x) + (left.y * right.y) + (left.z * right.z);
@@ -139,8 +210,6 @@ MT_MATH_INLINE Vec3 v3_cross(Vec3 left, Vec3 right)
     return result;
 }
 
-// TODO: test
-// TODO: make compatible with glm
 // TODO: test with zero norm vector
 MT_MATH_INLINE Vec3 v3_normalize(Vec3 vec)
 {
