@@ -40,7 +40,7 @@ typedef struct Token
 {
     TokenType type;
     union {
-        char *string;
+        const char *string;
         int64_t i64;
         double f64;
     };
@@ -48,9 +48,9 @@ typedef struct Token
 
 typedef struct Parser
 {
-    char *input;
+    const char *input;
     uint64_t input_size;
-    char *c; // current character
+    const char *c; // current character
 
     Token *tokens;
     Token *t; // current token
@@ -444,7 +444,7 @@ static void destroy_object(MtConfig *config, MtConfigObject *obj)
     mt_array_free(config->alloc, obj->entries);
 }
 
-MtConfig *mt_config_parse(MtAllocator *alloc, char *input, uint64_t input_size)
+MtConfig *mt_config_parse(MtAllocator *alloc, const char *input, uint64_t input_size)
 {
     MtConfig *config = mt_alloc(alloc, sizeof(MtConfig));
     memset(config, 0, sizeof(*config));

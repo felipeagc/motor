@@ -3,11 +3,12 @@
 #include <stdint.h>
 #include <motor/base/math_types.h>
 
+typedef struct MtCmdBuffer MtCmdBuffer;
+typedef struct MtImage MtImage;
+typedef struct MtSampler MtSampler;
 typedef struct MtAssetManager MtAssetManager;
 typedef struct MtImageAsset MtImageAsset;
 typedef struct MtPipelineAsset MtPipelineAsset;
-typedef struct MtCmdBuffer MtCmdBuffer;
-typedef struct MtSampler MtSampler;
 
 #define MT_MAX_POINT_LIGHTS 20
 
@@ -45,6 +46,12 @@ typedef struct MtEnvironment
     MtImageAsset *skybox_asset;
     MtImageAsset *irradiance_asset;
     MtImageAsset *radiance_asset;
+
+    MtImage *skybox_image;
+    MtImage *irradiance_image;
+    MtImage *radiance_image;
+
+    MtImage *brdf_image;
 
     MtSampler *regular_sampler;
     MtSampler *radiance_sampler;

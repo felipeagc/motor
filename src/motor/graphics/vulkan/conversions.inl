@@ -17,6 +17,7 @@ static MtFormat format_from_vulkan(VkFormat format)
         case VK_FORMAT_R32G32B32_SFLOAT: return MT_FORMAT_RGB32_SFLOAT;
         case VK_FORMAT_R32G32B32A32_SFLOAT: return MT_FORMAT_RGBA32_SFLOAT;
 
+        case VK_FORMAT_R16G16_SFLOAT: return MT_FORMAT_RG16_SFLOAT;
         case VK_FORMAT_R16G16B16A16_SFLOAT: return MT_FORMAT_RGBA16_SFLOAT;
 
         case VK_FORMAT_D16_UNORM: return MT_FORMAT_D16_UNORM;
@@ -33,6 +34,8 @@ static VkFormat format_to_vulkan(MtFormat format)
 {
     switch (format)
     {
+        case MT_FORMAT_UNDEFINED: return VK_FORMAT_UNDEFINED;
+
         case MT_FORMAT_R8_UINT: return VK_FORMAT_R8_UINT;
         case MT_FORMAT_R32_UINT: return VK_FORMAT_R32_UINT;
 
@@ -48,6 +51,7 @@ static VkFormat format_to_vulkan(MtFormat format)
         case MT_FORMAT_RGB32_SFLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
         case MT_FORMAT_RGBA32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
 
+        case MT_FORMAT_RG16_SFLOAT: return VK_FORMAT_R16G16_SFLOAT;
         case MT_FORMAT_RGBA16_SFLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
 
         case MT_FORMAT_D16_UNORM: return VK_FORMAT_D16_UNORM;
@@ -55,8 +59,6 @@ static VkFormat format_to_vulkan(MtFormat format)
         case MT_FORMAT_D24_UNORM_S8_UINT: return VK_FORMAT_D24_UNORM_S8_UINT;
         case MT_FORMAT_D32_SFLOAT: return VK_FORMAT_D32_SFLOAT;
         case MT_FORMAT_D32_SFLOAT_S8_UINT: return VK_FORMAT_D32_SFLOAT_S8_UINT;
-
-        default: return VK_FORMAT_UNDEFINED;
     }
 }
 

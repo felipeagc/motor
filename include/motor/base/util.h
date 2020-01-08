@@ -18,12 +18,15 @@
 #define MT_INLINE static inline
 
 // Returns the path's file extension, including the '.'
-MT_INLINE const char *mt_path_ext(const char *path, size_t len)
+MT_INLINE const char *mt_path_ext(const char *path)
 {
-    for (size_t i = 0; i < len; i++)
+    const char *ret = "";
+    do
     {
-        if (path[len - i + 1] == '.')
-            return &path[len - i + 1];
-    }
-    return "";
+        if (*path == '.')
+        {
+            ret = path;
+        }
+    } while (*path++);
+    return ret;
 }

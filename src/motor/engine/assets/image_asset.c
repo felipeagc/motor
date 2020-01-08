@@ -15,7 +15,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
     MtImageAsset *asset  = (MtImageAsset *)asset_;
     asset->asset_manager = asset_manager;
 
-    const char *ext = mt_path_ext(path, strlen(path));
+    const char *ext = mt_path_ext(path);
     if (strcmp(ext, ".png") == 0 || strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0)
     {
         int32_t w, h, num_channels;

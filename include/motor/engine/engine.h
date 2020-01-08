@@ -22,6 +22,8 @@ typedef struct MtEngine
     MtImage *white_image;
     MtImage *black_image;
 
+    MtImage *default_cubemap;
+
     MtSampler *default_sampler;
 } MtEngine;
 
