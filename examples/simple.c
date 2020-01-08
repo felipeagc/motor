@@ -73,7 +73,7 @@ void game_init(Game *g)
     MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");
 
-    mt_environment_init(&g->env, &g->engine.asset_manager, skybox_asset, NULL, NULL);
+    mt_environment_init(&g->env, &g->engine.asset_manager, skybox_asset);
 }
 
 void game_destroy(Game *g)
