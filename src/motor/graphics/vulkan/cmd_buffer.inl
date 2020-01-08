@@ -314,7 +314,7 @@ static void cmd_copy_image_to_buffer(
     image_barrier(
         cb,
         src->image,
-        src->image->layout,
+        VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         src->mip_level,
         src->array_layer);
@@ -334,6 +334,73 @@ static void cmd_copy_image_to_buffer(
         src->image->layout,
         src->mip_level,
         src->array_layer);
+}
+
+static void cmd_copy_image_to_image(
+    MtCmdBuffer *cb, const MtImageCopyView *src, const MtImageCopyView *dst, MtExtent3D extent)
+{
+    VkImageSubresourceLayers src_subresource = {
+        .aspectMask     = src->image->aspect,
+        .mipLevel       = src->mip_level,
+        .baseArrayLayer = src->array_layer,
+        .layerCount     = 1,
+    };
+
+    VkImageSubresourceLayers dst_subresource = {
+        .aspectMask     = dst->image->aspect,
+        .mipLevel       = dst->mip_level,
+        .baseArrayLayer = dst->array_layer,
+        .layerCount     = 1,
+    };
+
+    VkImageCopy region = {
+        .srcSubresource = src_subresource,
+        .srcOffset      = {.x = src->offset.x, .y = src->offset.y, .z = src->offset.z},
+        .dstSubresource = dst_subresource,
+        .dstOffset      = {.x = dst->offset.x, .y = dst->offset.y, .z = dst->offset.z},
+        .extent         = {.width = extent.width, .height = extent.height, .depth = extent.depth},
+    };
+
+    image_barrier(
+        cb,
+        src->image,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        src->mip_level,
+        src->array_layer);
+
+    image_barrier(
+        cb,
+        dst->image,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        dst->mip_level,
+        dst->array_layer);
+
+    vkCmdCopyImage(
+        cb->cmd_buffer,
+        src->image->image,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        dst->image->image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &region);
+
+    image_barrier(
+        cb,
+        src->image,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        src->image->layout,
+        src->mip_level,
+        src->array_layer);
+
+    image_barrier(
+        cb,
+        dst->image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        dst->image->layout,
+        dst->mip_level,
+        dst->array_layer);
 }
 
 static void cmd_set_viewport(MtCmdBuffer *cb, MtViewport *viewport)
