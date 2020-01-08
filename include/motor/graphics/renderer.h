@@ -292,8 +292,9 @@ typedef struct MtRenderer
     void (*cmd_bind_vertex_buffer)(MtCmdBuffer *, MtBuffer *, size_t offset);
     void (*cmd_bind_index_buffer)(MtCmdBuffer *, MtBuffer *, MtIndexType index_type, size_t offset);
 
-    void (*cmd_bind_vertex_data)(MtCmdBuffer *, void *data, size_t size);
-    void (*cmd_bind_index_data)(MtCmdBuffer *, void *data, size_t size, MtIndexType index_type);
+    void (*cmd_bind_vertex_data)(MtCmdBuffer *, const void *data, size_t size);
+    void (*cmd_bind_index_data)(
+        MtCmdBuffer *, const void *data, size_t size, MtIndexType index_type);
 
     void (*cmd_draw)(
         MtCmdBuffer *,

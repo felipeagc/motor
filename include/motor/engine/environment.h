@@ -44,8 +44,6 @@ typedef struct MtEnvironment
     MtPipelineAsset *skybox_pipeline;
 
     MtImageAsset *skybox_asset;
-    MtImageAsset *irradiance_asset;
-    MtImageAsset *radiance_asset;
 
     MtImage *skybox_image;
     MtImage *irradiance_image;
@@ -59,11 +57,7 @@ typedef struct MtEnvironment
 } MtEnvironment;
 
 void mt_environment_init(
-    MtEnvironment *env,
-    MtAssetManager *asset_manager,
-    MtImageAsset *skybox_asset,
-    MtImageAsset *irradiance_asset,
-    MtImageAsset *radiance_asset);
+    MtEnvironment *env, MtAssetManager *asset_manager, MtImageAsset *skybox_asset);
 
 void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb);
 

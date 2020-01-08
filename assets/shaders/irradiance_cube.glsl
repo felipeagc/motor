@@ -5,49 +5,7 @@ cull_mode: "none"
 front_face: "clockwise"
 
 vertex: [[
-    vec3 pos[36] = vec3[](
-        vec3(-1.0,  1.0, -1.0),
-        vec3(-1.0, -1.0, -1.0),
-        vec3( 1.0, -1.0, -1.0),
-        vec3( 1.0, -1.0, -1.0),
-        vec3( 1.0,  1.0, -1.0),
-        vec3(-1.0,  1.0, -1.0),
-
-        vec3(-1.0, -1.0,  1.0),
-        vec3(-1.0, -1.0, -1.0),
-        vec3(-1.0,  1.0, -1.0),
-        vec3(-1.0,  1.0, -1.0),
-        vec3(-1.0,  1.0,  1.0),
-        vec3(-1.0, -1.0,  1.0),
-
-        vec3(1.0, -1.0, -1.0),
-        vec3(1.0, -1.0,  1.0),
-        vec3(1.0,  1.0,  1.0),
-        vec3(1.0,  1.0,  1.0),
-        vec3(1.0,  1.0, -1.0),
-        vec3(1.0, -1.0, -1.0),
-
-        vec3(-1.0, -1.0, 1.0),
-        vec3(-1.0,  1.0, 1.0),
-        vec3( 1.0,  1.0, 1.0),
-        vec3( 1.0,  1.0, 1.0),
-        vec3( 1.0, -1.0, 1.0),
-        vec3(-1.0, -1.0, 1.0),
-
-        vec3(-1.0, 1.0, -1.0),
-        vec3( 1.0, 1.0, -1.0),
-        vec3( 1.0, 1.0,  1.0),
-        vec3( 1.0, 1.0,  1.0),
-        vec3(-1.0, 1.0,  1.0),
-        vec3(-1.0, 1.0, -1.0),
-
-        vec3(-1.0, -1.0, -1.0),
-        vec3(-1.0, -1.0,  1.0),
-        vec3( 1.0, -1.0, -1.0),
-        vec3( 1.0, -1.0, -1.0),
-        vec3(-1.0, -1.0,  1.0),
-        vec3( 1.0, -1.0,  1.0)
-    );
+    layout(location = 0) in vec3 pos;
 
     layout(set = 0, binding = 0) uniform IrradianceUniform {
         mat4 mvp;
@@ -58,9 +16,9 @@ vertex: [[
     layout(location = 0) out vec3 tex_coords0;
 
     void main() {
-        tex_coords0 = pos[gl_VertexIndex];
+        tex_coords0 = pos;
 
-        vec4 position = mvp * vec4(pos[gl_VertexIndex], 1.0);
+        vec4 position = mvp * vec4(pos, 1.0);
         gl_Position = position.xyww;
     }
 ]]

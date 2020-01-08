@@ -18,6 +18,65 @@ typedef enum CubemapType
     CUBEMAP_RADIANCE,
 } CubemapType;
 
+static const Vec3 cube_positions[36] = {
+    {-1.0, 1.0, -1.0},  {-1.0, -1.0, -1.0}, {1.0, -1.0, -1.0},
+    {1.0, -1.0, -1.0},  {1.0, 1.0, -1.0},   {-1.0, 1.0, -1.0},
+
+    {-1.0, -1.0, 1.0},  {-1.0, -1.0, -1.0}, {-1.0, 1.0, -1.0},
+    {-1.0, 1.0, -1.0},  {-1.0, 1.0, 1.0},   {-1.0, -1.0, 1.0},
+
+    {1.0, -1.0, -1.0},  {1.0, -1.0, 1.0},   {1.0, 1.0, 1.0},
+    {1.0, 1.0, 1.0},    {1.0, 1.0, -1.0},   {1.0, -1.0, -1.0},
+
+    {-1.0, -1.0, 1.0},  {-1.0, 1.0, 1.0},   {1.0, 1.0, 1.0},
+    {1.0, 1.0, 1.0},    {1.0, -1.0, 1.0},   {-1.0, -1.0, 1.0},
+
+    {-1.0, 1.0, -1.0},  {1.0, 1.0, -1.0},   {1.0, 1.0, 1.0},
+    {1.0, 1.0, 1.0},    {-1.0, 1.0, 1.0},   {-1.0, 1.0, -1.0},
+
+    {-1.0, -1.0, -1.0}, {-1.0, -1.0, 1.0},  {1.0, -1.0, -1.0},
+    {1.0, -1.0, -1.0},  {-1.0, -1.0, 1.0},  {1.0, -1.0, 1.0},
+};
+
+static const Mat4 direction_matrices[6] = {
+    {{
+        {0.0, 0.0, -1.0, 0.0},
+        {0.0, -1.0, -0.0, 0.0},
+        {-1.0, 0.0, -0.0, 0.0},
+        {-0.0, -0.0, 0.0, 1.0},
+    }},
+    {{
+        {0.0, 0.0, 1.0, 0.0},
+        {0.0, -1.0, -0.0, 0.0},
+        {1.0, 0.0, -0.0, 0.0},
+        {-0.0, -0.0, 0.0, 1.0},
+    }},
+    {{
+        {1.0, 0.0, -0.0, 0.0},
+        {0.0, 0.0, -1.0, 0.0},
+        {0.0, 1.0, -0.0, 0.0},
+        {-0.0, -0.0, 0.0, 1.0},
+    }},
+    {{
+        {1.0, 0.0, -0.0, 0.0},
+        {0.0, 0.0, 1.0, 0.0},
+        {0.0, -1.0, -0.0, 0.0},
+        {-0.0, -0.0, 0.0, 1.0},
+    }},
+    {{
+        {1.0, 0.0, -0.0, 0.0},
+        {0.0, -1.0, -0.0, 0.0},
+        {-0.0, 0.0, -1.0, 0.0},
+        {-0.0, -0.0, 0.0, 1.0},
+    }},
+    {{
+        {-1.0, 0.0, -0.0, 0.0},
+        {-0.0, -1.0, -0.0, 0.0},
+        {-0.0, 0.0, 1.0, 0.0},
+        {0.0, -0.0, 0.0, 1.0},
+    }},
+};
+
 // BRDF LUT {{{
 static MtImage *generate_brdf_lut(MtEngine *engine)
 {
@@ -92,7 +151,8 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
 // }}}
 
 // Cubemap generation {{{
-static MtImage *generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type)
+static MtImage *
+generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type, uint32_t *out_mip_count)
 {
     const char *path = NULL;
     switch (type)
@@ -135,6 +195,8 @@ static MtImage *generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType 
             dim       = 512;
             format    = MT_FORMAT_RGBA16_SFLOAT;
             mip_count = (uint32_t)(floor(log2(dim))) + 1;
+            if (out_mip_count)
+                *out_mip_count = mip_count;
             break;
     }
 
@@ -170,47 +232,6 @@ static MtImage *generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType 
     MtCmdBuffer *cb;
     mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
 
-    // clang-format off
-    const Mat4 matrices[6] = {
-        {{
-            0.0, 0.0, -1.0, 0.0, 
-            0.0, -1.0, -0.0, 0.0,
-            -1.0, 0.0, -0.0, 0.0,
-            -0.0, -0.0, 0.0, 1.0,
-        }},
-        {{
-            0.0, 0.0, 1.0, 0.0,
-            0.0, -1.0, -0.0, 0.0,
-            1.0, 0.0, -0.0, 0.0,
-            -0.0, -0.0, 0.0, 1.0,
-        }},
-        {{
-            1.0, 0.0, -0.0, 0.0,
-            0.0, 0.0, -1.0, 0.0,
-            0.0, 1.0, -0.0, 0.0,
-            -0.0, -0.0, 0.0, 1.0,
-        }},
-        {{
-            1.0, 0.0, -0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, -1.0, -0.0, 0.0,
-            -0.0, -0.0, 0.0, 1.0,
-        }},
-        {{
-            1.0, 0.0, -0.0, 0.0,
-            0.0, -1.0, -0.0, 0.0,
-            -0.0, 0.0, -1.0, 0.0,
-            -0.0, -0.0, 0.0, 1.0,
-        }},
-        {{
-            -1.0, 0.0, -0.0, 0.0,
-            -0.0, -1.0, -0.0, 0.0,
-            -0.0, 0.0, 1.0, 0.0,
-            0.0, -0.0, 0.0, 1.0,
-        }},
-    };
-    // clang-format on
-
     struct
     {
         Mat4 mvp;
@@ -241,8 +262,8 @@ static MtImage *generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType 
     {
         for (uint32_t f = 0; f < 6; f++)
         {
-            uniform.mvp =
-                mat4_mul(matrices[f], mat4_perspective((float)(MT_PI / 2.0), 1.0f, 0.1f, 512.0f));
+            uniform.mvp = mat4_mul(
+                direction_matrices[f], mat4_perspective((float)(MT_PI / 2.0), 1.0f, 0.1f, 512.0f));
 
             if (type == CUBEMAP_RADIANCE)
             {
@@ -267,6 +288,7 @@ static MtImage *generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType 
             mt_render.cmd_bind_pipeline(cb, pipeline);
             mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), 0, 0);
             mt_render.cmd_bind_image(cb, skybox, engine->default_sampler, 0, 1);
+            mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
             mt_render.cmd_draw(cb, 36, 1, 0, 0);
 
             mt_render.cmd_end_render_pass(cb);
@@ -318,12 +340,6 @@ static void maybe_generate_images(MtEnvironment *env)
 
     env->skybox_image = (env->skybox_asset) ? env->skybox_asset->image : engine->default_cubemap;
 
-    if (env->irradiance_asset)
-        env->irradiance_image = env->irradiance_asset->image;
-
-    if (env->radiance_asset)
-        env->radiance_image = env->radiance_asset->image;
-
     if (env->skybox_image != old_skybox)
     {
         if (old_skybox)
@@ -331,19 +347,17 @@ static void maybe_generate_images(MtEnvironment *env)
             mt_render.destroy_image(engine->device, old_skybox);
         }
 
-        if (!env->irradiance_asset)
-        {
-            printf("Generating irradiance cubemap\n");
-            env->irradiance_image = generate_cubemap(engine, env->skybox_image, CUBEMAP_IRRADIANCE);
-            printf("Generated irradiance cubemap\n");
-        }
+        printf("Generating irradiance cubemap\n");
+        env->irradiance_image =
+            generate_cubemap(engine, env->skybox_image, CUBEMAP_IRRADIANCE, NULL);
+        printf("Generated irradiance cubemap\n");
 
-        if (!env->radiance_asset)
-        {
-            printf("Generating radiance cubemap\n");
-            env->radiance_image = generate_cubemap(engine, env->skybox_image, CUBEMAP_RADIANCE);
-            printf("Generated radiance cubemap\n");
-        }
+        printf("Generating radiance cubemap\n");
+        uint32_t radiance_mip_count = 1;
+        env->radiance_image =
+            generate_cubemap(engine, env->skybox_image, CUBEMAP_RADIANCE, &radiance_mip_count);
+        env->uniform.radiance_mip_levels = (float)radiance_mip_count;
+        printf("Generated radiance cubemap\n");
     }
 
     if (env->irradiance_image != old_irradiance)
@@ -378,11 +392,7 @@ static void maybe_generate_images(MtEnvironment *env)
 }
 
 void mt_environment_init(
-    MtEnvironment *env,
-    MtAssetManager *asset_manager,
-    MtImageAsset *skybox_asset,
-    MtImageAsset *irradiance_asset,
-    MtImageAsset *radiance_asset)
+    MtEnvironment *env, MtAssetManager *asset_manager, MtImageAsset *skybox_asset)
 {
     memset(env, 0, sizeof(*env));
 
@@ -393,9 +403,7 @@ void mt_environment_init(
     env->skybox_pipeline =
         (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/skybox.glsl");
 
-    env->skybox_asset     = skybox_asset;
-    env->irradiance_asset = irradiance_asset;
-    env->radiance_asset   = radiance_asset;
+    env->skybox_asset = skybox_asset;
 
     env->brdf_image = generate_brdf_lut(engine);
 
@@ -421,6 +429,7 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 0);
     mt_render.cmd_bind_image(cb, env->skybox_image, engine->default_sampler, 1, 1);
+    mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
 
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
 }
@@ -429,12 +438,12 @@ void mt_environment_destroy(MtEnvironment *env)
 {
     MtEngine *engine = env->asset_manager->engine;
 
-    if (!env->irradiance_asset && env->irradiance_image)
+    if (env->irradiance_image)
     {
         mt_render.destroy_image(engine->device, env->irradiance_image);
     }
 
-    if (!env->radiance_asset && env->radiance_image)
+    if (env->radiance_image)
     {
         mt_render.destroy_image(engine->device, env->radiance_image);
     }

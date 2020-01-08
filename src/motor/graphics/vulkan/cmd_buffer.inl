@@ -543,7 +543,7 @@ cmd_bind_index_buffer(MtCmdBuffer *cb, MtBuffer *buffer, MtIndexType index_type,
     vkCmdBindIndexBuffer(cb->cmd_buffer, buffer->buffer, offset, index_type_to_vulkan(index_type));
 }
 
-static void cmd_bind_vertex_data(MtCmdBuffer *cb, void *data, size_t size)
+static void cmd_bind_vertex_data(MtCmdBuffer *cb, const void *data, size_t size)
 {
     ensure_buffer_block(&cb->dev->vbo_pool, &cb->vbo_block, size);
     assert(cb->vbo_block.buffer->buffer);
@@ -556,7 +556,8 @@ static void cmd_bind_vertex_data(MtCmdBuffer *cb, void *data, size_t size)
     cmd_bind_vertex_buffer(cb, cb->vbo_block.buffer, allocation.offset);
 }
 
-static void cmd_bind_index_data(MtCmdBuffer *cb, void *data, size_t size, MtIndexType index_type)
+static void
+cmd_bind_index_data(MtCmdBuffer *cb, const void *data, size_t size, MtIndexType index_type)
 {
     ensure_buffer_block(&cb->dev->ibo_pool, &cb->ibo_block, size);
     assert(cb->ibo_block.buffer->buffer);
