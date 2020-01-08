@@ -18,6 +18,7 @@ typedef struct GltfVertex
 {
     Vec3 pos;
     Vec3 normal;
+    Vec3 tangent;
     Vec2 uv0;
 } GltfVertex;
 
@@ -520,6 +521,11 @@ static void load_node(
                 uint32_t normal_byte_stride     = 0;
                 uint8_t *buffer_normals         = NULL;
 
+                cgltf_accessor *tangent_accessor = NULL;
+                cgltf_buffer_view *tangent_view  = NULL;
+                uint32_t tangent_byte_stride     = 0;
+                uint8_t *buffer_tangents         = NULL;
+
                 cgltf_accessor *uv0_accessor = NULL;
                 cgltf_buffer_view *uv0_view  = NULL;
                 uint32_t uv0_byte_stride     = 0;
@@ -547,6 +553,16 @@ static void load_node(
                                               ->data[normal_accessor->offset + normal_view->offset];
                     }
 
+                    if (primitive->attributes[j].type == cgltf_attribute_type_tangent)
+                    {
+                        tangent_accessor    = primitive->attributes[j].data;
+                        tangent_view        = tangent_accessor->buffer_view;
+                        tangent_byte_stride = tangent_accessor->stride;
+                        buffer_tangents =
+                            &tangent_view->buffer
+                                 ->data[tangent_accessor->offset + tangent_view->offset];
+                    }
+
                     if (primitive->attributes[j].type == cgltf_attribute_type_texcoord)
                     {
                         uv0_accessor    = primitive->attributes[j].data;
@@ -572,6 +588,15 @@ static void load_node(
                         &buffer_normals[v * normal_byte_stride],
                         sizeof(vertex->normal));
 
+                    // Tangent
+                    if (buffer_tangents)
+                    {
+                        memcpy(
+                            &vertex->tangent,
+                            &buffer_tangents[v * tangent_byte_stride],
+                            sizeof(vertex->tangent));
+                    }
+
                     // UV0
                     if (buffer_uv0)
                     {
@@ -579,6 +604,43 @@ static void load_node(
                     }
 
                     ++first_vertex;
+                }
+
+                if (!buffer_tangents && buffer_uv0)
+                {
+                    // Generate tangents
+                    assert(pos_accessor->count % 3 == 0);
+
+                    Vec3 *positions = (Vec3 *)buffer_pos;
+                    Vec2 *uvs       = (Vec2 *)buffer_uv0;
+
+                    for (uint32_t i = 0; i < pos_accessor->count / 3; i++)
+                    {
+                        // Loop per triangle
+                        Vec3 v0 = positions[i + 0];
+                        Vec3 v1 = positions[i + 1];
+                        Vec3 v2 = positions[i + 2];
+
+                        Vec2 uv0 = uvs[i + 0];
+                        Vec2 uv1 = uvs[i + 1];
+                        Vec2 uv2 = uvs[i + 2];
+
+                        Vec3 delta_pos1 = v3_sub(v1, v0);
+                        Vec3 delta_pos2 = v3_sub(v2, v0);
+
+                        Vec2 delta_uv1 = v2_sub(uv1, uv0);
+                        Vec2 delta_uv2 = v2_sub(uv2, uv0);
+
+                        float r = 1.0f / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
+                        Vec3 tangent = v3_muls(
+                            v3_sub(
+                                v3_muls(delta_pos1, delta_uv2.y), v3_muls(delta_pos2, delta_uv1.y)),
+                            r);
+
+                        (*vertex_buffer)[i + 0].tangent = tangent;
+                        (*vertex_buffer)[i + 1].tangent = tangent;
+                        (*vertex_buffer)[i + 2].tangent = tangent;
+                    }
                 }
             }
 
