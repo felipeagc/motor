@@ -35,7 +35,7 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
         for (uint32_t j = 0; j < vt->extension_count; j++)
         {
             const char *ext      = vt->extensions[j];
-            const char *path_ext = mt_path_ext(path, strlen(path));
+            const char *path_ext = mt_path_ext(path);
 
             if (strcmp(ext, path_ext) == 0)
             {

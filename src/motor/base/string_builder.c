@@ -18,7 +18,7 @@ void mt_str_builder_reset(MtStringBuilder *sb)
     sb->length = 0;
 }
 
-void mt_str_builder_append_str(MtStringBuilder *sb, char *str)
+void mt_str_builder_append_str(MtStringBuilder *sb, const char *str)
 {
     size_t len = strlen(str);
     for (uint32_t i = 0; i < len; i++)

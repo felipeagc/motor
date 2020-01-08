@@ -25,25 +25,52 @@ void mt_engine_init(MtEngine *engine)
 
     engine->compiler = shaderc_compiler_initialize();
 
-    engine->white_image = mt_render.create_image(
-        engine->device,
-        &(MtImageCreateInfo){.format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
+    {
+        engine->white_image = mt_render.create_image(
+            engine->device,
+            &(MtImageCreateInfo){.format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
 
-    mt_render.transfer_to_image(
-        engine->device,
-        &(MtImageCopyView){.image = engine->white_image},
-        4,
-        (uint8_t[]){255, 255, 255, 255});
+        mt_render.transfer_to_image(
+            engine->device,
+            &(MtImageCopyView){.image = engine->white_image},
+            4,
+            (uint8_t[]){255, 255, 255, 255});
+    }
 
-    engine->black_image = mt_render.create_image(
-        engine->device,
-        &(MtImageCreateInfo){.format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
+    {
+        engine->black_image = mt_render.create_image(
+            engine->device,
+            &(MtImageCreateInfo){.format = MT_FORMAT_RGBA8_UNORM, .width = 1, .height = 1});
 
-    mt_render.transfer_to_image(
-        engine->device,
-        &(MtImageCopyView){.image = engine->black_image},
-        4,
-        (uint8_t[]){0, 0, 0, 255});
+        mt_render.transfer_to_image(
+            engine->device,
+            &(MtImageCopyView){.image = engine->black_image},
+            4,
+            (uint8_t[4]){0, 0, 0, 255});
+    }
+
+    {
+        engine->default_cubemap = mt_render.create_image(
+            engine->device,
+            &(MtImageCreateInfo){
+                .format      = MT_FORMAT_RGBA16_SFLOAT,
+                .width       = 1,
+                .height      = 1,
+                .layer_count = 6,
+            });
+
+        for (uint32_t i = 0; i < 6; i++)
+        {
+            mt_render.transfer_to_image(
+                engine->device,
+                &(MtImageCopyView){
+                    .image       = engine->default_cubemap,
+                    .array_layer = i,
+                },
+                8,
+                (uint8_t[8]){0, 0, 0, 0, 0, 0, 0, 0});
+        }
+    }
 
     engine->default_sampler = mt_render.create_sampler(engine->device, &(MtSamplerCreateInfo){});
 
@@ -54,6 +81,7 @@ void mt_engine_destroy(MtEngine *engine)
 {
     mt_asset_manager_destroy(&engine->asset_manager);
 
+    mt_render.destroy_image(engine->device, engine->default_cubemap);
     mt_render.destroy_image(engine->device, engine->white_image);
     mt_render.destroy_image(engine->device, engine->black_image);
     mt_render.destroy_sampler(engine->device, engine->default_sampler);

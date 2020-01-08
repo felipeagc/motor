@@ -26,7 +26,7 @@ typedef struct MtConfigValue
 {
     MtConfigValueType type;
     union {
-        char *string;
+        const char *string;
         int64_t i64;
         double f64;
         bool boolean;
@@ -36,13 +36,13 @@ typedef struct MtConfigValue
 
 typedef struct MtConfigEntry
 {
-    char *key;
+    const char *key;
     MtConfigValue value;
 } MtConfigEntry;
 
 typedef struct MtConfig MtConfig;
 
-MtConfig *mt_config_parse(MtAllocator *alloc, char *input, uint64_t input_size);
+MtConfig *mt_config_parse(MtAllocator *alloc, const char *input, uint64_t input_size);
 
 MtConfigObject *mt_config_get_root(MtConfig *config);
 

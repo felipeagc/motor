@@ -831,7 +831,8 @@ static MtRenderer g_vulkan_renderer = {
     .create_fence  = create_fence,
     .destroy_fence = destroy_fence,
 
-    .submit = submit,
+    .submit         = submit,
+    .wait_for_fence = wait_for_fence,
 
     .create_buffer  = create_buffer,
     .destroy_buffer = destroy_buffer,
