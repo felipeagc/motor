@@ -20,6 +20,7 @@
 #include "image.inl"
 #include "sampler.inl"
 #include "cmd_buffer.inl"
+#include "render_pass.inl"
 
 #if !defined(NDEBUG)
 // Debug mode
@@ -843,6 +844,9 @@ static MtRenderer g_vulkan_renderer = {
 
     .create_sampler  = create_sampler,
     .destroy_sampler = destroy_sampler,
+
+    .create_render_pass  = create_render_pass,
+    .destroy_render_pass = destroy_render_pass,
 
     .transfer_to_buffer = transfer_to_buffer,
     .transfer_to_image  = transfer_to_image,
