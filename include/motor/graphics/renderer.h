@@ -206,6 +206,12 @@ typedef struct MtImageCopyView
     MtOffset3D offset;
 } MtImageCopyView;
 
+typedef struct MtRenderPassCreateInfo
+{
+    MtImage *color_attachment;
+    MtImage *depth_attachment;
+} MtRenderPassCreateInfo;
+
 typedef struct MtRenderer
 {
     void (*destroy_device)(MtDevice *);
@@ -231,6 +237,9 @@ typedef struct MtRenderer
 
     MtSampler *(*create_sampler)(MtDevice *, MtSamplerCreateInfo *);
     void (*destroy_sampler)(MtDevice *, MtSampler *);
+
+    MtRenderPass *(*create_render_pass)(MtDevice *, MtRenderPassCreateInfo *);
+    void (*destroy_render_pass)(MtDevice *, MtRenderPass *);
 
     void (*transfer_to_buffer)(
         MtDevice *, MtBuffer *, size_t offset, size_t size, const void *data);
