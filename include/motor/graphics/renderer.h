@@ -273,6 +273,8 @@ typedef struct MtRenderer
         MtCmdBuffer *, const MtBufferCopyView *src, const MtImageCopyView *dst, MtExtent3D extent);
     void (*cmd_copy_image_to_buffer)(
         MtCmdBuffer *, const MtImageCopyView *src, const MtBufferCopyView *dst, MtExtent3D extent);
+    void (*cmd_copy_image_to_image)(
+        MtCmdBuffer *, const MtImageCopyView *src, const MtImageCopyView *dst, MtExtent3D extent);
 
     void (*cmd_begin_render_pass)(MtCmdBuffer *, MtRenderPass *);
     void (*cmd_end_render_pass)(MtCmdBuffer *);

@@ -864,7 +864,7 @@ static MtRenderer g_vulkan_renderer = {
     .cmd_copy_buffer_to_buffer = cmd_copy_buffer_to_buffer,
     .cmd_copy_buffer_to_image  = cmd_copy_buffer_to_image,
     .cmd_copy_image_to_buffer  = cmd_copy_image_to_buffer,
-    /* .cmd_copy_image_to_image   = cmd_copy_image_to_image, */
+    .cmd_copy_image_to_image   = cmd_copy_image_to_image,
 
     .cmd_begin_render_pass = cmd_begin_render_pass,
     .cmd_end_render_pass   = cmd_end_render_pass,
