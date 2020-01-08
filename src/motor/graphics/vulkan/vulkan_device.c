@@ -628,6 +628,11 @@ static void destroy_fence(MtDevice *dev, MtFence *fence)
     mt_free(dev->alloc, fence);
 }
 
+static void reset_fence(MtDevice *dev, MtFence *fence)
+{
+    VK_CHECK(vkResetFences(dev->device, 1, &fence->fence));
+}
+
 static void wait_for_fence(MtDevice *dev, MtFence *fence)
 {
     VK_CHECK(vkWaitForFences(dev->device, 1, &fence->fence, VK_TRUE, UINT64_MAX));
@@ -832,6 +837,7 @@ static MtRenderer g_vulkan_renderer = {
     .destroy_fence = destroy_fence,
 
     .submit         = submit,
+    .reset_fence    = reset_fence,
     .wait_for_fence = wait_for_fence,
 
     .create_buffer  = create_buffer,

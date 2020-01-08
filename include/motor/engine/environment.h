@@ -53,7 +53,6 @@ typedef struct MtEnvironment
 
     MtImage *brdf_image;
 
-    MtSampler *regular_sampler;
     MtSampler *radiance_sampler;
 
     MtEnvironmentUniform uniform;
