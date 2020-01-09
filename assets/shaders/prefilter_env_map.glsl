@@ -17,6 +17,7 @@ vertex: [[
 
     void main() {
         tex_coords0 = pos;
+        tex_coords0.y *= -1.0f;
 
         vec4 position = mvp * vec4(pos, 1.0);
         gl_Position = position.xyww;

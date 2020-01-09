@@ -408,7 +408,7 @@ void mt_environment_init(
     env->brdf_image = generate_brdf_lut(engine);
 
     env->uniform.sun_direction = V3(0.0f, -1.0f, 0.0f);
-    env->uniform.exposure      = 8.0f;
+    env->uniform.exposure      = 1.0f;
 
     env->uniform.sun_color     = V3(1.0f, 1.0f, 1.0f);
     env->uniform.sun_intensity = 1.0f;
@@ -432,6 +432,16 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
     mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
 
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
+}
+
+void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set)
+{
+    MtEngine *engine = env->asset_manager->engine;
+
+    mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), set, 0);
+    mt_render.cmd_bind_image(cb, env->irradiance_image, engine->default_sampler, set, 1);
+    mt_render.cmd_bind_image(cb, env->radiance_image, env->radiance_sampler, set, 2);
+    mt_render.cmd_bind_image(cb, env->brdf_image, engine->default_sampler, set, 3);
 }
 
 void mt_environment_destroy(MtEnvironment *env)
