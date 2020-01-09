@@ -21,7 +21,7 @@ void mt_engine_init(MtEngine *engine)
     engine->device = mt_vulkan_device_init(
         &(MtVulkanDeviceCreateInfo){.window_system = &engine->window_system}, engine->alloc);
 
-    mt_glfw_vulkan_window_init(&engine->window, engine->device, 800, 600, "Hello", engine->alloc);
+    mt_glfw_vulkan_window_init(&engine->window, engine->device, 1280, 720, "Motor", engine->alloc);
 
     engine->compiler = shaderc_compiler_initialize();
 

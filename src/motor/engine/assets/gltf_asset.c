@@ -57,6 +57,7 @@ typedef struct GltfPrimitive
     uint32_t vertex_count;
     GltfMaterial *material;
     bool has_indices;
+    bool is_normal_mapped;
 } GltfPrimitive;
 
 typedef struct GltfMesh
@@ -272,10 +273,17 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                 material->pbr_metallic_roughness.base_color_texture.texture->image - data->images;
             mat->albedo_image = asset->images[image_index];
 
-            uint32_t sampler_index =
-                material->pbr_metallic_roughness.base_color_texture.texture->sampler -
-                data->samplers;
-            mat->albedo_sampler = asset->samplers[sampler_index];
+            if (material->pbr_metallic_roughness.base_color_texture.texture->sampler)
+            {
+                uint32_t sampler_index =
+                    material->pbr_metallic_roughness.base_color_texture.texture->sampler -
+                    data->samplers;
+                mat->albedo_sampler = asset->samplers[sampler_index];
+            }
+            else
+            {
+                mat->albedo_sampler = asset->asset_manager->engine->default_sampler;
+            }
         }
         else
         {
@@ -288,8 +296,15 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             uint32_t image_index = material->normal_texture.texture->image - data->images;
             mat->normal_image    = asset->images[image_index];
 
-            uint32_t sampler_index = material->normal_texture.texture->sampler - data->samplers;
-            mat->normal_sampler    = asset->samplers[sampler_index];
+            if (material->normal_texture.texture->sampler)
+            {
+                uint32_t sampler_index = material->normal_texture.texture->sampler - data->samplers;
+                mat->normal_sampler    = asset->samplers[sampler_index];
+            }
+            else
+            {
+                mat->normal_sampler = asset->asset_manager->engine->default_sampler;
+            }
         }
         else
         {
@@ -304,10 +319,17 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                 data->images;
             mat->metallic_roughness_image = asset->images[image_index];
 
-            uint32_t sampler_index =
-                material->pbr_metallic_roughness.metallic_roughness_texture.texture->sampler -
-                data->samplers;
-            mat->metallic_roughness_sampler = asset->samplers[sampler_index];
+            if (material->pbr_metallic_roughness.metallic_roughness_texture.texture->sampler)
+            {
+                uint32_t sampler_index =
+                    material->pbr_metallic_roughness.metallic_roughness_texture.texture->sampler -
+                    data->samplers;
+                mat->metallic_roughness_sampler = asset->samplers[sampler_index];
+            }
+            else
+            {
+                mat->metallic_roughness_sampler = asset->asset_manager->engine->default_sampler;
+            }
         }
         else
         {
@@ -320,8 +342,16 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             uint32_t image_index = material->occlusion_texture.texture->image - data->images;
             mat->occlusion_image = asset->images[image_index];
 
-            uint32_t sampler_index = material->occlusion_texture.texture->sampler - data->samplers;
-            mat->occlusion_sampler = asset->samplers[sampler_index];
+            if (material->occlusion_texture.texture->sampler)
+            {
+                uint32_t sampler_index =
+                    material->occlusion_texture.texture->sampler - data->samplers;
+                mat->occlusion_sampler = asset->samplers[sampler_index];
+            }
+            else
+            {
+                mat->occlusion_sampler = asset->asset_manager->engine->default_sampler;
+            }
         }
         else
         {
@@ -334,8 +364,16 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             uint32_t image_index = material->emissive_texture.texture->image - data->images;
             mat->emissive_image  = asset->images[image_index];
 
-            uint32_t sampler_index = material->emissive_texture.texture->sampler - data->samplers;
-            mat->emissive_sampler  = asset->samplers[sampler_index];
+            if (material->emissive_texture.texture->sampler)
+            {
+                uint32_t sampler_index =
+                    material->emissive_texture.texture->sampler - data->samplers;
+                mat->emissive_sampler = asset->samplers[sampler_index];
+            }
+            else
+            {
+                mat->emissive_sampler = asset->asset_manager->engine->default_sampler;
+            }
         }
         else
         {
@@ -508,140 +546,108 @@ static void load_node(
             bool has_indices = primitive->indices != NULL;
 
             // Vertices
+            cgltf_accessor *pos_accessor = NULL;
+            cgltf_buffer_view *pos_view  = NULL;
+            uint32_t pos_byte_stride     = 0;
+            uint8_t *buffer_pos          = NULL;
+
+            cgltf_accessor *normal_accessor = NULL;
+            cgltf_buffer_view *normal_view  = NULL;
+            uint32_t normal_byte_stride     = 0;
+            uint8_t *buffer_normals         = NULL;
+
+            cgltf_accessor *tangent_accessor = NULL;
+            cgltf_buffer_view *tangent_view  = NULL;
+            uint32_t tangent_byte_stride     = 0;
+            uint8_t *buffer_tangents         = NULL;
+
+            cgltf_accessor *uv0_accessor = NULL;
+            cgltf_buffer_view *uv0_view  = NULL;
+            uint32_t uv0_byte_stride     = 0;
+            uint8_t *buffer_uv0          = NULL;
+
+            for (uint32_t j = 0; j < primitive->attributes_count; j++)
             {
-                cgltf_accessor *pos_accessor = NULL;
-                cgltf_buffer_view *pos_view  = NULL;
-                uint32_t pos_byte_stride     = 0;
-                uint8_t *buffer_pos          = NULL;
-
-                cgltf_accessor *normal_accessor = NULL;
-                cgltf_buffer_view *normal_view  = NULL;
-                uint32_t normal_byte_stride     = 0;
-                uint8_t *buffer_normals         = NULL;
-
-                cgltf_accessor *tangent_accessor = NULL;
-                cgltf_buffer_view *tangent_view  = NULL;
-                uint32_t tangent_byte_stride     = 0;
-                uint8_t *buffer_tangents         = NULL;
-
-                cgltf_accessor *uv0_accessor = NULL;
-                cgltf_buffer_view *uv0_view  = NULL;
-                uint32_t uv0_byte_stride     = 0;
-                uint8_t *buffer_uv0          = NULL;
-
-                for (uint32_t j = 0; j < primitive->attributes_count; j++)
+                if (primitive->attributes[j].type == cgltf_attribute_type_position)
                 {
-                    if (primitive->attributes[j].type == cgltf_attribute_type_position)
-                    {
-                        pos_accessor    = primitive->attributes[j].data;
-                        pos_view        = pos_accessor->buffer_view;
-                        pos_byte_stride = pos_accessor->stride;
-                        buffer_pos =
-                            &pos_view->buffer->data[pos_accessor->offset + pos_view->offset];
+                    pos_accessor    = primitive->attributes[j].data;
+                    pos_view        = pos_accessor->buffer_view;
+                    pos_byte_stride = pos_accessor->stride;
+                    buffer_pos = &pos_view->buffer->data[pos_accessor->offset + pos_view->offset];
 
-                        vertex_count = (uint32_t)pos_accessor->count;
-                    }
-
-                    if (primitive->attributes[j].type == cgltf_attribute_type_normal)
-                    {
-                        normal_accessor    = primitive->attributes[j].data;
-                        normal_view        = normal_accessor->buffer_view;
-                        normal_byte_stride = normal_accessor->stride;
-                        buffer_normals     = &normal_view->buffer
-                                              ->data[normal_accessor->offset + normal_view->offset];
-                    }
-
-                    if (primitive->attributes[j].type == cgltf_attribute_type_tangent)
-                    {
-                        tangent_accessor    = primitive->attributes[j].data;
-                        tangent_view        = tangent_accessor->buffer_view;
-                        tangent_byte_stride = tangent_accessor->stride;
-                        buffer_tangents =
-                            &tangent_view->buffer
-                                 ->data[tangent_accessor->offset + tangent_view->offset];
-                    }
-
-                    if (primitive->attributes[j].type == cgltf_attribute_type_texcoord)
-                    {
-                        uv0_accessor    = primitive->attributes[j].data;
-                        uv0_view        = uv0_accessor->buffer_view;
-                        uv0_byte_stride = uv0_accessor->stride;
-                        buffer_uv0 =
-                            &uv0_view->buffer->data[uv0_accessor->offset + uv0_view->offset];
-                    }
+                    vertex_count = (uint32_t)pos_accessor->count;
                 }
 
-                uint32_t first_vertex = mt_array_size(*vertex_buffer);
-                mt_array_pushn(alloc, *vertex_buffer, pos_accessor->count);
-                for (size_t v = 0; v < pos_accessor->count; v++)
+                if (primitive->attributes[j].type == cgltf_attribute_type_normal)
                 {
-                    GltfVertex *vertex = &(*vertex_buffer)[first_vertex];
+                    normal_accessor    = primitive->attributes[j].data;
+                    normal_view        = normal_accessor->buffer_view;
+                    normal_byte_stride = normal_accessor->stride;
+                    buffer_normals =
+                        &normal_view->buffer->data[normal_accessor->offset + normal_view->offset];
+                }
 
-                    // Position
-                    memcpy(&vertex->pos, &buffer_pos[v * pos_byte_stride], sizeof(vertex->pos));
+                if (primitive->attributes[j].type == cgltf_attribute_type_tangent)
+                {
+                    tangent_accessor    = primitive->attributes[j].data;
+                    tangent_view        = tangent_accessor->buffer_view;
+                    tangent_byte_stride = tangent_accessor->stride;
+                    buffer_tangents     = &tangent_view->buffer
+                                           ->data[tangent_accessor->offset + tangent_view->offset];
+                }
 
+                if (primitive->attributes[j].type == cgltf_attribute_type_texcoord)
+                {
+                    uv0_accessor    = primitive->attributes[j].data;
+                    uv0_view        = uv0_accessor->buffer_view;
+                    uv0_byte_stride = uv0_accessor->stride;
+                    buffer_uv0 = &uv0_view->buffer->data[uv0_accessor->offset + uv0_view->offset];
+                }
+            }
+
+            uint32_t first_vertex = mt_array_size(*vertex_buffer);
+            mt_array_pushn(alloc, *vertex_buffer, vertex_count);
+            GltfVertex *vertices = &(*vertex_buffer)[first_vertex];
+
+            for (size_t v = 0; v < vertex_count; v++)
+            {
+                // Position
+                memcpy(&vertices[v].pos, &buffer_pos[v * pos_byte_stride], sizeof(vertices[v].pos));
+            }
+
+            if (buffer_normals)
+            {
+                for (size_t v = 0; v < vertex_count; v++)
+                {
                     // Normal
                     memcpy(
-                        &vertex->normal,
+                        &vertices[v].normal,
                         &buffer_normals[v * normal_byte_stride],
-                        sizeof(vertex->normal));
-
-                    // Tangent
-                    if (buffer_tangents)
-                    {
-                        memcpy(
-                            &vertex->tangent,
-                            &buffer_tangents[v * tangent_byte_stride],
-                            sizeof(vertex->tangent));
-                    }
-
-                    // UV0
-                    if (buffer_uv0)
-                    {
-                        memcpy(&vertex->uv0, &buffer_uv0[v * uv0_byte_stride], sizeof(vertex->uv0));
-                    }
-
-                    ++first_vertex;
+                        sizeof(vertices[v].normal));
                 }
+            }
 
-                if (!buffer_tangents && buffer_uv0)
+            // Tangent
+            if (buffer_tangents)
+            {
+                for (size_t v = 0; v < vertex_count; v++)
                 {
-                    // Generate tangents
-                    assert(pos_accessor->count % 3 == 0);
+                    memcpy(
+                        &vertices[v].tangent,
+                        &buffer_tangents[v * tangent_byte_stride],
+                        sizeof(vertices[v].tangent));
+                }
+            }
 
-                    Vec3 *positions = (Vec3 *)buffer_pos;
-                    Vec2 *uvs       = (Vec2 *)buffer_uv0;
-
-                    for (uint32_t i = 0; i < pos_accessor->count / 3; i++)
-                    {
-                        // Loop per triangle
-                        Vec3 v0 = positions[i + 0];
-                        Vec3 v1 = positions[i + 1];
-                        Vec3 v2 = positions[i + 2];
-
-                        Vec2 uv0 = uvs[i + 0];
-                        Vec2 uv1 = uvs[i + 1];
-                        Vec2 uv2 = uvs[i + 2];
-
-                        Vec3 delta_pos1 = v3_sub(v1, v0);
-                        Vec3 delta_pos2 = v3_sub(v2, v0);
-
-                        Vec2 delta_uv1 = v2_sub(uv1, uv0);
-                        Vec2 delta_uv2 = v2_sub(uv2, uv0);
-
-                        float r = 1.0f / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
-
-                        Vec4 tangent;
-                        tangent.w   = 1.0f;
-                        tangent.xyz = v3_muls(
-                            v3_sub(
-                                v3_muls(delta_pos1, delta_uv2.y), v3_muls(delta_pos2, delta_uv1.y)),
-                            r);
-
-                        (*vertex_buffer)[i + 0].tangent = tangent;
-                        (*vertex_buffer)[i + 1].tangent = tangent;
-                        (*vertex_buffer)[i + 2].tangent = tangent;
-                    }
+            // UV0
+            if (buffer_uv0)
+            {
+                for (size_t v = 0; v < vertex_count; v++)
+                {
+                    memcpy(
+                        &vertices[v].uv0,
+                        &buffer_uv0[v * uv0_byte_stride],
+                        sizeof(vertices[v].uv0));
                 }
             }
 
@@ -698,10 +704,11 @@ static void load_node(
                 }
             }
 
-            GltfPrimitive new_primitive = {0};
-            new_primitive.first_index   = index_start;
-            new_primitive.index_count   = index_count;
-            new_primitive.vertex_count  = vertex_count;
+            GltfPrimitive new_primitive    = {0};
+            new_primitive.first_index      = index_start;
+            new_primitive.index_count      = index_count;
+            new_primitive.vertex_count     = vertex_count;
+            new_primitive.is_normal_mapped = buffer_normals != NULL && buffer_tangents != NULL;
             if (primitive->material)
             {
                 new_primitive.material = &asset->materials[primitive->material - model->materials];
@@ -739,9 +746,11 @@ static void node_draw(
             {
                 Mat4 local_model;
                 Mat4 model;
+                float normal_mapped;
             } uniform;
-            uniform.local_model = node->mesh->matrix;
-            uniform.model       = *transform;
+            uniform.local_model   = node->mesh->matrix;
+            uniform.model         = *transform;
+            uniform.normal_mapped = primitive->is_normal_mapped ? 1.0f : 0.0f;
 
             mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), model_set, 0);
 

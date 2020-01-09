@@ -45,6 +45,12 @@ common: [[
         PointLight point_lights[MAX_POINT_LIGHTS];
     };
 
+    struct Model {
+        mat4 local_model;
+        mat4 model;
+        float normal_mapped;
+    };
+
     const float GAMMA = 2.2f;
 
     vec4 srgb_to_linear(vec4 srgb_in) {
@@ -93,8 +99,7 @@ vertex: [[
     };
 
     layout (set = 1, binding = 0) uniform ModelUniform {
-        mat4 local_model;
-        mat4 model;
+        Model model;
     };
 
     layout (set = 2, binding = 0) uniform EnvironmentUniform {
@@ -104,14 +109,23 @@ vertex: [[
     layout (location = 0) out vec2 tex_coords0;
     layout (location = 1) out vec3 world_pos;
     layout (location = 2) out vec3 normal0;
+    layout (location = 3) out mat3 TBN;
 
     void main() {
         tex_coords0 = tex_coords;
-        tex_coords0.y = 1.0f - tex_coords0.y;
+        tex_coords0.y = tex_coords0.y;
 
-        mat4 model0 = model * local_model;
+        mat4 model0 = model.model * model.local_model;
 
-        normal0 = mat3(transpose(inverse(model0))) * normal;
+        if (model.normal_mapped == 1.0f) {
+            vec3 T = normalize(vec3(model0 * vec4(tangent.xyz, 0.0f)));
+            vec3 N = normalize(vec3(model0 * vec4(normal.xyz, 0.0f)));
+            T = normalize(T - dot(T, N) * N); // re-orthogonalize
+            vec3 B = tangent.w * cross(N, T);
+            TBN = mat3(T, B, N);
+        } else {
+            normal0 = mat3(transpose(inverse(model0))) * normal;
+        }
 
         vec4 loc_pos =  model0 * vec4(pos, 1.0);
 
@@ -125,9 +139,14 @@ fragment: [[
     layout (location = 0) in vec2 tex_coords;
     layout (location = 1) in vec3 world_pos;
     layout (location = 2) in vec3 normal;
+    layout (location = 3) in mat3 TBN;
 
     layout (set = 0, binding = 0) uniform CameraUniform {
         Camera cam;
+    };
+
+    layout (set = 1, binding = 0) uniform ModelUniform {
+        Model model;
     };
 
     layout (set = 2, binding = 0) uniform EnvironmentUniform {
@@ -151,7 +170,15 @@ fragment: [[
     void main() {
         vec3 V = normalize(cam.pos.xyz - world_pos);
 
-        vec3 N = normalize(normal);
+        vec3 N;
+
+        if (model.normal_mapped == 1.0f) {
+            N = texture(normal_texture, tex_coords).rgb;
+            N = normalize(N * 2.0 - 1.0); // Remap from [0, 1] to [-1, 1]
+            N = normalize(TBN * N);
+        } else {
+            N = normalize(normal);
+        }
 
         vec4 albedo = srgb_to_linear(texture(albedo_texture, tex_coords)) * material.base_color;
 

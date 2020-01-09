@@ -945,6 +945,23 @@ void mt_glfw_vulkan_window_init(
     interface->vt   = &g_glfw_window_vt;
     interface->inst = (MtWindow *)window;
 
+    // Center window
+    GLFWmonitor *monitor    = glfwGetPrimaryMonitor();
+    const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+    if (!mode)
+        return;
+
+    int monitor_x, monitor_y;
+    glfwGetMonitorPos(monitor, &monitor_x, &monitor_y);
+
+    int window_width, window_height;
+    glfwGetWindowSize(window->window, &window_width, &window_height);
+
+    glfwSetWindowPos(
+        window->window,
+        monitor_x + (mode->width - window_width) / 2,
+        monitor_y + (mode->height - window_height) / 2);
+
     window->mouse_cursors[MT_CURSOR_TYPE_ARROW] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
     window->mouse_cursors[MT_CURSOR_TYPE_IBEAM] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
     window->mouse_cursors[MT_CURSOR_TYPE_CROSSHAIR] =

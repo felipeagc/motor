@@ -59,8 +59,8 @@ void game_init(Game *g)
         &g->engine.asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
     assert(g->font);
 
-    g->model = (MtGltfAsset *)mt_asset_manager_load(
-        &g->engine.asset_manager, "../assets/DamagedHelmet.glb");
+    g->model =
+        (MtGltfAsset *)mt_asset_manager_load(&g->engine.asset_manager, "../assets/helmet.glb");
     assert(g->model);
 
     MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
