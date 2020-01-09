@@ -16,12 +16,11 @@ void mt_engine_init(MtEngine *engine)
     mt_arena_init(engine->alloc, 1 << 16);
 #endif
 
-    mt_glfw_vulkan_init(&engine->window_system);
+    mt_glfw_vulkan_window_system_init();
 
-    engine->device = mt_vulkan_device_init(
-        &(MtVulkanDeviceCreateInfo){.window_system = &engine->window_system}, engine->alloc);
+    engine->device = mt_vulkan_device_init(&(MtVulkanDeviceCreateInfo){}, engine->alloc);
 
-    mt_glfw_vulkan_window_init(&engine->window, engine->device, 1280, 720, "Motor", engine->alloc);
+    engine->window = mt_window.create(engine->device, 1280, 720, "Motor", engine->alloc);
 
     engine->compiler = shaderc_compiler_initialize();
 
@@ -94,9 +93,11 @@ void mt_engine_destroy(MtEngine *engine)
 
     shaderc_compiler_release(engine->compiler);
 
-    engine->window.vt->destroy(engine->window.inst);
+    mt_window.destroy(engine->window);
+
     mt_render.destroy_device(engine->device);
-    engine->window_system.vt->destroy();
+
+    mt_window.destroy_window_system();
 
 #if 0
     mt_arena_destroy(engine->alloc);

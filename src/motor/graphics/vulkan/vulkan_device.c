@@ -22,6 +22,8 @@
 #include "cmd_buffer.inl"
 #include "render_pass.inl"
 
+#include <GLFW/glfw3.h>
+
 #if !defined(NDEBUG)
 // Debug mode
 #define MT_ENABLE_VALIDATION
@@ -141,10 +143,9 @@ static void create_instance(MtDevice *dev)
 
     if (!(dev->flags & MT_DEVICE_HEADLESS))
     {
-        assert(dev->window_system);
         uint32_t window_extension_count;
-        const char **window_extensions =
-            dev->window_system->get_vulkan_instance_extensions(&window_extension_count);
+        const char **window_extensions = glfwGetRequiredInstanceExtensions(
+            &window_extension_count); // TODO: remove GLFW from here
 
         extension_count += window_extension_count;
         extensions = mt_realloc(dev->alloc, extensions, sizeof(char *) * extension_count);
@@ -218,9 +219,9 @@ static QueueFamilyIndices find_queue_families(MtDevice *dev, VkPhysicalDevice ph
 
         if (!(dev->flags & MT_DEVICE_HEADLESS))
         {
+            // TODO: remove GLFW from here
             if (queue_family->queueCount > 0 &&
-                dev->window_system->get_physical_device_presentation_support(
-                    dev->instance, physical_device, i))
+                glfwGetPhysicalDevicePresentationSupport(dev->instance, physical_device, i))
             {
                 indices.present = i;
             }
@@ -904,8 +905,6 @@ MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocat
 
     dev->flags = create_info->flags;
     dev->alloc = alloc;
-
-    dev->window_system = create_info->window_system->inst;
 
     dev->num_threads = create_info->num_threads;
     if (dev->num_threads == 0)

@@ -34,7 +34,7 @@ void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event)
         {
             if (event->mouse.button == MT_MOUSE_BUTTON_RIGHT)
             {
-                event->window->vt->set_cursor_mode(event->window->inst, MT_CURSOR_MODE_DISABLED);
+                mt_window.set_cursor_mode(event->window, MT_CURSOR_MODE_DISABLED);
             }
             break;
         }
@@ -42,7 +42,7 @@ void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event)
         {
             if (event->mouse.button == MT_MOUSE_BUTTON_RIGHT)
             {
-                event->window->vt->set_cursor_mode(event->window->inst, MT_CURSOR_MODE_NORMAL);
+                mt_window.set_cursor_mode(event->window, MT_CURSOR_MODE_NORMAL);
             }
             break;
         }
@@ -50,10 +50,10 @@ void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event)
     }
 }
 
-void mt_perspective_camera_update(MtPerspectiveCamera *c, MtIWindow *win, float aspect)
+void mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float aspect)
 {
     double x, y;
-    win->vt->get_cursor_pos(win->inst, &x, &y);
+    mt_window.get_cursor_pos(win, &x, &y);
 
     double dx = x - c->prev_x;
     double dy = y - c->prev_y;
@@ -61,7 +61,7 @@ void mt_perspective_camera_update(MtPerspectiveCamera *c, MtIWindow *win, float 
     c->prev_x = x;
     c->prev_y = y;
 
-    if (win->vt->get_cursor_mode(win->inst) == MT_CURSOR_MODE_DISABLED)
+    if (mt_window.get_cursor_mode(win) == MT_CURSOR_MODE_DISABLED)
     {
         c->yaw += dx * c->sensitivity * (MT_PI / 180.0f);
         c->pitch -= dy * c->sensitivity * (MT_PI / 180.0f);
@@ -77,20 +77,20 @@ void mt_perspective_camera_update(MtPerspectiveCamera *c, MtIWindow *win, float 
     Vec3 right = v3_normalize(v3_cross(front, V3(0.0f, -1.0f, 0.0f)));
     Vec3 up    = v3_normalize(v3_cross(right, front));
 
-    float delta = c->speed * (float)win->vt->delta_time(win->inst);
-    if (win->vt->get_key(win->inst, 'W'))
+    float delta = c->speed * (float)mt_window.delta_time(win);
+    if (mt_window.get_key(win, 'W'))
     {
         c->pos = v3_add(c->pos, v3_muls(front, delta));
     }
-    if (win->vt->get_key(win->inst, 'S'))
+    if (mt_window.get_key(win, 'S'))
     {
         c->pos = v3_sub(c->pos, v3_muls(front, delta));
     }
-    if (win->vt->get_key(win->inst, 'A'))
+    if (mt_window.get_key(win, 'A'))
     {
         c->pos = v3_sub(c->pos, v3_muls(right, delta));
     }
-    if (win->vt->get_key(win->inst, 'D'))
+    if (mt_window.get_key(win, 'D'))
     {
         c->pos = v3_add(c->pos, v3_muls(right, delta));
     }

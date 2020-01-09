@@ -3,25 +3,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+typedef struct MtDevice MtDevice;
+typedef struct MtAllocator MtAllocator;
+
 typedef struct MtWindow MtWindow;
-typedef struct MtWindowSystem MtWindowSystem;
 
 typedef struct MtRenderPass MtRenderPass;
 typedef struct MtCmdBuffer MtCmdBuffer;
-
-typedef struct MtEvent MtEvent;
-
-typedef struct MtWindowSystemVT
-{
-    void (*poll_events)(void);
-    void (*destroy)(void);
-} MtWindowSystemVT;
-
-typedef struct MtIWindowSystem
-{
-    MtWindowSystem *inst;
-    MtWindowSystemVT *vt;
-} MtIWindowSystem;
 
 typedef enum MtCursorMode
 {
@@ -63,38 +51,6 @@ typedef enum MtMouseButton
     MT_MOUSE_BUTTON_MIDDLE = MT_MOUSE_BUTTON3,
 } MtMouseButton;
 
-typedef struct MtWindowVT
-{
-    bool (*should_close)(MtWindow *);
-    bool (*next_event)(MtWindow *, MtEvent *);
-
-    MtCmdBuffer *(*begin_frame)(MtWindow *);
-    void (*end_frame)(MtWindow *);
-    MtRenderPass *(*get_render_pass)(MtWindow *);
-
-    float (*delta_time)(MtWindow *);
-    void (*get_size)(MtWindow *, uint32_t *width, uint32_t *height);
-
-    void (*get_cursor_pos)(MtWindow *, double *x, double *y);
-    void (*set_cursor_pos)(MtWindow *, double x, double y);
-
-    MtCursorMode (*get_cursor_mode)(MtWindow *);
-    void (*set_cursor_mode)(MtWindow *, MtCursorMode);
-
-    void (*set_cursor_type)(MtWindow *, MtCursorType);
-
-    MtInputState (*get_key)(MtWindow *, uint32_t key_code);
-    MtInputState (*get_mouse_button)(MtWindow *, MtMouseButton button);
-
-    void (*destroy)(MtWindow *);
-} MtWindowVT;
-
-typedef struct MtIWindow
-{
-    MtWindow *inst;
-    MtWindowVT *vt;
-} MtIWindow;
-
 typedef enum MtEventType
 {
     MT_EVENT_NONE,
@@ -130,7 +86,7 @@ typedef struct MtEvent
 {
     MtEventType type;
     union {
-        MtIWindow *window;
+        MtWindow *window;
         void *monitor;
         int32_t joystick;
     };
@@ -169,3 +125,36 @@ typedef struct MtEvent
         } scale;
     };
 } MtEvent;
+
+typedef struct MtWindowSystem
+{
+    void (*poll_events)(void);
+    void (*destroy_window_system)(void);
+
+    MtWindow *(*create)(
+        MtDevice *, uint32_t width, uint32_t height, const char *title, MtAllocator *alloc);
+    void (*destroy)(MtWindow *);
+
+    bool (*should_close)(MtWindow *);
+    bool (*next_event)(MtWindow *, MtEvent *);
+
+    MtCmdBuffer *(*begin_frame)(MtWindow *);
+    void (*end_frame)(MtWindow *);
+    MtRenderPass *(*get_render_pass)(MtWindow *);
+
+    float (*delta_time)(MtWindow *);
+    void (*get_size)(MtWindow *, uint32_t *width, uint32_t *height);
+
+    void (*get_cursor_pos)(MtWindow *, double *x, double *y);
+    void (*set_cursor_pos)(MtWindow *, double x, double y);
+
+    MtCursorMode (*get_cursor_mode)(MtWindow *);
+    void (*set_cursor_mode)(MtWindow *, MtCursorMode);
+
+    void (*set_cursor_type)(MtWindow *, MtCursorType);
+
+    MtInputState (*get_key)(MtWindow *, uint32_t key_code);
+    MtInputState (*get_mouse_button)(MtWindow *, MtMouseButton button);
+} MtWindowSystem;
+
+extern MtWindowSystem mt_window;

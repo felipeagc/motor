@@ -99,42 +99,6 @@ static void window_maximize_callback(GLFWwindow *window, int maximized);
 static void window_content_scale_callback(GLFWwindow *window, float xscale, float yscale);
 
 /*
- * Window System
- */
-
-static const char **get_instance_extensions(uint32_t *count)
-{
-    return glfwGetRequiredInstanceExtensions(count);
-}
-
-static int32_t get_physical_device_presentation_support(
-    VkInstance instance, VkPhysicalDevice device, uint32_t queue_family)
-{
-    return (int32_t)glfwGetPhysicalDevicePresentationSupport(instance, device, queue_family);
-}
-
-MtWindowSystem g_glfw_window_system;
-
-/*
- * Window System VT
- */
-
-static void poll_events(void)
-{
-    glfwPollEvents();
-}
-
-static void glfw_destroy(void)
-{
-    glfwTerminate();
-}
-
-static MtWindowSystemVT g_glfw_window_system_vt = {
-    .poll_events = poll_events,
-    .destroy     = glfw_destroy,
-};
-
-/*
  * Setup functions
  */
 
@@ -768,7 +732,87 @@ static void end_frame(MtWindow *window)
     window->delta_time = glfwGetTime() - window->last_time;
 }
 
-static void window_destroy(MtWindow *window)
+static MtWindow *
+create_window(MtDevice *dev, uint32_t width, uint32_t height, const char *title, MtAllocator *alloc)
+{
+    MtWindow *window = mt_alloc(alloc, sizeof(MtWindow));
+    memset(window, 0, sizeof(*window));
+
+    window->last_time = 0.0f;
+
+    window->window = glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
+    window->alloc  = alloc;
+    window->dev    = dev;
+
+    // Center window
+    GLFWmonitor *monitor    = glfwGetPrimaryMonitor();
+    const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+    if (!mode)
+        return NULL;
+
+    int monitor_x, monitor_y;
+    glfwGetMonitorPos(monitor, &monitor_x, &monitor_y);
+
+    int window_width, window_height;
+    glfwGetWindowSize(window->window, &window_width, &window_height);
+
+    glfwSetWindowPos(
+        window->window,
+        monitor_x + (mode->width - window_width) / 2,
+        monitor_y + (mode->height - window_height) / 2);
+
+    window->mouse_cursors[MT_CURSOR_TYPE_ARROW] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_IBEAM] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_CROSSHAIR] =
+        glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_HAND]    = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_HRESIZE] = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+    window->mouse_cursors[MT_CURSOR_TYPE_VRESIZE] = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
+
+    glfwSetWindowUserPointer(window->window, window);
+
+    // Set callbacks
+    glfwSetMonitorCallback(monitor_callback);
+    glfwSetJoystickCallback(joystick_callback);
+
+    glfwSetWindowPosCallback(window->window, window_pos_callback);
+    glfwSetWindowSizeCallback(window->window, window_size_callback);
+    glfwSetWindowCloseCallback(window->window, window_close_callback);
+    glfwSetWindowRefreshCallback(window->window, window_refresh_callback);
+    glfwSetWindowFocusCallback(window->window, window_focus_callback);
+    glfwSetWindowIconifyCallback(window->window, window_iconify_callback);
+    glfwSetFramebufferSizeCallback(window->window, framebuffer_size_callback);
+    glfwSetMouseButtonCallback(window->window, mouse_button_callback);
+    glfwSetCursorPosCallback(window->window, cursor_pos_callback);
+    glfwSetCursorEnterCallback(window->window, cursor_enter_callback);
+    glfwSetScrollCallback(window->window, scroll_callback);
+    glfwSetKeyCallback(window->window, key_callback);
+    glfwSetCharCallback(window->window, char_callback);
+    glfwSetWindowMaximizeCallback(window->window, window_maximize_callback);
+    glfwSetWindowContentScaleCallback(window->window, window_content_scale_callback);
+
+    VK_CHECK(glfwCreateWindowSurface(dev->instance, window->window, NULL, &window->surface));
+
+    VkBool32 supported;
+    vkGetPhysicalDeviceSurfaceSupportKHR(
+        dev->physical_device, dev->indices.present, window->surface, &supported);
+    if (!supported)
+    {
+        printf("Physical device does not support surface\n");
+        exit(1);
+    }
+
+    create_semaphores(window);
+    create_fences(window);
+
+    create_resizables(window);
+
+    allocate_cmd_buffers(window);
+
+    return window;
+}
+
+static void destroy_window(MtWindow *window)
 {
     MtDevice *dev = window->dev;
 
@@ -874,7 +918,24 @@ static MtInputState get_mouse_button(MtWindow *w, MtMouseButton button)
     return MT_INPUT_STATE_RELEASE;
 }
 
-static MtWindowVT g_glfw_window_vt = {
+/*
+ * Window System functions
+ */
+
+static void poll_events(void)
+{
+    glfwPollEvents();
+}
+
+static void destroy_window_system(void)
+{
+    glfwTerminate();
+}
+
+static MtWindowSystem g_glfw_window_system = {
+    .poll_events           = poll_events,
+    .destroy_window_system = destroy_window_system,
+
     .should_close = should_close,
     .next_event   = next_event,
 
@@ -896,14 +957,15 @@ static MtWindowVT g_glfw_window_vt = {
     .get_key          = get_key,
     .get_mouse_button = get_mouse_button,
 
-    .destroy = window_destroy,
+    .create  = create_window,
+    .destroy = destroy_window,
 };
 
 /*
  * Public functions
  */
 
-void mt_glfw_vulkan_init(MtIWindowSystem *system)
+void mt_glfw_vulkan_window_system_init(void)
 {
     VK_CHECK(volkInitialize());
 
@@ -916,99 +978,7 @@ void mt_glfw_vulkan_init(MtIWindowSystem *system)
         exit(1);
     }
 
-    g_glfw_window_system = (MtWindowSystem){
-        .get_vulkan_instance_extensions           = get_instance_extensions,
-        .get_physical_device_presentation_support = get_physical_device_presentation_support,
-    };
-
-    system->inst = (MtWindowSystem *)&g_glfw_window_system;
-    system->vt   = &g_glfw_window_system_vt;
-}
-
-void mt_glfw_vulkan_window_init(
-    MtIWindow *interface,
-    MtDevice *dev,
-    uint32_t width,
-    uint32_t height,
-    const char *title,
-    MtAllocator *alloc)
-{
-    MtWindow *window = mt_alloc(alloc, sizeof(MtWindow));
-    memset(window, 0, sizeof(*window));
-
-    window->last_time = 0.0f;
-
-    window->window = glfwCreateWindow((int)width, (int)height, title, NULL, NULL);
-    window->alloc  = alloc;
-    window->dev    = dev;
-
-    interface->vt   = &g_glfw_window_vt;
-    interface->inst = (MtWindow *)window;
-
-    // Center window
-    GLFWmonitor *monitor    = glfwGetPrimaryMonitor();
-    const GLFWvidmode *mode = glfwGetVideoMode(monitor);
-    if (!mode)
-        return;
-
-    int monitor_x, monitor_y;
-    glfwGetMonitorPos(monitor, &monitor_x, &monitor_y);
-
-    int window_width, window_height;
-    glfwGetWindowSize(window->window, &window_width, &window_height);
-
-    glfwSetWindowPos(
-        window->window,
-        monitor_x + (mode->width - window_width) / 2,
-        monitor_y + (mode->height - window_height) / 2);
-
-    window->mouse_cursors[MT_CURSOR_TYPE_ARROW] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_IBEAM] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_CROSSHAIR] =
-        glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_HAND]    = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_HRESIZE] = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
-    window->mouse_cursors[MT_CURSOR_TYPE_VRESIZE] = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
-
-    glfwSetWindowUserPointer(window->window, interface);
-
-    // Set callbacks
-    glfwSetMonitorCallback(monitor_callback);
-    glfwSetJoystickCallback(joystick_callback);
-
-    glfwSetWindowPosCallback(window->window, window_pos_callback);
-    glfwSetWindowSizeCallback(window->window, window_size_callback);
-    glfwSetWindowCloseCallback(window->window, window_close_callback);
-    glfwSetWindowRefreshCallback(window->window, window_refresh_callback);
-    glfwSetWindowFocusCallback(window->window, window_focus_callback);
-    glfwSetWindowIconifyCallback(window->window, window_iconify_callback);
-    glfwSetFramebufferSizeCallback(window->window, framebuffer_size_callback);
-    glfwSetMouseButtonCallback(window->window, mouse_button_callback);
-    glfwSetCursorPosCallback(window->window, cursor_pos_callback);
-    glfwSetCursorEnterCallback(window->window, cursor_enter_callback);
-    glfwSetScrollCallback(window->window, scroll_callback);
-    glfwSetKeyCallback(window->window, key_callback);
-    glfwSetCharCallback(window->window, char_callback);
-    glfwSetWindowMaximizeCallback(window->window, window_maximize_callback);
-    glfwSetWindowContentScaleCallback(window->window, window_content_scale_callback);
-
-    VK_CHECK(glfwCreateWindowSurface(dev->instance, window->window, NULL, &window->surface));
-
-    VkBool32 supported;
-    vkGetPhysicalDeviceSurfaceSupportKHR(
-        dev->physical_device, dev->indices.present, window->surface, &supported);
-    if (!supported)
-    {
-        printf("Physical device does not support surface\n");
-        exit(1);
-    }
-
-    create_semaphores(window);
-    create_fences(window);
-
-    create_resizables(window);
-
-    allocate_cmd_buffers(window);
+    mt_window = g_glfw_window_system;
 }
 
 static MtEvent *new_event()
@@ -1022,7 +992,7 @@ static MtEvent *new_event()
 
 static void window_pos_callback(GLFWwindow *window, int x, int y)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->type    = MT_EVENT_WINDOW_MOVED;
     event->window  = win;
@@ -1032,7 +1002,7 @@ static void window_pos_callback(GLFWwindow *window, int x, int y)
 
 static void window_size_callback(GLFWwindow *window, int width, int height)
 {
-    MtIWindow *win     = glfwGetWindowUserPointer(window);
+    MtWindow *win      = glfwGetWindowUserPointer(window);
     MtEvent *event     = new_event();
     event->type        = MT_EVENT_WINDOW_RESIZED;
     event->window      = win;
@@ -1042,7 +1012,7 @@ static void window_size_callback(GLFWwindow *window, int width, int height)
 
 static void window_close_callback(GLFWwindow *window)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->type    = MT_EVENT_WINDOW_CLOSED;
     event->window  = win;
@@ -1050,7 +1020,7 @@ static void window_close_callback(GLFWwindow *window)
 
 static void window_refresh_callback(GLFWwindow *window)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->type    = MT_EVENT_WINDOW_REFRESH;
     event->window  = win;
@@ -1058,7 +1028,7 @@ static void window_refresh_callback(GLFWwindow *window)
 
 static void window_focus_callback(GLFWwindow *window, int focused)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
 
@@ -1070,7 +1040,7 @@ static void window_focus_callback(GLFWwindow *window, int focused)
 
 static void window_iconify_callback(GLFWwindow *window, int iconified)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
 
@@ -1082,7 +1052,7 @@ static void window_iconify_callback(GLFWwindow *window, int iconified)
 
 static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 {
-    MtIWindow *win     = glfwGetWindowUserPointer(window);
+    MtWindow *win      = glfwGetWindowUserPointer(window);
     MtEvent *event     = new_event();
     event->type        = MT_EVENT_FRAMEBUFFER_RESIZED;
     event->window      = win;
@@ -1092,7 +1062,7 @@ static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 
 static void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
 {
-    MtIWindow *win      = glfwGetWindowUserPointer(window);
+    MtWindow *win       = glfwGetWindowUserPointer(window);
     MtEvent *event      = new_event();
     event->window       = win;
     event->mouse.button = button;
@@ -1106,7 +1076,7 @@ static void mouse_button_callback(GLFWwindow *window, int button, int action, in
 
 static void cursor_pos_callback(GLFWwindow *window, double x, double y)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->type    = MT_EVENT_CURSOR_MOVED;
     event->window  = win;
@@ -1116,7 +1086,7 @@ static void cursor_pos_callback(GLFWwindow *window, double x, double y)
 
 static void cursor_enter_callback(GLFWwindow *window, int entered)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
 
@@ -1128,7 +1098,7 @@ static void cursor_enter_callback(GLFWwindow *window, int entered)
 
 static void scroll_callback(GLFWwindow *window, double x, double y)
 {
-    MtIWindow *win  = glfwGetWindowUserPointer(window);
+    MtWindow *win   = glfwGetWindowUserPointer(window);
     MtEvent *event  = new_event();
     event->type     = MT_EVENT_SCROLLED;
     event->window   = win;
@@ -1138,7 +1108,7 @@ static void scroll_callback(GLFWwindow *window, double x, double y)
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    MtIWindow *win           = glfwGetWindowUserPointer(window);
+    MtWindow *win            = glfwGetWindowUserPointer(window);
     MtEvent *event           = new_event();
     event->window            = win;
     event->keyboard.key      = key;
@@ -1155,7 +1125,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 
 static void char_callback(GLFWwindow *window, unsigned int codepoint)
 {
-    MtIWindow *win   = glfwGetWindowUserPointer(window);
+    MtWindow *win    = glfwGetWindowUserPointer(window);
     MtEvent *event   = new_event();
     event->type      = MT_EVENT_CODEPOINT_INPUT;
     event->window    = win;
@@ -1186,7 +1156,7 @@ static void joystick_callback(int jid, int action)
 
 static void window_maximize_callback(GLFWwindow *window, int maximized)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
 
@@ -1198,7 +1168,7 @@ static void window_maximize_callback(GLFWwindow *window, int maximized)
 
 static void window_content_scale_callback(GLFWwindow *window, float xscale, float yscale)
 {
-    MtIWindow *win = glfwGetWindowUserPointer(window);
+    MtWindow *win  = glfwGetWindowUserPointer(window);
     MtEvent *event = new_event();
     event->window  = win;
     event->type    = MT_EVENT_WINDOW_SCALE_CHANGED;

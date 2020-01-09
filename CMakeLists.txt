@@ -50,6 +50,9 @@ set(
 	src/motor/graphics/renderer.c
 	include/motor/graphics/renderer.h
 
+	src/motor/graphics/window.c
+	include/motor/graphics/window.h
+
 	src/motor/graphics/vulkan/glfw_window.c
 	include/motor/graphics/vulkan/glfw_window.h
 

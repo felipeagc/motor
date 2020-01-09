@@ -9,37 +9,38 @@
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/vulkan/vulkan_device.h>
 
-enum { FRAMES_IN_FLIGHT = 2 };
+enum
+{
+    FRAMES_IN_FLIGHT = 2
+};
 
-#define VK_CHECK(exp)                                                          \
-    do {                                                                       \
-        VkResult result = exp;                                                 \
-        assert(result == VK_SUCCESS);                                          \
+#define VK_CHECK(exp)                                                                              \
+    do                                                                                             \
+    {                                                                                              \
+        VkResult result = exp;                                                                     \
+        assert(result == VK_SUCCESS);                                                              \
     } while (0)
 
 VK_DEFINE_HANDLE(VmaAllocator)
 VK_DEFINE_HANDLE(VmaAllocation)
 
-typedef struct QueueFamilyIndices {
+typedef struct QueueFamilyIndices
+{
     uint32_t graphics;
     uint32_t present;
     uint32_t transfer;
     uint32_t compute;
 } QueueFamilyIndices;
 
-typedef struct MtWindowSystem {
-    const char **(*get_vulkan_instance_extensions)(uint32_t *count);
-    int32_t (*get_physical_device_presentation_support)(
-        VkInstance instance, VkPhysicalDevice device, uint32_t queuefamily);
-} MtWindowSystem;
-
-typedef struct BufferBlockAllocation {
+typedef struct BufferBlockAllocation
+{
     uint8_t *mapping;
     size_t offset;
     size_t padded_size;
 } BufferBlockAllocation;
 
-typedef struct BufferBlock {
+typedef struct BufferBlock
+{
     MtBuffer *buffer;
     size_t offset;
     size_t alignment;
@@ -48,7 +49,8 @@ typedef struct BufferBlock {
     uint8_t *mapping;
 } BufferBlock;
 
-typedef struct BufferPool {
+typedef struct BufferPool
+{
     MtDevice *dev;
     size_t block_size;
     size_t alignment;
@@ -57,11 +59,11 @@ typedef struct BufferPool {
     /*array*/ BufferBlock *blocks;
 } BufferPool;
 
-typedef struct MtDevice {
+typedef struct MtDevice
+{
     MtAllocator *alloc;
 
     MtVulkanDeviceFlags flags;
-    MtWindowSystem *window_system;
 
     VkInstance instance;
     VkDebugUtilsMessengerEXT debug_messenger;
@@ -94,24 +96,28 @@ typedef struct MtDevice {
     BufferPool ibo_pool;
 } MtDevice;
 
-typedef struct MtRenderPass {
+typedef struct MtRenderPass
+{
     VkRenderPass renderpass;
     VkExtent2D extent;
     VkFramebuffer current_framebuffer;
     uint64_t hash;
 } MtRenderPass;
 
-typedef struct SetInfo {
+typedef struct SetInfo
+{
     uint32_t index;
     /*array*/ VkDescriptorSetLayoutBinding *bindings;
 } SetInfo;
 
-typedef struct VertexAttribute {
+typedef struct VertexAttribute
+{
     VkFormat format;
     uint32_t size;
 } VertexAttribute;
 
-typedef struct Shader {
+typedef struct Shader
+{
     VkShaderModule mod;
     VkShaderStageFlagBits stage;
 
@@ -126,9 +132,13 @@ typedef union Descriptor {
     VkDescriptorBufferInfo buffer;
 } Descriptor;
 
-enum { SETS_PER_PAGE = 16 };
+enum
+{
+    SETS_PER_PAGE = 16
+};
 
-typedef struct DescriptorPool {
+typedef struct DescriptorPool
+{
     /*array*/ VkDescriptorPool *pools;
     /*array*/ VkDescriptorSet **set_arrays;
     /*array*/ uint32_t *allocated_set_counts;
@@ -139,7 +149,8 @@ typedef struct DescriptorPool {
     /*array*/ VkDescriptorPoolSize *pool_sizes;
 } DescriptorPool;
 
-typedef struct PipelineLayout {
+typedef struct PipelineLayout
+{
     VkPipelineLayout layout;
     VkPipelineBindPoint bind_point;
 
@@ -152,14 +163,16 @@ typedef struct PipelineLayout {
     uint32_t ref_count;
 } PipelineLayout;
 
-typedef struct PipelineInstance {
+typedef struct PipelineInstance
+{
     VkPipeline vk_pipeline;
     MtPipeline *pipeline;
     VkPipelineBindPoint bind_point;
     uint64_t hash;
 } PipelineInstance;
 
-typedef struct MtPipeline {
+typedef struct MtPipeline
+{
     VkPipelineBindPoint bind_point;
     MtGraphicsPipelineCreateInfo create_info;
     /*array*/ Shader *shaders;
@@ -168,14 +181,22 @@ typedef struct MtPipeline {
     MtHashMap instances;
 } MtPipeline;
 
-typedef struct MtFence {
+typedef struct MtFence
+{
     VkFence fence;
 } MtFence;
 
-enum { MAX_DESCRIPTOR_BINDINGS = 8 };
-enum { MAX_DESCRIPTOR_SETS = 8 };
+enum
+{
+    MAX_DESCRIPTOR_BINDINGS = 8
+};
+enum
+{
+    MAX_DESCRIPTOR_SETS = 8
+};
 
-typedef struct MtCmdBuffer {
+typedef struct MtCmdBuffer
+{
     MtDevice *dev;
     VkCommandBuffer cmd_buffer;
     PipelineInstance *bound_pipeline_instance;
@@ -194,7 +215,8 @@ typedef struct MtCmdBuffer {
     BufferBlock ibo_block;
 } MtCmdBuffer;
 
-typedef struct MtBuffer {
+typedef struct MtBuffer
+{
     VkBuffer buffer;
     VmaAllocation allocation;
     size_t size;
@@ -202,7 +224,8 @@ typedef struct MtBuffer {
     MtBufferMemory memory;
 } MtBuffer;
 
-typedef struct MtImage {
+typedef struct MtImage
+{
     VkImage image;
     VmaAllocation allocation;
     VkImageView image_view;
@@ -218,6 +241,7 @@ typedef struct MtImage {
     VkImageLayout layout;
 } MtImage;
 
-typedef struct MtSampler {
+typedef struct MtSampler
+{
     VkSampler sampler;
 } MtSampler;
