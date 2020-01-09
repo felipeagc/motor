@@ -573,7 +573,8 @@ static void load_node(
                     pos_accessor    = primitive->attributes[j].data;
                     pos_view        = pos_accessor->buffer_view;
                     pos_byte_stride = pos_accessor->stride;
-                    buffer_pos = &pos_view->buffer->data[pos_accessor->offset + pos_view->offset];
+                    buffer_pos      = &(
+                        (uint8_t *)pos_view->buffer->data)[pos_accessor->offset + pos_view->offset];
 
                     vertex_count = (uint32_t)pos_accessor->count;
                 }
@@ -583,8 +584,8 @@ static void load_node(
                     normal_accessor    = primitive->attributes[j].data;
                     normal_view        = normal_accessor->buffer_view;
                     normal_byte_stride = normal_accessor->stride;
-                    buffer_normals =
-                        &normal_view->buffer->data[normal_accessor->offset + normal_view->offset];
+                    buffer_normals     = &((uint8_t *)normal_view->buffer
+                                           ->data)[normal_accessor->offset + normal_view->offset];
                 }
 
                 if (primitive->attributes[j].type == cgltf_attribute_type_tangent)
@@ -592,8 +593,9 @@ static void load_node(
                     tangent_accessor    = primitive->attributes[j].data;
                     tangent_view        = tangent_accessor->buffer_view;
                     tangent_byte_stride = tangent_accessor->stride;
-                    buffer_tangents     = &tangent_view->buffer
-                                           ->data[tangent_accessor->offset + tangent_view->offset];
+                    buffer_tangents =
+                        &((uint8_t *)tangent_view->buffer
+                              ->data)[tangent_accessor->offset + tangent_view->offset];
                 }
 
                 if (primitive->attributes[j].type == cgltf_attribute_type_texcoord)
@@ -601,7 +603,8 @@ static void load_node(
                     uv0_accessor    = primitive->attributes[j].data;
                     uv0_view        = uv0_accessor->buffer_view;
                     uv0_byte_stride = uv0_accessor->stride;
-                    buffer_uv0 = &uv0_view->buffer->data[uv0_accessor->offset + uv0_view->offset];
+                    buffer_uv0      = &(
+                        (uint8_t *)uv0_view->buffer->data)[uv0_accessor->offset + uv0_view->offset];
                 }
             }
 
