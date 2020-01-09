@@ -107,10 +107,10 @@ static void load_node(
 static Mat4 node_local_matrix(GltfNode *node)
 {
     Mat4 result = mat4_identity();
-    result      = mat4_translate(result, node->translation);
-    result      = mat4_mul(result, quat_to_mat4(node->rotation));
+    result      = mat4_mul(node->matrix, result);
     result      = mat4_scale(result, node->scale);
-    result      = mat4_mul(result, node->matrix);
+    result      = mat4_mul(quat_to_mat4(node->rotation), result);
+    result      = mat4_translate(result, node->translation);
     return result;
 }
 
@@ -120,7 +120,7 @@ static Mat4 node_get_matrix(GltfNode *node)
     GltfNode *p = node->parent;
     while (p)
     {
-        m = mat4_mul(node_local_matrix(p), m);
+        m = mat4_mul(m, node_local_matrix(p));
         p = p->parent;
     }
     return m;
