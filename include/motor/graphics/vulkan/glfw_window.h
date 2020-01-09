@@ -1,18 +1,3 @@
 #pragma once
 
-#include <stdint.h>
-
-typedef struct MtAllocator MtAllocator;
-typedef struct MtDevice MtDevice;
-typedef struct MtIWindow MtIWindow;
-typedef struct MtIWindowSystem MtIWindowSystem;
-
-void mt_glfw_vulkan_init(MtIWindowSystem *system);
-
-void mt_glfw_vulkan_window_init(
-    MtIWindow *window,
-    MtDevice *dev,
-    uint32_t width,
-    uint32_t height,
-    const char *title,
-    MtAllocator *alloc);
+void mt_glfw_vulkan_window_system_init(void);

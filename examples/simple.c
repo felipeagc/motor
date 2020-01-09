@@ -60,7 +60,7 @@ void game_init(Game *g)
     assert(g->font);
 
     g->model =
-        (MtGltfAsset *)mt_asset_manager_load(&g->engine.asset_manager, "../assets/helmet.glb");
+        (MtGltfAsset *)mt_asset_manager_load(&g->engine.asset_manager, "../assets/BoomBox.glb");
     assert(g->model);
 
     MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
@@ -98,16 +98,16 @@ int main(int argc, char *argv[])
     Game game = {0};
     game_init(&game);
 
-    MtIWindow *win = &game.engine.window;
+    MtWindow *win = game.engine.window;
 
-    while (!win->vt->should_close(win->inst))
+    while (!mt_window.should_close(win))
     {
         mt_file_watcher_poll(game.watcher, asset_watcher_handler, &game);
 
-        game.engine.window_system.vt->poll_events();
+        mt_window.poll_events();
 
         MtEvent event;
-        while (win->vt->next_event(win->inst, &event))
+        while (mt_window.next_event(win, &event))
         {
             mt_perspective_camera_on_event(&game.cam, &event);
             switch (event.type)
@@ -121,11 +121,11 @@ int main(int argc, char *argv[])
             }
         }
 
-        MtCmdBuffer *cb = win->vt->begin_frame(win->inst);
+        MtCmdBuffer *cb = mt_window.begin_frame(win);
 
         mt_render.begin_cmd_buffer(cb);
 
-        mt_render.cmd_begin_render_pass(cb, win->vt->get_render_pass(win->inst));
+        mt_render.cmd_begin_render_pass(cb, mt_window.get_render_pass(win));
 
         MtViewport viewport;
         mt_render.cmd_get_viewport(cb, &viewport);
@@ -134,11 +134,11 @@ int main(int argc, char *argv[])
         mt_ui_set_font(game.ui, game.font);
         mt_ui_set_font_size(game.ui, 50);
 
-        float delta_time = win->vt->delta_time(win->inst);
+        float delta_time = mt_window.delta_time(win);
         mt_ui_printf(game.ui, "Delta: %fms", delta_time);
 
         uint32_t width, height;
-        win->vt->get_size(win->inst, &width, &height);
+        mt_window.get_size(win, &width, &height);
         float aspect = (float)width / (float)height;
         mt_perspective_camera_update(&game.cam, win, aspect);
 
@@ -162,7 +162,9 @@ int main(int argc, char *argv[])
 
             angle += delta_time;
 
-            Mat4 transform = mat4_rotate(mat4_identity(), angle, V3(0.0f, 1.0f, 0.0f));
+            Mat4 transform = mat4_identity();
+            transform      = mat4_scale(transform, V3(50.0f, 50.0f, 50.0f));
+            transform      = mat4_rotate(transform, angle, V3(0.0f, 1.0f, 0.0f));
 
             mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
             mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
@@ -176,7 +178,7 @@ int main(int argc, char *argv[])
 
         mt_render.end_cmd_buffer(cb);
 
-        win->vt->end_frame(win->inst);
+        mt_window.end_frame(win);
     }
 
     game_destroy(&game);

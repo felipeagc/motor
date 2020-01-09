@@ -113,7 +113,6 @@ vertex: [[
 
     void main() {
         tex_coords0 = tex_coords;
-        tex_coords0.y = tex_coords0.y;
 
         mat4 model0 = model.model * model.local_model;
 

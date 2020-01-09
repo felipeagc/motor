@@ -2,7 +2,7 @@
 
 #include <motor/base/math_types.h>
 
-typedef struct MtIWindow MtIWindow;
+typedef struct MtWindow MtWindow;
 typedef struct MtEvent MtEvent;
 
 typedef struct MtCameraUniform
@@ -36,4 +36,4 @@ void mt_perspective_camera_init(MtPerspectiveCamera *c);
 
 void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event);
 
-void mt_perspective_camera_update(MtPerspectiveCamera *c, MtIWindow *win, float aspect);
+void mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float aspect);

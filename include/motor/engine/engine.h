@@ -11,8 +11,7 @@ typedef struct shaderc_compiler *shaderc_compiler_t;
 typedef struct MtEngine
 {
     MtDevice *device;
-    MtIWindowSystem window_system;
-    MtIWindow window;
+    MtWindow *window;
 
     MtAllocator *alloc;
     MtAssetManager asset_manager;
