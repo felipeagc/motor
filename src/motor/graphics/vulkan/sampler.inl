@@ -18,7 +18,7 @@ static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci)
     }
     if (ci->address_mode == 0)
     {
-        ci->address_mode = MT_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        ci->address_mode = MT_SAMPLER_ADDRESS_MODE_REPEAT;
     }
     if (ci->border_color == 0)
     {
