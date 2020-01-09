@@ -61,4 +61,6 @@ void mt_environment_init(
 
 void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb);
 
+void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set);
+
 void mt_environment_destroy(MtEnvironment *env);

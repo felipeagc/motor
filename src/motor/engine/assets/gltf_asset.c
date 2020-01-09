@@ -18,8 +18,8 @@ typedef struct GltfVertex
 {
     Vec3 pos;
     Vec3 normal;
-    Vec3 tangent;
     Vec2 uv0;
+    Vec4 tangent;
 } GltfVertex;
 
 typedef struct MaterialUniform
@@ -28,7 +28,6 @@ typedef struct MaterialUniform
     float metallic;
     float roughness;
     Vec4 emissive_factor;
-    uint32_t has_normal_texture;
 } MaterialUniform;
 
 typedef struct GltfMaterial
@@ -262,11 +261,10 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
         GltfMaterial *mat = &asset->materials[i];
         memset(mat, 0, sizeof(*mat));
 
-        mat->uniform.base_color_factor  = V4(1.0f, 1.0f, 1.0f, 1.0f);
-        mat->uniform.metallic           = 1.0f;
-        mat->uniform.roughness          = 1.0f;
-        mat->uniform.emissive_factor    = V4(1.0f, 1.0f, 1.0f, 1.0f);
-        mat->uniform.has_normal_texture = 1;
+        mat->uniform.base_color_factor = V4(1.0f, 1.0f, 1.0f, 1.0f);
+        mat->uniform.metallic          = 1.0f;
+        mat->uniform.roughness         = 1.0f;
+        mat->uniform.emissive_factor   = V4(1.0f, 1.0f, 1.0f, 1.0f);
 
         if (material->pbr_metallic_roughness.base_color_texture.texture != NULL)
         {
@@ -632,7 +630,10 @@ static void load_node(
                         Vec2 delta_uv2 = v2_sub(uv2, uv0);
 
                         float r = 1.0f / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
-                        Vec3 tangent = v3_muls(
+
+                        Vec4 tangent;
+                        tangent.w   = 1.0f;
+                        tangent.xyz = v3_muls(
                             v3_sub(
                                 v3_muls(delta_pos1, delta_uv2.y), v3_muls(delta_pos2, delta_uv1.y)),
                             r);

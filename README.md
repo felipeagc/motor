@@ -12,14 +12,14 @@ No screenshots yet, because there's nothing to show.
 - Flexible control over memory allocation
 - On the fly GLSL compilation (through shaderc)
 - Asset hot-reloading
-- IBL cubemap generation
 - GLTF Model loading
+- IBL cubemap generation
+- PBR
 
 ## Not yet implemented
 - Audio
 - Physics
 - Entity system
-- PBR
 - Shadow mapping
 
 ## Rendering API

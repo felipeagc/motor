@@ -17,13 +17,6 @@
 #include <assert.h>
 #include <string.h>
 
-typedef struct Vertex
-{
-    Vec3 pos;
-    Vec3 normal;
-    Vec2 tex_coords;
-} Vertex;
-
 typedef struct Game
 {
     MtEngine engine;
@@ -59,7 +52,7 @@ void game_init(Game *g)
     assert(g->image);
 
     g->model_pipeline = (MtPipelineAsset *)mt_asset_manager_load(
-        &g->engine.asset_manager, "../assets/shaders/model.glsl");
+        &g->engine.asset_manager, "../assets/shaders/pbr.glsl");
     assert(g->model_pipeline);
 
     g->font = (MtFontAsset *)mt_asset_manager_load(
@@ -141,12 +134,20 @@ int main(int argc, char *argv[])
         mt_ui_set_font(game.ui, game.font);
         mt_ui_set_font_size(game.ui, 50);
 
-        mt_ui_printf(game.ui, "Delta: %fms", win->vt->delta_time(win->inst));
+        float delta_time = win->vt->delta_time(win->inst);
+        mt_ui_printf(game.ui, "Delta: %fms", delta_time);
 
         uint32_t width, height;
         win->vt->get_size(win->inst, &width, &height);
         float aspect = (float)width / (float)height;
         mt_perspective_camera_update(&game.cam, win, aspect);
+
+        mt_ui_printf(
+            game.ui,
+            "Pos: %.2f  %.2f  %.2f",
+            game.cam.uniform.pos.x,
+            game.cam.uniform.pos.y,
+            game.cam.uniform.pos.z);
 
         // Draw skybox
         {
@@ -156,17 +157,17 @@ int main(int argc, char *argv[])
 
         // Draw model
         {
-            mt_ui_printf(
-                game.ui,
-                "Pos: %.2f  %.2f  %.2f",
-                game.cam.uniform.pos.x,
-                game.cam.uniform.pos.y,
-                game.cam.uniform.pos.z);
 
-            Mat4 transform = mat4_identity();
+            static float angle = 0.0f;
+
+            angle += delta_time;
+
+            Mat4 transform = mat4_rotate(mat4_identity(), angle, V3(0.0f, 1.0f, 0.0f));
+
             mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
             mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-            mt_gltf_asset_draw(game.model, cb, &transform, 1, 2);
+            mt_environment_bind(&game.env, cb, 2);
+            mt_gltf_asset_draw(game.model, cb, &transform, 1, 3);
         }
 
         mt_ui_draw(game.ui, cb);
