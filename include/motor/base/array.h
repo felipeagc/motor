@@ -1,19 +1,18 @@
 #pragma once
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdlib.h>
 
-#define MT_ARRAY_INITIAL_CAPACITY 16
-
+// The size of this is important to keep things aligned properly (16-byte alignment)
 typedef struct MtArrayHeader
 {
-    uint32_t size;
-    uint32_t capacity;
+    uint64_t size;
+    uint64_t capacity;
 } MtArrayHeader;
 
 typedef struct MtAllocator MtAllocator;
 
-void *mt_array_grow(MtAllocator *alloc, void *a, uint32_t item_size, uint32_t cap);
+void *mt_array_grow(MtAllocator *alloc, void *a, uint64_t item_size, uint64_t cap);
 
 #define mt_array_header(a) ((MtArrayHeader *)((char *)(a) - sizeof(MtArrayHeader)))
 

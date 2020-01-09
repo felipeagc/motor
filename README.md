@@ -15,12 +15,7 @@ No screenshots yet, because there's nothing to show.
 - GLTF Model loading
 - IBL cubemap generation
 - PBR
-
-## Not yet implemented
-- Audio
-- Physics
-- Entity system
-- Shadow mapping
+- Normal mapping
 
 ## Rendering API
 The engine uses an rendering API described in [renderer.h](https://github.com/felipeagc/motor/blob/master/include/motor/graphics/renderer.h).
