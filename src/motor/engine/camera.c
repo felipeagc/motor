@@ -63,7 +63,7 @@ void mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float a
 
     if (mt_window.get_cursor_mode(win) == MT_CURSOR_MODE_DISABLED)
     {
-        c->yaw += dx * c->sensitivity * (MT_PI / 180.0f);
+        c->yaw -= dx * c->sensitivity * (MT_PI / 180.0f);
         c->pitch -= dy * c->sensitivity * (MT_PI / 180.0f);
         c->pitch = clamp(c->pitch, -89.0f * (MT_PI / 180.0f), 89.0f * (MT_PI / 180.0f));
     }
@@ -74,7 +74,7 @@ void mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float a
     front.z = cos(c->yaw) * cos(c->pitch);
     front   = v3_normalize(front);
 
-    Vec3 right = v3_normalize(v3_cross(front, V3(0.0f, -1.0f, 0.0f)));
+    Vec3 right = v3_normalize(v3_cross(front, V3(0.0f, 1.0f, 0.0f)));
     Vec3 up    = v3_normalize(v3_cross(right, front));
 
     float delta = c->speed * (float)mt_window.delta_time(win);
@@ -101,4 +101,13 @@ void mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float a
     c->uniform.view = mat4_look_at(c->pos, v3_add(c->pos, front), up);
 
     c->uniform.proj = mat4_perspective(c->fovy, aspect, c->near, c->far);
+
+    Mat4 correction = {{
+        {1.0f, 0.0f, 0.0f, 0.0f},
+        {0.0f, -1.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.5f, 0.0f},
+        {0.0f, 0.0f, 0.5f, 1.0f},
+    }};
+
+    c->uniform.proj = mat4_mul(c->uniform.proj, correction);
 }

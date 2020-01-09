@@ -1,7 +1,7 @@
 blending: false
 depth_test: false
 depth_write: false
-cull_mode: "back"
+cull_mode: "front"
 front_face: "clockwise"
 
 common: [[

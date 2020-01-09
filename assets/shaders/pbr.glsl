@@ -2,7 +2,7 @@ blending: true
 depth_test: true
 depth_write: true
 cull_mode: "front"
-front_face: "counter_clockwise"
+front_face: "clockwise"
 
 common: [[
     const float PI = 3.14159265359;

@@ -28,12 +28,30 @@ typedef struct Game
 
     MtImageAsset *image;
     MtFontAsset *font;
-    MtGltfAsset *model;
 
     MtPipelineAsset *model_pipeline;
 
+    MtGltfAsset **models;
+    Mat4 *transforms;
+
     MtEnvironment env;
 } Game;
+
+void load_model(Game *g, const char *path, float scale)
+{
+    MtGltfAsset **model;
+    model = mt_array_push(
+        g->engine.alloc,
+        g->models,
+        (MtGltfAsset *)mt_asset_manager_load(&g->engine.asset_manager, path));
+    assert(*model);
+
+    Mat4 transform = mat4_identity();
+    transform      = mat4_scale(transform, V3(scale, scale, scale));
+    transform =
+        mat4_translate(transform, V3((float)(mt_array_size(g->models) - 1) * 5.0f, 0.0f, 0.0f));
+    mt_array_push(g->engine.alloc, g->transforms, transform);
+}
 
 void game_init(Game *g)
 {
@@ -59,9 +77,9 @@ void game_init(Game *g)
         &g->engine.asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
     assert(g->font);
 
-    g->model =
-        (MtGltfAsset *)mt_asset_manager_load(&g->engine.asset_manager, "../assets/BoomBox.glb");
-    assert(g->model);
+    load_model(g, "../assets/BoomBox.glb", 100.0f);
+    load_model(g, "../assets/Lantern.glb", 0.2f);
+    load_model(g, "../assets/NormalTangentMirrorTest.glb", 1.0f);
 
     MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");
@@ -71,6 +89,9 @@ void game_init(Game *g)
 
 void game_destroy(Game *g)
 {
+    mt_array_free(g->engine.alloc, g->models);
+    mt_array_free(g->engine.alloc, g->transforms);
+
     mt_file_watcher_destroy(g->watcher);
     mt_ui_destroy(g->ui);
     mt_environment_destroy(&g->env);
@@ -157,19 +178,18 @@ int main(int argc, char *argv[])
 
         // Draw model
         {
-
             static float angle = 0.0f;
 
             angle += delta_time;
 
-            Mat4 transform = mat4_identity();
-            transform      = mat4_scale(transform, V3(50.0f, 50.0f, 50.0f));
-            transform      = mat4_rotate(transform, angle, V3(0.0f, 1.0f, 0.0f));
-
             mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
             mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
             mt_environment_bind(&game.env, cb, 2);
-            mt_gltf_asset_draw(game.model, cb, &transform, 1, 3);
+
+            for (uint32_t i = 0; i < mt_array_size(game.models); i++)
+            {
+                mt_gltf_asset_draw(game.models[i], cb, &game.transforms[i], 1, 3);
+            }
         }
 
         mt_ui_draw(game.ui, cb);
