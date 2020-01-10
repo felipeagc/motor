@@ -7,8 +7,7 @@
 int32_t thread_start(void *arg)
 {
     printf("Hello from thread %u\n", mt_thread_pool_task_id);
-    float val = (float)rand() / (float)RAND_MAX;
-    mt_thread_sleep((uint32_t)(val * 100.0f));
+    mt_thread_sleep(100);
     return 0;
 }
 
@@ -19,7 +18,16 @@ int main()
 
     srand(0);
 
-    for (uint32_t i = 0; i < 32; i++)
+    for (uint32_t i = 0; i < 16; i++)
+    {
+        mt_thread_pool_enqueue(&pool, thread_start, NULL);
+    }
+
+    mt_thread_pool_wait_all(&pool);
+
+    printf("Hello\n");
+
+    for (uint32_t i = 0; i < 16; i++)
     {
         mt_thread_pool_enqueue(&pool, thread_start, NULL);
     }

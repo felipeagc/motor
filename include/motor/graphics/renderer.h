@@ -218,6 +218,9 @@ typedef struct MtRenderer
     void (*destroy_device)(MtDevice *);
     void (*device_wait_idle)(MtDevice *);
 
+    void (*set_thread_id)(uint32_t thread_id);
+    uint32_t (*get_thread_id)(void);
+
     void (*allocate_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
     void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
 

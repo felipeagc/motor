@@ -28,6 +28,7 @@ typedef struct MtThreadPool
 
     bool stop;
 
+    uint32_t num_working;
     MtThreadPoolTask *queue;
     uint32_t queue_front;
     uint32_t queue_back;
@@ -35,6 +36,7 @@ typedef struct MtThreadPool
 
     MtMutex queue_mutex;
     MtCond cond;
+    MtCond done_cond;
 } MtThreadPool;
 
 void mt_thread_pool_init(MtThreadPool *pool, uint32_t num_threads, MtAllocator *alloc);
@@ -42,5 +44,7 @@ void mt_thread_pool_init(MtThreadPool *pool, uint32_t num_threads, MtAllocator *
 void mt_thread_pool_destroy(MtThreadPool *pool);
 
 void mt_thread_pool_enqueue(MtThreadPool *pool, MtThreadStart routine, void *arg);
+
+void mt_thread_pool_wait_all(MtThreadPool *pool);
 
 uint32_t mt_thread_pool_queue_size(MtThreadPool *pool);
