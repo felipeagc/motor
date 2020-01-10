@@ -1,16 +1,7 @@
 #pragma once
 
-#if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__)
-#define MT_THREADS_WIN32
-#else
-#define MT_THREADS_POSIX
-#endif
-
-#if defined(MT_THREADS_POSIX)
-#include <pthread.h>
-#elif defined(MT_THREADS_WIN32)
-#include <windows.h>
-#endif
+#include <stdint.h>
+#include <stdbool.h>
 
 #if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) && !defined(_Thread_local)
 #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
@@ -25,22 +16,61 @@
 
 #define MT_THREAD_LOCAL _Thread_local
 
-#if defined(MT_THREADS_POSIX)
-typedef pthread_t MtThread;
-#elif defined(MT_THREADS_WIN32)
-typedef HANDLE MtThread;
-#endif
+uint32_t mt_cpu_count(void);
 
-typedef int (*MtThreadStart)(void *);
+typedef struct MtThread
+{
+    uint64_t opaque;
+} MtThread;
 
-void mt_thread_create(MtThread *thread, MtThreadStart func, void *arg);
+typedef int32_t (*MtThreadStart)(void *);
+
+int32_t mt_thread_init(MtThread *thread, MtThreadStart func, void *arg);
 
 MtThread mt_thread_current(void);
 
-int mt_thread_detach(MtThread thread);
+void mt_thread_sleep(uint32_t milliseconds);
 
-int mt_thread_equal(MtThread thread1, MtThread thread2);
+int32_t mt_thread_detach(MtThread thread);
 
-void mt_thread_exit(int res);
+bool mt_thread_equal(MtThread thread1, MtThread thread2);
 
-int mt_thread_join(MtThread thread, int *res);
+void mt_thread_exit(int32_t res);
+
+int32_t mt_thread_wait(MtThread thread, int32_t *res);
+
+typedef struct MtMutex
+{
+    union {
+        void *align;
+        uint8_t data[64];
+    };
+} MtMutex;
+
+int32_t mt_mutex_init(MtMutex *mtx);
+
+void mt_mutex_destroy(MtMutex *mtx);
+
+int32_t mt_mutex_lock(MtMutex *mtx);
+
+int32_t mt_mutex_trylock(MtMutex *mtx);
+
+int32_t mt_mutex_unlock(MtMutex *mtx);
+
+typedef struct MtCond
+{
+    union {
+        void *align;
+        uint8_t data[64];
+    };
+} MtCond;
+
+int32_t mt_cond_init(MtCond *cond);
+
+void mt_cond_destroy(MtCond *cond);
+
+int32_t mt_cond_wake_one(MtCond *cond);
+
+int32_t mt_cond_wake_all(MtCond *cond);
+
+int32_t mt_cond_wait(MtCond *cond, MtMutex *mtx);

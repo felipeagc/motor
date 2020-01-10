@@ -30,6 +30,9 @@ set(
 	src/motor/base/threads.c
 	include/motor/base/threads.h
 
+	src/motor/base/thread_pool.c
+	include/motor/base/thread_pool.h
+
 	src/motor/base/array.c
 	include/motor/base/array.h
 
@@ -151,4 +154,8 @@ add_test(area_tests arena_tests)
 add_executable(hash_tests tests/hash_tests.c)
 target_link_libraries(hash_tests PUBLIC motor_base)
 add_test(hash_tests hash_tests)
+
+add_executable(thread_tests tests/thread_tests.c)
+target_link_libraries(thread_tests PUBLIC motor_base)
+add_test(thread_tests thread_tests)
 
