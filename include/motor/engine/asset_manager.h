@@ -1,6 +1,7 @@
 #pragma once
 
 #include <motor/base/hashmap.h>
+#include <motor/base/threads.h>
 #include "asset.h"
 
 typedef struct MtEngine MtEngine;
@@ -14,6 +15,8 @@ typedef struct MtAssetManager
 
     /*array*/ MtIAsset *assets;
     MtHashMap asset_map;
+
+    MtMutex mutex;
 } MtAssetManager;
 
 void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine);

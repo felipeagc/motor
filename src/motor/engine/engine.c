@@ -8,7 +8,7 @@
 #include <shaderc/shaderc.h>
 #include <string.h>
 
-void mt_engine_init(MtEngine *engine)
+void mt_engine_init(MtEngine *engine, uint32_t num_threads)
 {
     memset(engine, 0, sizeof(*engine));
 #if 0
@@ -18,7 +18,11 @@ void mt_engine_init(MtEngine *engine)
 
     mt_glfw_vulkan_window_system_init();
 
-    engine->device = mt_vulkan_device_init(&(MtVulkanDeviceCreateInfo){}, engine->alloc);
+    engine->device = mt_vulkan_device_init(
+        &(MtVulkanDeviceCreateInfo){
+            .num_threads = num_threads,
+        },
+        engine->alloc);
 
     engine->window = mt_window.create(engine->device, 1280, 720, "Motor", engine->alloc);
 

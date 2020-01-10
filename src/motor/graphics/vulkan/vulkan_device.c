@@ -24,6 +24,21 @@
 
 #include <GLFW/glfw3.h>
 
+#if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) && !defined(_Thread_local)
+#if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
+#define _Thread_local __thread
+#else
+#define _Thread_local __declspec(thread)
+#endif
+#elif defined(__GNUC__) && defined(__GNUC_MINOR__) &&                                              \
+    (((__GNUC__ << 8) | __GNUC_MINOR__) < ((4 << 8) | 9))
+#define _Thread_local __thread
+#endif
+
+#define MT_THREAD_LOCAL _Thread_local
+
+MT_THREAD_LOCAL static uint32_t renderer_thread_id = 0;
+
 #if !defined(NDEBUG)
 // Debug mode
 #define MT_ENABLE_VALIDATION
@@ -526,17 +541,17 @@ static void allocate_cmd_buffers(
     {
         case MT_QUEUE_GRAPHICS:
         {
-            pool = dev->graphics_cmd_pools[0];
+            pool = dev->graphics_cmd_pools[renderer_thread_id];
             break;
         }
         case MT_QUEUE_COMPUTE:
         {
-            pool = dev->compute_cmd_pools[0];
+            pool = dev->compute_cmd_pools[renderer_thread_id];
             break;
         }
         case MT_QUEUE_TRANSFER:
         {
-            pool = dev->transfer_cmd_pools[0];
+            pool = dev->transfer_cmd_pools[renderer_thread_id];
             break;
         }
     }
@@ -575,17 +590,17 @@ free_cmd_buffers(MtDevice *dev, MtQueueType queue_type, uint32_t count, MtCmdBuf
     {
         case MT_QUEUE_GRAPHICS:
         {
-            pool = dev->graphics_cmd_pools[0];
+            pool = dev->graphics_cmd_pools[renderer_thread_id];
             break;
         }
         case MT_QUEUE_COMPUTE:
         {
-            pool = dev->compute_cmd_pools[0];
+            pool = dev->compute_cmd_pools[renderer_thread_id];
             break;
         }
         case MT_QUEUE_TRANSFER:
         {
-            pool = dev->transfer_cmd_pools[0];
+            pool = dev->transfer_cmd_pools[renderer_thread_id];
             break;
         }
     }
@@ -825,11 +840,24 @@ static void destroy_device(MtDevice *dev)
 
     mt_free(alloc, dev);
 }
+
+static void set_thread_id(uint32_t thread_id)
+{
+    renderer_thread_id = thread_id;
+}
+
+static uint32_t get_thread_id(void)
+{
+    return renderer_thread_id;
+}
 // }}}
 
 static MtRenderer g_vulkan_renderer = {
     .destroy_device   = destroy_device,
     .device_wait_idle = device_wait_idle,
+
+    .set_thread_id = set_thread_id,
+    .get_thread_id = get_thread_id,
 
     .allocate_cmd_buffers = allocate_cmd_buffers,
     .free_cmd_buffers     = free_cmd_buffers,
@@ -906,7 +934,7 @@ MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocat
     dev->flags = create_info->flags;
     dev->alloc = alloc;
 
-    dev->num_threads = create_info->num_threads;
+    dev->num_threads = create_info->num_threads + 1; // NOTE: Number of threads + main thread
     if (dev->num_threads == 0)
     {
         dev->num_threads = 1;

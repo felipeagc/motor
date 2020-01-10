@@ -2,6 +2,7 @@
 #include <motor/base/util.h>
 #include <motor/base/math.h>
 #include <motor/base/array.h>
+#include <motor/base/thread_pool.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/window.h>
 #include <motor/engine/ui.h>
@@ -31,19 +32,36 @@ typedef struct Game
 
     MtPipelineAsset *model_pipeline;
 
+    MtMutex models_mutex;
     MtGltfAsset **models;
     Mat4 *transforms;
 
     MtEnvironment env;
+
+    MtThreadPool thread_pool;
 } Game;
 
-void load_model(Game *g, const char *path, float scale)
+typedef struct AssetLoadInfo
 {
+    Game *g;
+    const char *path;
+    float scale;
+} AssetLoadInfo;
+
+static int32_t asset_load(void *arg)
+{
+    AssetLoadInfo *info = arg;
+    Game *g             = info->g;
+    const char *path    = info->path;
+    float scale         = info->scale;
+    mt_free(g->engine.alloc, info);
+
+    MtAsset *asset = mt_asset_manager_load(&g->engine.asset_manager, path);
+
+    mt_mutex_lock(&g->models_mutex);
+
     MtGltfAsset **model;
-    model = mt_array_push(
-        g->engine.alloc,
-        g->models,
-        (MtGltfAsset *)mt_asset_manager_load(&g->engine.asset_manager, path));
+    model = mt_array_push(g->engine.alloc, g->models, (MtGltfAsset *)asset);
     assert(*model);
 
     Mat4 transform = mat4_identity();
@@ -51,13 +69,34 @@ void load_model(Game *g, const char *path, float scale)
     transform =
         mat4_translate(transform, V3((float)(mt_array_size(g->models) - 1) * 5.0f, 0.0f, 0.0f));
     mt_array_push(g->engine.alloc, g->transforms, transform);
+
+    mt_mutex_unlock(&g->models_mutex);
+
+    return 0;
+}
+
+void load_model(Game *g, const char *path, float scale)
+{
+    AssetLoadInfo *info = mt_alloc(g->engine.alloc, sizeof(AssetLoadInfo));
+
+    info->g     = g;
+    info->path  = path;
+    info->scale = scale;
+
+    mt_thread_pool_enqueue(&g->thread_pool, asset_load, info);
 }
 
 void game_init(Game *g)
 {
     memset(g, 0, sizeof(*g));
 
-    mt_engine_init(&g->engine);
+    uint32_t num_threads = mt_cpu_count() / 2;
+    printf("Using %u threads\n", num_threads);
+
+    mt_engine_init(&g->engine, num_threads);
+
+    mt_thread_pool_init(&g->thread_pool, num_threads, g->engine.alloc);
+    mt_mutex_init(&g->models_mutex);
 
     g->ui = mt_ui_create(g->engine.alloc, &g->engine.asset_manager);
 
@@ -87,6 +126,8 @@ void game_init(Game *g)
         &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");
 
     mt_environment_init(&g->env, &g->engine.asset_manager, skybox_asset);
+
+    mt_thread_pool_wait_all(&g->thread_pool);
 }
 
 void game_destroy(Game *g)
@@ -97,6 +138,9 @@ void game_destroy(Game *g)
     mt_file_watcher_destroy(g->watcher);
     mt_ui_destroy(g->ui);
     mt_environment_destroy(&g->env);
+
+    mt_thread_pool_destroy(&g->thread_pool);
+    mt_mutex_destroy(&g->models_mutex);
 
     mt_engine_destroy(&g->engine);
 }

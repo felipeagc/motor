@@ -21,7 +21,7 @@ static void asset_destroy(MtAsset *asset_)
     mt_render.destroy_pipeline(asset->asset_manager->engine->device, asset->pipeline);
 }
 
-bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path)
+static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path)
 {
     MtPipelineAsset *asset = (MtPipelineAsset *)asset_;
     asset->asset_manager   = asset_manager;
