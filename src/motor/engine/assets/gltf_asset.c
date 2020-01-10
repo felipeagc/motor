@@ -661,8 +661,9 @@ static void load_node(
                 cgltf_buffer_view *buffer_view = accessor->buffer_view;
                 cgltf_buffer *buffer           = buffer_view->buffer;
 
-                index_count          = (uint32_t)accessor->count;
-                const void *data_ptr = &buffer->data[accessor->offset + buffer_view->offset];
+                index_count = (uint32_t)accessor->count;
+                const void *data_ptr =
+                    &((uint8_t *)buffer->data)[accessor->offset + buffer_view->offset];
 
                 uint32_t first_index = mt_array_size(*index_buffer);
                 mt_array_pushn(alloc, *index_buffer, accessor->count);
