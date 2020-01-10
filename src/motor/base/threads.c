@@ -19,7 +19,8 @@
     static_assert(sizeof(MtMutex) >= sizeof(pthread_mutex_t), "");
     static_assert(sizeof(MtCond) >= sizeof(pthread_cond_t), "");
 #elif defined(MT_THREADS_WIN32)
-    #include <windows.h>
+    #include <Windows.h>
+    #include <synchapi.h>
 
     typedef struct WindowsMutex
     {
@@ -168,13 +169,15 @@ int32_t mt_thread_wait(MtThread thread, int32_t *res)
     }
     if (res != NULL)
     {
-        if (GetExitCodeThread(_thread, res) == 0)
+        DWORD dw_res;
+        if (GetExitCodeThread(_thread, &dw_res) == 0)
         {
             return 0;
         }
+        *res = (int32_t)dw_res;
     }
 
-    CloseHandle(_thread.cs);
+    CloseHandle(_thread);
 
     return 1;
 #elif defined(MT_THREADS_POSIX)
