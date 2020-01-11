@@ -7,37 +7,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
+    - uses: actions/setup-python@v1
+      with:
+        python-version: '3.x'
+    - run: pip install meson ninja
     - name: Install dependencies
       run: sudo apt-get install -y libxinerama-dev libxrandr-dev libxkbcommon-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxi-dev libxxf86vm-dev
-    - name: Create Build Environment
-      run: cmake -E make_directory ${{runner.workspace}}/build
-    - name: Configure CMake
-      shell: bash
-      working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+    - name: Setup meson
+      run: meson setup build
     - name: Build
-      working-directory: ${{runner.workspace}}/build
-      shell: bash
-      run: cmake --build . --config $BUILD_TYPE
+      run: ninja -C build
     - name: Test
-      working-directory: ${{runner.workspace}}/build
-      shell: bash
-      run: ctest -C $BUILD_TYPE
+      run: meson test -C build -v
   windows:
     runs-on: windows-latest
+    env:
+      VCVARSALL: '"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"'
+      VCARCH: 'x64'
     steps:
     - uses: actions/checkout@v1
-    - name: Create Build Environment
-      run: cmake -E make_directory ${{runner.workspace}}/build
-    - name: Configure CMake
-      shell: bash
-      working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+    - uses: actions/setup-python@v1
+      with:
+        python-version: '3.x'
+    - run: pip install meson ninja
+    - name: Setup meson
+      shell: cmd
+      run: |
+        call %VCVARSALL% %VCARCH%
+        meson setup build
     - name: Build
-      working-directory: ${{runner.workspace}}/build
-      shell: bash
-      run: cmake --build . --config $BUILD_TYPE
+      shell: cmd
+      run: |
+        call %VCVARSALL% %VCARCH%
+        ninja -C build
     - name: Test
-      working-directory: ${{runner.workspace}}/build
-      shell: bash
-      run: ctest -C $BUILD_TYPE
+      shell: cmd
+      run: |
+        call %VCVARSALL% %VCARCH%
+        meson test -C build -v

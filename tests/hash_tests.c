@@ -5,7 +5,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-void test1(MtAllocator *alloc) {
+void test1(MtAllocator *alloc)
+{
     MtHashMap h;
     mt_hash_init(&h, 2, alloc);
 
@@ -28,11 +29,13 @@ void test1(MtAllocator *alloc) {
     mt_hash_destroy(&h);
 }
 
-void test2(MtAllocator *alloc) {
+void test2(MtAllocator *alloc)
+{
     MtHashMap h;
     mt_hash_init(&h, 13, alloc);
 
-    typedef struct Struct {
+    typedef struct Struct
+    {
         int32_t a;
     } Struct;
 
@@ -43,7 +46,8 @@ void test2(MtAllocator *alloc) {
 
     Struct s = {.a = 123};
     int i;
-    assert((i = (mt_array_push(alloc, data, s) - data)) == 0);
+    mt_array_push(alloc, data, s);
+    assert((i = (mt_array_last(data) - data)) == 0);
     assert(mt_hash_set_uint(&h, s.a, i) != MT_HASH_NOT_FOUND);
 
     assert(mt_hash_set_uint(&h, 1, 321) == 321);
@@ -53,7 +57,8 @@ void test2(MtAllocator *alloc) {
     mt_hash_destroy(&h);
 }
 
-int main() {
+int main()
+{
     MtAllocator alloc;
     mt_arena_init(&alloc, 1 << 14);
 

@@ -419,7 +419,8 @@ static bool parse_object_entries(Parser *p, MtConfigObject *obj)
         uint64_t key_hash = mt_hash_str(entry.key);
         if (!mt_hash_get_ptr(&obj->map, key_hash))
         {
-            MtConfigEntry *entry_ptr = mt_array_push(p->config->alloc, obj->entries, entry);
+            mt_array_push(p->config->alloc, obj->entries, entry);
+            MtConfigEntry *entry_ptr = mt_array_last(obj->entries);
             mt_hash_set_ptr(&obj->map, key_hash, entry_ptr);
         }
         else

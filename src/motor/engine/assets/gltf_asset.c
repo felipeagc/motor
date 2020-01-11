@@ -183,7 +183,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
     assert(data->file_type == cgltf_file_type_glb);
 
     // Load samplers
-    mt_array_pushn(alloc, asset->samplers, data->samplers_count);
+    mt_array_add(alloc, asset->samplers, data->samplers_count);
     for (uint32_t i = 0; i < data->samplers_count; i++)
     {
         cgltf_sampler *sampler = &data->samplers[i];
@@ -223,12 +223,13 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
     }
 
     // Load images
-    mt_array_pushn(alloc, asset->images, data->images_count);
+    mt_array_add(alloc, asset->images, data->images_count);
     for (uint32_t i = 0; i < data->images_count; i++)
     {
-        cgltf_image *image   = &data->images[i];
-        uint8_t *buffer_data = image->buffer_view->buffer->data + image->buffer_view->offset;
-        size_t buffer_size   = image->buffer_view->size;
+        cgltf_image *image = &data->images[i];
+        uint8_t *buffer_data =
+            ((uint8_t *)image->buffer_view->buffer->data) + image->buffer_view->offset;
+        size_t buffer_size = image->buffer_view->size;
 
         int width, height, n_channels;
         uint8_t *image_data =
@@ -253,7 +254,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
     }
 
     // Load materials
-    mt_array_pushn(alloc, asset->materials, data->materials_count);
+    mt_array_add(alloc, asset->materials, data->materials_count);
     for (uint32_t i = 0; i < data->materials_count; i++)
     {
         cgltf_material *material = &data->materials[i];
@@ -404,7 +405,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
     size_t vertex_buffer_size = mt_array_size(vertices) * sizeof(GltfVertex);
     size_t index_buffer_size  = mt_array_size(indices) * sizeof(uint32_t);
-    asset->index_count        = mt_array_size(indices);
+    asset->index_count        = (uint32_t)mt_array_size(indices);
 
     assert(vertex_buffer_size > 0);
 
@@ -609,7 +610,7 @@ static void load_node(
             }
 
             uint32_t first_vertex = mt_array_size(*vertex_buffer);
-            mt_array_pushn(alloc, *vertex_buffer, vertex_count);
+            mt_array_add(alloc, *vertex_buffer, vertex_count);
             GltfVertex *vertices = &(*vertex_buffer)[first_vertex];
 
             for (size_t v = 0; v < vertex_count; v++)
@@ -666,7 +667,7 @@ static void load_node(
                     &((uint8_t *)buffer->data)[accessor->offset + buffer_view->offset];
 
                 uint32_t first_index = mt_array_size(*index_buffer);
-                mt_array_pushn(alloc, *index_buffer, accessor->count);
+                mt_array_add(alloc, *index_buffer, accessor->count);
 
                 switch (accessor->component_type)
                 {

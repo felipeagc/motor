@@ -1,9 +1,11 @@
 static void descriptor_pool_grow(MtDevice *dev, DescriptorPool *p)
 {
-    VkDescriptorPool *pool = mt_array_push(dev->alloc, p->pools, (VkDescriptorPool){0});
-    MtHashMap *hashmap     = mt_array_push(dev->alloc, p->pool_hashmaps, (MtHashMap){0});
-    uint32_t *allocated_set_count =
-        mt_array_push(dev->alloc, p->allocated_set_counts, (uint32_t){0});
+    mt_array_push(dev->alloc, p->pools, (VkDescriptorPool){0});
+    mt_array_push(dev->alloc, p->pool_hashmaps, (MtHashMap){0});
+    mt_array_push(dev->alloc, p->allocated_set_counts, (uint32_t){0});
+    VkDescriptorPool *pool        = mt_array_last(p->pools);
+    MtHashMap *hashmap            = mt_array_last(p->pool_hashmaps);
+    uint32_t *allocated_set_count = mt_array_last(p->allocated_set_counts);
 
     mt_hash_init(hashmap, SETS_PER_PAGE * 2, dev->alloc);
 
@@ -21,7 +23,7 @@ static void descriptor_pool_grow(MtDevice *dev, DescriptorPool *p)
 
     // Allocate descriptor sets
     VkDescriptorSetLayout *set_layouts = NULL;
-    mt_array_pushn(dev->alloc, set_layouts, SETS_PER_PAGE);
+    mt_array_add(dev->alloc, set_layouts, SETS_PER_PAGE);
     for (uint32_t i = 0; i < mt_array_size(set_layouts); i++)
     {
         set_layouts[i] = p->set_layout;
@@ -34,8 +36,9 @@ static void descriptor_pool_grow(MtDevice *dev, DescriptorPool *p)
         .pSetLayouts        = set_layouts,
     };
 
-    VkDescriptorSet **sets = mt_array_push(dev->alloc, p->set_arrays, NULL);
-    mt_array_pushn(dev->alloc, *sets, SETS_PER_PAGE);
+    mt_array_push(dev->alloc, p->set_arrays, NULL);
+    VkDescriptorSet **sets = mt_array_last(p->set_arrays);
+    mt_array_add(dev->alloc, *sets, SETS_PER_PAGE);
     VK_CHECK(vkAllocateDescriptorSets(dev->device, &alloc_info, *sets));
 
     mt_array_free(dev->alloc, set_layouts);
@@ -112,8 +115,8 @@ descriptor_pool_init(MtDevice *dev, DescriptorPool *p, PipelineLayout *layout, u
 
             if (!found_pool_size)
             {
-                found_pool_size =
-                    mt_array_push(dev->alloc, p->pool_sizes, (VkDescriptorPoolSize){0});
+                mt_array_push(dev->alloc, p->pool_sizes, (VkDescriptorPoolSize){0});
+                found_pool_size = mt_array_last(p->pool_sizes);
 
                 found_pool_size->type            = binding->descriptorType;
                 found_pool_size->descriptorCount = 0;
@@ -134,7 +137,6 @@ static VkDescriptorSet descriptor_pool_alloc(
 {
     for (uint32_t i = 0; i < mt_array_size(p->pools); i++)
     {
-        VkDescriptorPool pool         = p->pools[i];
         uint32_t *allocated_set_count = &p->allocated_set_counts[i];
         MtHashMap *hashmap            = &p->pool_hashmaps[i];
         VkDescriptorSet *sets         = p->set_arrays[i];

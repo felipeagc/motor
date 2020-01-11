@@ -467,7 +467,7 @@ static void cmd_begin_render_pass(MtCmdBuffer *cmd_buffer, MtRenderPass *render_
     cmd_buffer->current_renderpass = *render_pass;
 
     VkClearValue clear_values[2]         = {0};
-    clear_values[0].color                = (VkClearColorValue){0.0f, 0.0f, 0.0f, 1.0f};
+    clear_values[0].color                = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
     clear_values[1].depthStencil.depth   = 1.0f;
     clear_values[1].depthStencil.stencil = 0;
 

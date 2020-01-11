@@ -23,7 +23,7 @@ combined_set_layouts_init(CombinedSetLayouts *c, MtPipeline *pipeline, MtAllocat
 
     if (pc_count > 0)
     {
-        mt_array_pushn_zeroed(alloc, c->push_constants, pc_count);
+        mt_array_add_zeroed(alloc, c->push_constants, pc_count);
 
         uint32_t pc_index = 0;
         Shader *shader;
@@ -51,7 +51,7 @@ combined_set_layouts_init(CombinedSetLayouts *c, MtPipeline *pipeline, MtAllocat
 
     if (set_count > 0)
     {
-        mt_array_pushn_zeroed(alloc, c->sets, set_count);
+        mt_array_add_zeroed(alloc, c->sets, set_count);
 
         Shader *shader;
         mt_array_foreach(shader, pipeline->shaders)
@@ -80,8 +80,8 @@ combined_set_layouts_init(CombinedSetLayouts *c, MtPipeline *pipeline, MtAllocat
 
                     if (!binding)
                     {
-                        binding =
-                            mt_array_push(alloc, set->bindings, (VkDescriptorSetLayoutBinding){0});
+                        mt_array_push(alloc, set->bindings, (VkDescriptorSetLayoutBinding){0});
+                        binding          = mt_array_last(set->bindings);
                         binding->binding = sbinding->binding;
                     }
 
@@ -156,7 +156,7 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
             }
         }
 
-        mt_array_pushn(dev->alloc, shader->vertex_attributes, location_count);
+        mt_array_add(dev->alloc, shader->vertex_attributes, location_count);
         for (uint32_t i = 0; i < reflect_mod.input_variable_count; i++)
         {
             SpvReflectInterfaceVariable *var = &reflect_mod.input_variables[i];
@@ -203,7 +203,7 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
 
     if (reflect_mod.descriptor_set_count > 0)
     {
-        mt_array_pushn_zeroed(dev->alloc, shader->sets, reflect_mod.descriptor_set_count);
+        mt_array_add_zeroed(dev->alloc, shader->sets, reflect_mod.descriptor_set_count);
 
         for (uint32_t i = 0; i < reflect_mod.descriptor_set_count; i++)
         {
@@ -211,7 +211,7 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
 
             SetInfo *set = &shader->sets[i];
             set->index   = rset->set;
-            mt_array_pushn_zeroed(dev->alloc, set->bindings, rset->binding_count);
+            mt_array_add_zeroed(dev->alloc, set->bindings, rset->binding_count);
 
             for (uint32_t b = 0; b < mt_array_size(set->bindings); b++)
             {
@@ -228,7 +228,7 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
     if (reflect_mod.push_constant_block_count > 0)
     {
         // Push constants
-        mt_array_pushn_zeroed(
+        mt_array_add_zeroed(
             dev->alloc, shader->push_constants, reflect_mod.push_constant_block_count);
 
         for (uint32_t i = 0; i < reflect_mod.push_constant_block_count; i++)
@@ -269,19 +269,18 @@ create_pipeline_layout(MtDevice *dev, CombinedSetLayouts *combined, VkPipelineBi
 
     l->bind_point = bind_point;
 
-    mt_array_pushn(dev->alloc, l->push_constants, mt_array_size(combined->push_constants));
+    mt_array_add(dev->alloc, l->push_constants, mt_array_size(combined->push_constants));
     memcpy(
         l->push_constants,
         combined->push_constants,
         mt_array_size(combined->push_constants) * sizeof(*combined->push_constants));
 
-    mt_array_pushn_zeroed(dev->alloc, l->sets, mt_array_size(combined->sets));
+    mt_array_add_zeroed(dev->alloc, l->sets, mt_array_size(combined->sets));
 
-    SetInfo *set;
     for (uint32_t i = 0; i < mt_array_size(l->sets); i++)
     {
         SetInfo *cset = &combined->sets[i];
-        mt_array_pushn(dev->alloc, l->sets[i].bindings, mt_array_size(cset->bindings));
+        mt_array_add(dev->alloc, l->sets[i].bindings, mt_array_size(cset->bindings));
         memcpy(
             l->sets[i].bindings,
             cset->bindings,
@@ -289,7 +288,7 @@ create_pipeline_layout(MtDevice *dev, CombinedSetLayouts *combined, VkPipelineBi
     }
 
     VkDescriptorSetLayout *set_layouts = NULL;
-    mt_array_pushn_zeroed(dev->alloc, l->pools, mt_array_size(l->sets));
+    mt_array_add_zeroed(dev->alloc, l->pools, mt_array_size(l->sets));
     for (uint32_t i = 0; i < mt_array_size(l->pools); i++)
     {
         descriptor_pool_init(dev, &l->pools[i], l, i);
@@ -365,7 +364,7 @@ static void create_graphics_pipeline_instance(
     VertexAttribute *attribs = NULL;
 
     VkPipelineShaderStageCreateInfo *stages = NULL;
-    mt_array_pushn(dev->alloc, stages, mt_array_size(pipeline->shaders));
+    mt_array_add(dev->alloc, stages, mt_array_size(pipeline->shaders));
     for (uint32_t i = 0; i < mt_array_size(pipeline->shaders); i++)
     {
         stages[i] = (VkPipelineShaderStageCreateInfo){
@@ -403,7 +402,7 @@ static void create_graphics_pipeline_instance(
         vertex_input_info.vertexBindingDescriptionCount = 1;
         vertex_input_info.pVertexBindingDescriptions    = &binding_description;
 
-        mt_array_pushn(dev->alloc, attributes, mt_array_size(attribs));
+        mt_array_add(dev->alloc, attributes, mt_array_size(attribs));
 
         uint32_t attrib_offset = 0;
 
@@ -656,7 +655,7 @@ static MtPipeline *create_graphics_pipeline(
     }
 
     pipeline->create_info = *ci;
-    mt_array_pushn(dev->alloc, pipeline->shaders, 2);
+    mt_array_add(dev->alloc, pipeline->shaders, 2);
 
     shader_init(dev, &pipeline->shaders[0], vertex_code, vertex_code_size);
     shader_init(dev, &pipeline->shaders[1], fragment_code, fragment_code_size);
@@ -689,7 +688,7 @@ static MtPipeline *create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t 
     MtPipeline *pipeline = mt_alloc(dev->alloc, sizeof(MtPipeline));
     memset(pipeline, 0, sizeof(*pipeline));
 
-    mt_array_pushn(dev->alloc, pipeline->shaders, 1);
+    mt_array_add(dev->alloc, pipeline->shaders, 1);
 
     shader_init(dev, &pipeline->shaders[0], code, code_size);
 

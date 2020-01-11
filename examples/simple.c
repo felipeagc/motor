@@ -60,8 +60,9 @@ static int32_t asset_load(void *arg)
 
     mt_mutex_lock(&g->models_mutex);
 
-    MtGltfAsset **model;
-    model = mt_array_push(g->engine.alloc, g->models, (MtGltfAsset *)asset);
+    mt_array_push(g->engine.alloc, g->models, (MtGltfAsset *)asset);
+    MtGltfAsset **model = mt_array_last(g->models);
+
     assert(*model);
 
     Mat4 transform = mat4_identity();

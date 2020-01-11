@@ -11,12 +11,12 @@
 
 MT_MATH_INLINE Vec2 v2_zero()
 {
-    return (Vec2){0.0f, 0.0f};
+    return (Vec2){{0.0f, 0.0f}};
 }
 
 MT_MATH_INLINE Vec2 v2_one()
 {
-    return (Vec2){1.0f, 1.0f};
+    return (Vec2){{1.0f, 1.0f}};
 }
 
 MT_MATH_INLINE float v2_mag(Vec2 vec)
@@ -105,12 +105,12 @@ MT_MATH_INLINE float v2_dot(Vec2 left, Vec2 right)
 
 MT_MATH_INLINE Vec3 v3_zero()
 {
-    return (Vec3){0.0f, 0.0f, 0.0f};
+    return (Vec3){{0.0f, 0.0f, 0.0f}};
 }
 
 MT_MATH_INLINE Vec3 v3_one()
 {
-    return (Vec3){1.0f, 1.0f, 1.0f};
+    return (Vec3){{1.0f, 1.0f, 1.0f}};
 }
 
 MT_MATH_INLINE float v3_mag(Vec3 vec)
@@ -228,12 +228,12 @@ MT_MATH_INLINE Vec3 v3_normalize(Vec3 vec)
 
 MT_MATH_INLINE Vec4 v4_zero()
 {
-    return (Vec4){0.0f, 0.0f, 0.0f, 0.0f};
+    return (Vec4){{0.0f, 0.0f, 0.0f, 0.0f}};
 }
 
 MT_MATH_INLINE Vec4 v4_one()
 {
-    return (Vec4){1.0f, 1.0f, 1.0f, 1.0f};
+    return (Vec4){{1.0f, 1.0f, 1.0f, 1.0f}};
 }
 
 // TESTED
@@ -270,7 +270,7 @@ MT_MATH_INLINE Vec4 v4_mul(Vec4 left, Vec4 right)
 
 MT_MATH_INLINE Vec4 v4_muls(Vec4 left, float right)
 {
-    return v4_mul(left, (Vec4){right, right, right, right});
+    return v4_mul(left, (Vec4){{right, right, right, right}});
 }
 
 // TESTED
@@ -703,13 +703,13 @@ MT_MATH_INLINE Quat quat_normalize(Quat left)
     float length = sqrtf(quat_dot(left, left));
     if (length <= 0.0f)
     {
-        return (Quat){0.0f, 0.0f, 0.0f, 1.0f};
+        return (Quat){{0.0f, 0.0f, 0.0f, 1.0f}};
     }
     float one_over_length = 1.0f / length;
-    return (Quat){left.x * one_over_length,
-                  left.y * one_over_length,
-                  left.z * one_over_length,
-                  left.w * one_over_length};
+    return (Quat){{left.x * one_over_length,
+                   left.y * one_over_length,
+                   left.z * one_over_length,
+                   left.w * one_over_length}};
 }
 
 // TESTED: compatible with glm
@@ -838,33 +838,33 @@ MT_MATH_INLINE Quat quat_look_at(Vec3 direction, Vec3 up)
     switch (biggest_index)
     {
         case 0:
-            return (Quat){
+            return (Quat){{
                 (m[1][2] - m[2][1]) * mult,
                 (m[2][0] - m[0][2]) * mult,
                 (m[0][1] - m[1][0]) * mult,
                 biggest_val,
-            };
+            }};
         case 1:
-            return (Quat){
+            return (Quat){{
                 biggest_val,
                 (m[0][1] + m[1][0]) * mult,
                 (m[2][0] + m[0][2]) * mult,
                 (m[1][2] - m[2][1]) * mult,
-            };
+            }};
         case 2:
-            return (Quat){
+            return (Quat){{
                 (m[0][1] + m[1][0]) * mult,
                 biggest_val,
                 (m[1][2] + m[2][1]) * mult,
                 (m[2][0] - m[0][2]) * mult,
-            };
+            }};
         case 3:
-            return (Quat){
+            return (Quat){{
                 (m[2][0] + m[0][2]) * mult,
                 (m[1][2] + m[2][1]) * mult,
                 biggest_val,
                 (m[0][1] - m[1][0]) * mult,
-            };
+            }};
         default: assert(0);
     }
 

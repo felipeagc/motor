@@ -39,7 +39,7 @@ static void device_wait_idle(MtDevice *dev);
 
 #define MT_THREAD_LOCAL _Thread_local
 
-MT_THREAD_LOCAL static uint32_t renderer_thread_id = 0;
+static MT_THREAD_LOCAL uint32_t renderer_thread_id = 0;
 
 #if !defined(NDEBUG)
 // Debug mode

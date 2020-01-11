@@ -12,6 +12,8 @@
 #include <motor/engine/assets/font_asset.h>
 #include "assets/font_asset.inl"
 
+static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height);
+
 struct MtUIRenderer
 {
     MtAllocator *alloc;
@@ -84,7 +86,7 @@ static void draw_text(MtUIRenderer *ui, const char *text)
     uint32_t ci = 0;
     while (text[ci])
     {
-        stbtt_packedchar *cd = &atlas->chardata[text[ci]];
+        stbtt_packedchar *cd = &atlas->chardata[(uint32_t)text[ci]];
 
         uint16_t first_vertex = mt_array_size(ui->vertices);
 
@@ -175,4 +177,70 @@ void mt_ui_draw(MtUIRenderer *ui, MtCmdBuffer *cb)
         cb, ui->indices, mt_array_size(ui->indices) * sizeof(uint16_t), MT_INDEX_TYPE_UINT16);
 
     mt_render.cmd_draw_indexed(cb, mt_array_size(ui->indices), 1, 0, 0, 0);
+}
+
+static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height)
+{
+    FontAtlas *atlas = mt_hash_get_ptr(&asset->map, (uint64_t)height);
+    if (!atlas)
+    {
+        MtAllocator *alloc = asset->asset_manager->alloc;
+
+        // Create atlas
+        mt_array_push(alloc, asset->atlases, (FontAtlas){0});
+        atlas = mt_array_last(asset->atlases);
+        memset(atlas, 0, sizeof(*atlas));
+
+        atlas->dim = 2048;
+
+        uint8_t *pixels = mt_alloc(alloc, atlas->dim * atlas->dim);
+
+        stbtt_pack_context spc;
+        int res = stbtt_PackBegin(&spc, pixels, atlas->dim, atlas->dim, 0, 1, NULL);
+        if (!res)
+        {
+            return NULL;
+        }
+
+        stbtt_PackSetOversampling(&spc, 2, 2);
+
+        int first_char  = 0;
+        int char_count  = 255;
+        atlas->chardata = mt_alloc(alloc, sizeof(stbtt_packedchar) * (char_count - first_char));
+
+        res = stbtt_PackFontRange(
+            &spc,
+            asset->font_data,
+            0,
+            STBTT_POINT_SIZE((int32_t)height),
+            first_char,
+            char_count,
+            atlas->chardata);
+        if (!res)
+        {
+            return NULL;
+        }
+
+        stbtt_PackEnd(&spc);
+
+        atlas->image = mt_render.create_image(
+            asset->asset_manager->engine->device,
+            &(MtImageCreateInfo){
+                .width  = atlas->dim,
+                .height = atlas->dim,
+                .format = MT_FORMAT_R8_UNORM,
+            });
+
+        mt_render.transfer_to_image(
+            asset->asset_manager->engine->device,
+            &(MtImageCopyView){.image = atlas->image},
+            atlas->dim * atlas->dim,
+            pixels);
+
+        mt_free(alloc, pixels);
+
+        mt_hash_set_ptr(&asset->map, (uint64_t)height, atlas);
+    }
+
+    return atlas;
 }
