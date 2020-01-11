@@ -246,7 +246,7 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
 
 static void shader_destroy(MtDevice *dev, Shader *shader)
 {
-    VK_CHECK(vkDeviceWaitIdle(dev->device));
+    device_wait_idle(dev);
 
     vkDestroyShaderModule(dev->device, shader->mod, NULL);
 
@@ -313,7 +313,7 @@ create_pipeline_layout(MtDevice *dev, CombinedSetLayouts *combined, VkPipelineBi
 
 static void destroy_pipeline_layout(MtDevice *dev, PipelineLayout *l)
 {
-    VK_CHECK(vkDeviceWaitIdle(dev->device));
+    device_wait_idle(dev);
 
     for (uint32_t i = 0; i < mt_array_size(l->pools); i++)
     {
@@ -634,7 +634,7 @@ static PipelineInstance *request_compute_pipeline_instance(MtDevice *dev, MtPipe
 
 static void destroy_pipeline_instance(MtDevice *dev, PipelineInstance *instance)
 {
-    VK_CHECK(vkDeviceWaitIdle(dev->device));
+    device_wait_idle(dev);
     vkDestroyPipeline(dev->device, instance->vk_pipeline, NULL);
     mt_free(dev->alloc, instance);
 }

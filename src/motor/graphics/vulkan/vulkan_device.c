@@ -11,6 +11,8 @@
 #include "internal.h"
 #include "vk_mem_alloc.h"
 
+static void device_wait_idle(MtDevice *dev);
+
 #include "conversions.inl"
 #include "hashing.inl"
 #include "buffer.inl"
@@ -696,7 +698,9 @@ static void submit(MtDevice *dev, MtCmdBuffer *cmd_buffer, MtFence *fence)
     {
         vk_fence = fence->fence;
     }
+    mt_mutex_lock(&dev->device_mutex);
     VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, vk_fence));
+    mt_mutex_unlock(&dev->device_mutex);
 }
 
 static void
@@ -786,13 +790,15 @@ transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const 
 
 static void device_wait_idle(MtDevice *dev)
 {
+    mt_mutex_lock(&dev->device_mutex);
     VK_CHECK(vkDeviceWaitIdle(dev->device));
+    mt_mutex_unlock(&dev->device_mutex);
 }
 
 static void destroy_device(MtDevice *dev)
 {
     MtAllocator *alloc = dev->alloc;
-    VK_CHECK(vkDeviceWaitIdle(dev->device));
+    device_wait_idle(dev);
 
     buffer_pool_destroy(&dev->ubo_pool);
     buffer_pool_destroy(&dev->vbo_pool);
@@ -837,6 +843,8 @@ static void destroy_device(MtDevice *dev)
 #endif
 
     vkDestroyInstance(dev->instance, NULL);
+
+    mt_mutex_destroy(&dev->device_mutex);
 
     mt_free(alloc, dev);
 }
@@ -939,6 +947,8 @@ MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocat
     {
         dev->num_threads = 1;
     }
+
+    mt_mutex_init(&dev->device_mutex);
 
     create_instance(dev);
 

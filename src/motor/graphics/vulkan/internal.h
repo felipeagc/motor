@@ -5,7 +5,7 @@
 #include "volk.h"
 #include <motor/base/array.h>
 #include <motor/base/hashmap.h>
-#include <motor/base/bitset.h>
+#include <motor/base/threads.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/vulkan/vulkan_device.h>
 
@@ -18,6 +18,10 @@ enum
     do                                                                                             \
     {                                                                                              \
         VkResult result = exp;                                                                     \
+        if (result != VK_SUCCESS)                                                                  \
+        {                                                                                          \
+            printf("Vulkan result: %u\n", result);                                                 \
+        }                                                                                          \
         assert(result == VK_SUCCESS);                                                              \
     } while (0)
 
@@ -70,6 +74,7 @@ typedef struct MtDevice
 
     VkPhysicalDevice physical_device;
     VkDevice device;
+    MtMutex device_mutex;
 
     QueueFamilyIndices indices;
 

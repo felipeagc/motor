@@ -148,7 +148,8 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci)
 
 static void destroy_image(MtDevice *dev, MtImage *image)
 {
-    VK_CHECK(vkDeviceWaitIdle(dev->device));
+    device_wait_idle(dev);
+
     if (image->image_view)
         vkDestroyImageView(dev->device, image->image_view, NULL);
     if (image->image)
