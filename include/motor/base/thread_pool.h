@@ -45,6 +45,8 @@ void mt_thread_pool_destroy(MtThreadPool *pool);
 
 void mt_thread_pool_enqueue(MtThreadPool *pool, MtThreadStart routine, void *arg);
 
+bool mt_thread_pool_is_busy(MtThreadPool *pool);
+
 void mt_thread_pool_wait_all(MtThreadPool *pool);
 
 uint32_t mt_thread_pool_queue_size(MtThreadPool *pool);

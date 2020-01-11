@@ -548,7 +548,9 @@ static void create_resizables(MtWindow *window)
         glfwWaitEvents();
     }
 
+    mt_mutex_lock(&dev->device_mutex);
     VK_CHECK(vkDeviceWaitIdle(dev->device));
+    mt_mutex_unlock(&dev->device_mutex);
 
     create_swapchain(window);
     create_swapchain_image_views(window);
@@ -561,7 +563,9 @@ static void destroy_resizables(MtWindow *window)
 {
     MtDevice *dev = window->dev;
 
+    mt_mutex_lock(&dev->device_mutex);
     VK_CHECK(vkDeviceWaitIdle(dev->device));
+    mt_mutex_unlock(&dev->device_mutex);
 
     for (uint32_t i = 0; i < window->swapchain_image_count; i++)
     {
@@ -816,7 +820,9 @@ static void destroy_window(MtWindow *window)
 {
     MtDevice *dev = window->dev;
 
+    mt_mutex_lock(&dev->device_mutex);
     VK_CHECK(vkDeviceWaitIdle(dev->device));
+    mt_mutex_unlock(&dev->device_mutex);
 
     free_cmd_buffers(window);
 

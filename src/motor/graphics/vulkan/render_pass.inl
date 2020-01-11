@@ -155,7 +155,7 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
 
 static void destroy_render_pass(MtDevice *dev, MtRenderPass *render_pass)
 {
-    VK_CHECK(vkDeviceWaitIdle(dev->device));
+    device_wait_idle(dev);
 
     vkDestroyFramebuffer(dev->device, render_pass->current_framebuffer, NULL);
     vkDestroyRenderPass(dev->device, render_pass->renderpass, NULL);

@@ -60,9 +60,8 @@ static int32_t work(void *arg)
 
         mt_mutex_lock(&pool->queue_mutex);
         pool->num_working--;
-        mt_mutex_unlock(&pool->queue_mutex);
-
         mt_cond_wake_all(&pool->done_cond);
+        mt_mutex_unlock(&pool->queue_mutex);
     }
 
     return 0;
@@ -98,9 +97,8 @@ void mt_thread_pool_destroy(MtThreadPool *pool)
 {
     mt_mutex_lock(&pool->queue_mutex);
     pool->stop = true;
-    mt_mutex_unlock(&pool->queue_mutex);
-
     mt_cond_wake_all(&pool->cond);
+    mt_mutex_unlock(&pool->queue_mutex);
 
     for (uint32_t i = 0; i < mt_array_size(pool->workers); ++i)
     {
@@ -125,9 +123,17 @@ void mt_thread_pool_enqueue(MtThreadPool *pool, MtThreadStart routine, void *arg
 
     pool->queue_back = (pool->queue_back + 1) % mt_array_size(pool->queue);
 
-    mt_mutex_unlock(&pool->queue_mutex);
-
     mt_cond_wake_one(&pool->cond);
+
+    mt_mutex_unlock(&pool->queue_mutex);
+}
+
+bool mt_thread_pool_is_busy(MtThreadPool *pool)
+{
+    mt_mutex_lock(&pool->queue_mutex);
+    bool busy = pool->num_working > 0;
+    mt_mutex_unlock(&pool->queue_mutex);
+    return busy;
 }
 
 void mt_thread_pool_wait_all(MtThreadPool *pool)

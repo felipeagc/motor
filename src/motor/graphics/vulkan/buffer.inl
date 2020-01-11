@@ -85,7 +85,8 @@ static void destroy_buffer(MtDevice *dev, MtBuffer *buffer)
     if (!buffer)
         return;
 
-    VK_CHECK(vkDeviceWaitIdle(dev->device));
+    device_wait_idle(dev);
+
     if (buffer->buffer != VK_NULL_HANDLE && buffer->allocation != VK_NULL_HANDLE)
     {
         vmaDestroyBuffer(dev->gpu_allocator, buffer->buffer, buffer->allocation);
