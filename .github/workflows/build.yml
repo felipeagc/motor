@@ -7,29 +7,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - uses: seanmiddleditch/gha-setup-ninja@master
-    - name: install dependencies
+    - name: Install dependencies
       run: sudo apt-get install -y libxinerama-dev libxrandr-dev libxkbcommon-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxi-dev libxxf86vm-dev
-    - name: cmake
-      run: |
-        mkdir build
-        cd build
-        cmake -G Ninja ..
-    - name: ninja
-      run: ninja -C build
-    - name: ninja test
-      run: ninja -C build test
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{runner.workspace}}/build
+    - name: Configure CMake
+      shell: bash
+      working-directory: ${{runner.workspace}}/build
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+    - name: Build
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      run: cmake --build . --config $BUILD_TYPE
+    - name: Test
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      run: ctest -C $BUILD_TYPE
   windows:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v1
-    - uses: seanmiddleditch/gha-setup-ninja@master
-    - name: cmake
-      run: |
-        mkdir build
-        cd build
-        cmake -G Ninja ..
-    - name: ninja
-      run: ninja -C build
-    - name: ninja test
-      run: ninja -C build test
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{runner.workspace}}/build
+    - name: Configure CMake
+      shell: bash
+      working-directory: ${{runner.workspace}}/build
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+    - name: Build
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      run: cmake --build . --config $BUILD_TYPE
+    - name: Test
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      run: ctest -C $BUILD_TYPE
