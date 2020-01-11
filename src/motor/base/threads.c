@@ -190,7 +190,7 @@ int32_t mt_thread_wait(MtThread thread, int32_t *res)
     }
     if (res != NULL)
     {
-        *res = (int32_t)pres;
+        *res = (int32_t)(intptr_t)pres;
     }
 
     return 1;

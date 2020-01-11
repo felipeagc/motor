@@ -72,7 +72,7 @@ void mt_thread_pool_init(MtThreadPool *pool, uint32_t num_threads, MtAllocator *
     memset(pool, 0, sizeof(*pool));
     pool->alloc = alloc;
 
-    mt_array_pushn(alloc, pool->queue, 128);
+    mt_array_add(alloc, pool->queue, 128);
 
     mt_cond_init(&pool->cond);
     mt_cond_init(&pool->done_cond);
@@ -81,7 +81,7 @@ void mt_thread_pool_init(MtThreadPool *pool, uint32_t num_threads, MtAllocator *
     mt_mutex_lock(&pool->queue_mutex);
     mt_mutex_unlock(&pool->queue_mutex);
 
-    mt_array_pushn(alloc, pool->workers, num_threads);
+    mt_array_add(alloc, pool->workers, num_threads);
     for (uint32_t i = 0; i < mt_array_size(pool->workers); ++i)
     {
         MtThreadPoolWorker *worker = &pool->workers[i];

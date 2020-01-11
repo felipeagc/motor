@@ -89,7 +89,8 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
                             .vt   = vt,
                             .inst = temp_asset_ptr,
                         };
-                        MtIAsset *iasset_ptr = mt_array_push(am->alloc, am->assets, iasset);
+                        mt_array_push(am->alloc, am->assets, iasset);
+                        MtIAsset *iasset_ptr = mt_array_last(am->assets);
                         mt_hash_set_ptr(&am->asset_map, path_hash, iasset_ptr);
 
                         mt_mutex_unlock(&am->mutex);

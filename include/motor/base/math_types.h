@@ -12,9 +12,9 @@
 
 #define MT_PI 3.14159265358979323846f
 
-#define V2(x, y) ((Vec2){x, y})
-#define V3(x, y, z) ((Vec3){x, y, z})
-#define V4(x, y, z, w) ((Vec4){x, y, z, w})
+#define V2(x, y) ((Vec2){{x, y}})
+#define V3(x, y, z) ((Vec3){{x, y, z}})
+#define V4(x, y, z, w) ((Vec4){{x, y, z, w}})
 
 #define MT_RAD(degrees) (degrees * (MT_PI / 180.0f))
 #define MT_DEG(radians) (radians / (MT_PI / 180.0f))
@@ -30,6 +30,7 @@
 #endif
 
 typedef union Vec2 {
+    float v[2];
     struct
     {
         float x, y;
@@ -38,10 +39,10 @@ typedef union Vec2 {
     {
         float r, g;
     };
-    float v[2];
 } Vec2;
 
 typedef union Vec3 {
+    float v[3];
     struct
     {
         float x, y, z;
@@ -54,10 +55,10 @@ typedef union Vec3 {
     {
         Vec2 xy;
     };
-    float v[3];
 } Vec3;
 
 typedef union MT_MATH_ALIGNAS(16) Vec4 {
+    float v[4];
     struct
     {
         union {
@@ -86,8 +87,6 @@ typedef union MT_MATH_ALIGNAS(16) Vec4 {
     {
         Vec2 xy;
     };
-
-    float v[4];
 } Vec4;
 
 typedef union MT_MATH_ALIGNAS(16) Mat4 {
