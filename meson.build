@@ -76,6 +76,7 @@ motor_engine_sources = [
   'src/motor/engine/assets/pipeline_asset.c',
   'src/motor/engine/assets/font_asset.c',
   'src/motor/engine/assets/gltf_asset.c',
+  'src/motor/engine/cgltf.c',
   'src/motor/engine/tinyktx.c',
   'src/motor/engine/stb_image.c',
   'src/motor/engine/stb_rect_pack.c',

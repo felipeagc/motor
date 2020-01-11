@@ -1,8 +1,8 @@
 #include <motor/engine/assets/gltf_asset.h>
 
 #include "../stb_image.h"
-#define CGLTF_IMPLEMENTATION
-#include "cgltf.h"
+#include "../tinyktx.h"
+#include "../cgltf.h"
 #include <motor/base/util.h>
 #include <motor/base/array.h>
 #include <motor/base/allocator.h>
@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 typedef struct GltfVertex
 {
@@ -227,30 +228,56 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
     for (uint32_t i = 0; i < data->images_count; i++)
     {
         cgltf_image *image = &data->images[i];
-        uint8_t *buffer_data =
-            ((uint8_t *)image->buffer_view->buffer->data) + image->buffer_view->offset;
-        size_t buffer_size = image->buffer_view->size;
 
-        int width, height, n_channels;
-        uint8_t *image_data =
-            stbi_load_from_memory(buffer_data, (int)buffer_size, &width, &height, &n_channels, 4);
-        assert(image_data);
+        if (strcmp(image->mime_type, "image/png") == 0 ||
+            strcmp(image->mime_type, "image/jpeg") == 0)
+        {
+            uint8_t *buffer_data =
+                ((uint8_t *)image->buffer_view->buffer->data) + image->buffer_view->offset;
+            size_t buffer_size = image->buffer_view->size;
 
-        asset->images[i] = mt_render.create_image(
-            asset_manager->engine->device,
-            &(MtImageCreateInfo){
-                .width  = (uint32_t)width,
-                .height = (uint32_t)height,
-                .format = MT_FORMAT_RGBA8_UNORM,
-            });
+            int width, height, n_channels;
+            uint8_t *image_data = stbi_load_from_memory(
+                buffer_data, (int)buffer_size, &width, &height, &n_channels, 4);
+            assert(image_data);
 
-        mt_render.transfer_to_image(
-            asset_manager->engine->device,
-            &(MtImageCopyView){.image = asset->images[i]},
-            (uint32_t)(4 * width * height),
-            image_data);
+            asset->images[i] = mt_render.create_image(
+                asset_manager->engine->device,
+                &(MtImageCreateInfo){
+                    .width  = (uint32_t)width,
+                    .height = (uint32_t)height,
+                    .format = MT_FORMAT_RGBA8_UNORM,
+                });
 
-        stbi_image_free(image_data);
+            mt_render.transfer_to_image(
+                asset_manager->engine->device,
+                &(MtImageCopyView){.image = asset->images[i]},
+                (uint32_t)(4 * width * height),
+                image_data);
+
+            stbi_image_free(image_data);
+        }
+        else if (strcmp(image->mime_type, "image/ktx") == 0)
+        {
+            uint8_t *buffer_data =
+                ((uint8_t *)image->buffer_view->buffer->data) + image->buffer_view->offset;
+            size_t buffer_size = image->buffer_view->size;
+
+            ktx_data_t data     = {0};
+            ktx_result_t result = ktx_read(buffer_data, buffer_size, &data);
+            if (result != KTX_SUCCESS)
+            {
+                printf("%u\n", result);
+                return false;
+            }
+
+            assert(0);
+        }
+        else
+        {
+            printf("%s\n", image->mime_type);
+            assert(0);
+        }
     }
 
     // Load materials
