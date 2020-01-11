@@ -42,8 +42,9 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
     if (strcmp(ext, ".ktx") == 0)
     {
-        ktx_data_t data     = {0};
-        ktx_result_t result = ktx_read_from_file(path, &data);
+        ktx_data_t data = {0};
+        uint8_t *raw_data;
+        ktx_result_t result = ktx_read_from_file(path, &raw_data, &data);
         if (result != KTX_SUCCESS)
         {
             return false;
@@ -99,6 +100,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             }
         }
 
+        free(raw_data);
         ktx_data_destroy(&data);
 
         return true;

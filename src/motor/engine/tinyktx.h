@@ -4,10 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum ktx_result_t {
-  KTX_SUCCESS,
-  KTX_FAILED_TO_OPEN_FILE,
-  KTX_WRONG_IDENTIFIER,
+typedef enum ktx_result_t
+{
+    KTX_SUCCESS,
+    KTX_FAILED_TO_OPEN_FILE,
+    KTX_WRONG_IDENTIFIER,
 } ktx_result_t;
 
 #define KTX_ZERO 0
@@ -175,47 +176,51 @@ typedef enum ktx_result_t {
 #define KTX_RGBA 0x1908
 #define KTX_STENCIL_INDEX 0x1901
 
-typedef struct ktx_slice_t {
-  uint8_t *data;
+typedef struct ktx_slice_t
+{
+    uint8_t *data;
 } ktx_slice_t;
 
-typedef struct ktx_face_t {
-  ktx_slice_t *slices;
+typedef struct ktx_face_t
+{
+    ktx_slice_t *slices;
 } ktx_face_t;
 
-typedef struct ktx_array_element_t {
-  ktx_face_t faces[6];
+typedef struct ktx_array_element_t
+{
+    ktx_face_t faces[6];
 } ktx_array_element_t;
 
-typedef struct ktx_mip_level_t {
-  ktx_array_element_t *array_elements;
+typedef struct ktx_mip_level_t
+{
+    ktx_array_element_t *array_elements;
 } ktx_mip_level_t;
 
-typedef struct ktx_data_t {
-  uint8_t *raw_data;
+typedef struct ktx_data_t
+{
+    uint8_t *raw_data;
 
-  uint32_t pixel_width;
-  uint32_t pixel_height;
-  uint32_t pixel_depth;
+    uint32_t pixel_width;
+    uint32_t pixel_height;
+    uint32_t pixel_depth;
 
-  uint32_t array_element_count;
-  uint32_t face_count;
-  uint32_t mipmap_level_count;
+    uint32_t array_element_count;
+    uint32_t face_count;
+    uint32_t mipmap_level_count;
 
-  uint32_t type;
-  uint32_t type_size;
+    uint32_t type;
+    uint32_t type_size;
 
-  uint32_t format;
-  uint32_t internal_format;
-  uint32_t base_internal_format;
+    uint32_t format;
+    uint32_t internal_format;
+    uint32_t base_internal_format;
 
-  ktx_mip_level_t *mip_levels;
+    ktx_mip_level_t *mip_levels;
 } ktx_data_t;
 
-ktx_result_t ktx_read_from_file(const char *filename, ktx_data_t *data);
+ktx_result_t ktx_read_from_file(const char *filename, uint8_t **raw_data, ktx_data_t *data);
 
-ktx_result_t
-ktx_read(uint8_t *raw_data, size_t raw_data_size, ktx_data_t *data);
+ktx_result_t ktx_read(uint8_t *raw_data, size_t raw_data_size, ktx_data_t *data);
 
 void ktx_data_destroy(ktx_data_t *data);
 

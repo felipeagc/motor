@@ -109,7 +109,7 @@ static inline uint32_t get_block_size(uint32_t internal_format)
     }
 }
 
-ktx_result_t ktx_read_from_file(const char *filename, ktx_data_t *data)
+ktx_result_t ktx_read_from_file(const char *filename, uint8_t **raw_data, ktx_data_t *data)
 {
     FILE *file = fopen(filename, "rb");
     if (!file)
@@ -246,6 +246,4 @@ void ktx_data_destroy(ktx_data_t *data)
     }
 
     free(data->mip_levels);
-
-    free(data->raw_data);
 }
