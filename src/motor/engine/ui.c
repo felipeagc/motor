@@ -172,10 +172,10 @@ void mt_ui_image(MtUIRenderer *ui, MtCmdBuffer *cb, MtImage *image)
     float h = 512.0f;
 
     MtUIVertex vertices[4] = {
-        {{0.0f, 0.0f}, {0.0f, 0.0f}, {}},
-        {{w, 0.0f}, {1.0f, 0.0f}, {}},
-        {{w, h}, {1.0f, 1.0f}, {}},
-        {{0.0f, h}, {0.0f, 1.0f}, {}},
+        {V2(0.0f, 0.0f), V2(0.0f, 0.0f), V3(1.0f, 1.0f, 1.0f)},
+        {V2(w, 0.0f), V2(1.0f, 0.0f), V3(1.0f, 1.0f, 1.0f)},
+        {V2(w, h), V2(1.0f, 1.0f), V3(1.0f, 1.0f, 1.0f)},
+        {V2(0.0f, h), V2(0.0f, 1.0f), V3(1.0f, 1.0f, 1.0f)},
     };
 
     uint16_t indices[6] = {0, 1, 2, 2, 3, 0};
@@ -249,7 +249,7 @@ static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height)
             &spc,
             asset->font_data,
             0,
-            STBTT_POINT_SIZE((int32_t)height),
+            STBTT_POINT_SIZE((float)height),
             first_char,
             char_count,
             atlas->chardata);
