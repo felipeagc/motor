@@ -35,6 +35,36 @@ common: [[
 
         PointLight lights[MAX_LIGHTS];
     };
+
+    const float GAMMA = 2.2f;
+
+    vec4 srgb_to_linear(vec4 srgb_in) {
+        /* vec3 lin_out = pow(srgb_in.xyz, vec3(GAMMA)); */
+
+        vec3 b_less = step(vec3(0.04045),srgb_in.xyz);
+        vec3 lin_out = mix(
+                srgb_in.xyz/vec3(12.92),
+                pow((srgb_in.xyz+vec3(0.055))/vec3(1.055),vec3(2.4)),
+                b_less);
+        return vec4(lin_out, srgb_in.w);
+    }
+
+    vec3 uncharted2_tonemap(vec3 color) {
+        float A = 0.15;
+        float B = 0.50;
+        float C = 0.10;
+        float D = 0.20;
+        float E = 0.02;
+        float F = 0.30;
+        float W = 11.2;
+        return ((color*(A*color+C*B)+D*E)/(color*(A*color+B)+D*F))-E/F;
+    }
+
+    vec4 tonemap(vec4 color, float exposure) {
+        vec3 outcol = uncharted2_tonemap(color.rgb * exposure);
+        outcol = outcol * (1.0f / uncharted2_tonemap(vec3(11.2f)));	
+        return vec4(pow(outcol, vec3(1.0f / GAMMA)), color.a);
+    }
 ]]
 
 vertex: [[
@@ -48,7 +78,7 @@ vertex: [[
 
     void main() {
         tex_coords0 = pos;
-        tex_coords0.y *= -1.0f;
+        /* tex_coords0.y *= -1.0f; */
 
         mat4 view = cam.view;
         view[3][0] = 0.0;
@@ -71,8 +101,7 @@ fragment: [[
     layout (location = 0) out vec4 out_color;
 
     void main() {
-        out_color = pow(vec4(texture(env_map, tex_coords).rgb, 1.0), vec4(2.2));
-        out_color = vec4(1.0) - exp(-out_color * environment.exposure);
-        out_color = pow(out_color, vec4(1.0/2.2));
+        out_color.rgb = srgb_to_linear(tonemap(textureLod(env_map, tex_coords, 1.5), environment.exposure)).rgb;
+        out_color.a = 1.0f;
     }
 ]]

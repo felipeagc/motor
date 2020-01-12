@@ -82,6 +82,7 @@ void mt_engine_init(MtEngine *engine, uint32_t num_threads)
             .mag_filter   = MT_FILTER_LINEAR,
             .min_filter   = MT_FILTER_LINEAR,
             .address_mode = MT_SAMPLER_ADDRESS_MODE_REPEAT,
+            .border_color = MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
         });
 
     mt_asset_manager_init(&engine->asset_manager, engine);

@@ -3,7 +3,7 @@ static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci)
     MtSampler *sampler = mt_alloc(dev->alloc, sizeof(MtSampler));
     memset(sampler, 0, sizeof(*sampler));
 
-    if (ci->max_lod == 0.0f || memcmp(&(uint32_t){0}, &ci->max_lod, sizeof(uint32_t)) == 0)
+    if (ci->max_lod == 0.0f)
     {
         ci->max_lod = 1.0f;
     }
@@ -35,7 +35,7 @@ static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci)
         .addressModeW            = sampler_address_mode_to_vulkan(ci->address_mode),
         .mipLodBias              = 0.0f,
         .anisotropyEnable        = VK_FALSE,
-        .maxAnisotropy           = 0.0f,
+        .maxAnisotropy           = 1.0f,
         .compareEnable           = VK_FALSE,
         .compareOp               = VK_COMPARE_OP_NEVER,
         .minLod                  = 0.0f,

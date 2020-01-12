@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 
         mt_render.begin_cmd_buffer(cb);
 
-        mt_render.cmd_begin_render_pass(cb, mt_window.get_render_pass(win));
+        mt_render.cmd_begin_render_pass(cb, mt_window.get_render_pass(win), NULL, NULL);
 
         MtViewport viewport;
         mt_render.cmd_get_viewport(cb, &viewport);

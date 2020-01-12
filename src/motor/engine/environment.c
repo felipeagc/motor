@@ -127,7 +127,7 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     {
         mt_render.begin_cmd_buffer(cb);
 
-        mt_render.cmd_begin_render_pass(cb, rp);
+        mt_render.cmd_begin_render_pass(cb, rp, NULL, NULL);
 
         mt_render.cmd_bind_pipeline(cb, pipeline);
         mt_render.cmd_draw(cb, 3, 1, 0, 0);
@@ -151,9 +151,10 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
 // }}}
 
 // Cubemap generation {{{
-static MtImage *
-generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type, uint32_t *out_mip_count)
+static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 {
+    MtEngine *engine = env->asset_manager->engine;
+
     const char *path = NULL;
     switch (type)
     {
@@ -182,22 +183,24 @@ generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type, uint32_t *
     // Create image
     uint32_t dim;
     MtFormat format;
-    uint32_t mip_count;
 
     switch (type)
     {
         case CUBEMAP_IRRADIANCE:
-            dim       = 64;
-            format    = MT_FORMAT_RGBA32_SFLOAT;
-            mip_count = 1;
+            dim    = 64;
+            format = MT_FORMAT_RGBA32_SFLOAT;
             break;
         case CUBEMAP_RADIANCE:
-            dim       = 512;
-            format    = MT_FORMAT_RGBA16_SFLOAT;
-            mip_count = (uint32_t)(floor(log2(dim))) + 1;
-            if (out_mip_count)
-                *out_mip_count = mip_count;
+            dim    = 512;
+            format = MT_FORMAT_RGBA16_SFLOAT;
             break;
+    }
+
+    uint32_t mip_count = (uint32_t)(floor(log2(dim))) + 1;
+
+    if (type == CUBEMAP_RADIANCE)
+    {
+        env->uniform.radiance_mip_levels = (float)mip_count;
     }
 
     MtImage *cubemap = mt_render.create_image(
@@ -252,10 +255,10 @@ generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type, uint32_t *
     switch (type)
     {
         case CUBEMAP_IRRADIANCE:
-            uniform.delta_phi   = (2.0f * (float)(MT_PI)) / 180.0f;
-            uniform.delta_theta = (0.5f * (float)(MT_PI)) / 64.0f;
+            uniform.delta_phi   = (2.0f * (float)(M_PI)) / 180.0f;
+            uniform.delta_theta = (0.5f * (float)(M_PI)) / 64.0f;
             break;
-        case CUBEMAP_RADIANCE: uniform.num_samples = 32; break;
+        case CUBEMAP_RADIANCE: uniform.num_samples = 512; break;
     }
 
     for (uint32_t m = 0; m < mip_count; m++)
@@ -263,7 +266,7 @@ generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type, uint32_t *
         for (uint32_t f = 0; f < 6; f++)
         {
             uniform.mvp = mat4_mul(
-                direction_matrices[f], mat4_perspective((float)(MT_PI / 2.0), 1.0f, 0.1f, 512.0f));
+                direction_matrices[f], mat4_perspective(((float)M_PI / 2.0f), 1.0f, 0.1f, 512.0f));
 
             if (type == CUBEMAP_RADIANCE)
             {
@@ -272,7 +275,8 @@ generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type, uint32_t *
 
             mt_render.begin_cmd_buffer(cb);
 
-            mt_render.cmd_begin_render_pass(cb, rp);
+            MtClearValue clear_value = {{{0.0f, 0.0f, 0.2f, 0.0f}}};
+            mt_render.cmd_begin_render_pass(cb, rp, &clear_value, NULL);
 
             uint32_t mip_dim = dim >> m;
 
@@ -285,9 +289,11 @@ generate_cubemap(MtEngine *engine, MtImage *skybox, CubemapType type, uint32_t *
                     .max_depth = 1.0f,
                 });
 
+            mt_render.cmd_set_scissor(cb, 0, 0, dim, dim);
+
             mt_render.cmd_bind_pipeline(cb, pipeline);
             mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), 0, 0);
-            mt_render.cmd_bind_image(cb, skybox, engine->default_sampler, 0, 1);
+            mt_render.cmd_bind_image(cb, env->skybox_image, env->skybox_sampler, 0, 1);
             mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
             mt_render.cmd_draw(cb, 36, 1, 0, 0);
 
@@ -348,15 +354,11 @@ static void maybe_generate_images(MtEnvironment *env)
         }
 
         printf("Generating irradiance cubemap\n");
-        env->irradiance_image =
-            generate_cubemap(engine, env->skybox_image, CUBEMAP_IRRADIANCE, NULL);
+        env->irradiance_image = generate_cubemap(env, CUBEMAP_IRRADIANCE);
         printf("Generated irradiance cubemap\n");
 
         printf("Generating radiance cubemap\n");
-        uint32_t radiance_mip_count = 1;
-        env->radiance_image =
-            generate_cubemap(engine, env->skybox_image, CUBEMAP_RADIANCE, &radiance_mip_count);
-        env->uniform.radiance_mip_levels = (float)radiance_mip_count;
+        env->radiance_image = generate_cubemap(env, CUBEMAP_RADIANCE);
         printf("Generated radiance cubemap\n");
     }
 
@@ -383,7 +385,7 @@ static void maybe_generate_images(MtEnvironment *env)
         env->radiance_sampler = mt_render.create_sampler(
             engine->device,
             &(MtSamplerCreateInfo){
-                .anisotropy = true,
+                .anisotropy = false,
                 .mag_filter = MT_FILTER_LINEAR,
                 .min_filter = MT_FILTER_LINEAR,
                 .max_lod    = env->uniform.radiance_mip_levels,
@@ -408,7 +410,7 @@ void mt_environment_init(
     env->brdf_image = generate_brdf_lut(engine);
 
     env->uniform.sun_direction = V3(0.0f, -1.0f, 0.0f);
-    env->uniform.exposure      = 1.0f;
+    env->uniform.exposure      = 4.5f;
 
     env->uniform.sun_color     = V3(1.0f, 1.0f, 1.0f);
     env->uniform.sun_intensity = 1.0f;
@@ -416,19 +418,28 @@ void mt_environment_init(
     env->uniform.radiance_mip_levels = 1.0f;
     env->uniform.point_light_count   = 0;
 
+    env->skybox_sampler = mt_render.create_sampler(
+        engine->device,
+        &(MtSamplerCreateInfo){
+            .anisotropy   = false,
+            .mag_filter   = MT_FILTER_LINEAR,
+            .min_filter   = MT_FILTER_LINEAR,
+            .max_lod      = 1.0f,
+            .address_mode = MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+            .border_color = MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+        });
+
     maybe_generate_images(env);
 }
 
 void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 {
-    MtEngine *engine = env->asset_manager->engine;
-
     maybe_generate_images(env);
 
     mt_render.cmd_bind_pipeline(cb, env->skybox_pipeline->pipeline);
 
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 0);
-    mt_render.cmd_bind_image(cb, env->skybox_image, engine->default_sampler, 1, 1);
+    mt_render.cmd_bind_image(cb, env->radiance_image, env->radiance_sampler, 1, 1);
     mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
 
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
@@ -436,12 +447,10 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 
 void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set)
 {
-    MtEngine *engine = env->asset_manager->engine;
-
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), set, 0);
-    mt_render.cmd_bind_image(cb, env->irradiance_image, engine->default_sampler, set, 1);
+    mt_render.cmd_bind_image(cb, env->irradiance_image, env->skybox_sampler, set, 1);
     mt_render.cmd_bind_image(cb, env->radiance_image, env->radiance_sampler, set, 2);
-    mt_render.cmd_bind_image(cb, env->brdf_image, engine->default_sampler, set, 3);
+    mt_render.cmd_bind_image(cb, env->brdf_image, env->skybox_sampler, set, 3);
 }
 
 void mt_environment_destroy(MtEnvironment *env)
@@ -463,5 +472,6 @@ void mt_environment_destroy(MtEnvironment *env)
         mt_render.destroy_sampler(engine->device, env->radiance_sampler);
     }
 
+    mt_render.destroy_sampler(engine->device, env->skybox_sampler);
     mt_render.destroy_image(engine->device, env->brdf_image);
 }

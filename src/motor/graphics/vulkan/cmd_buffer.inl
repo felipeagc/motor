@@ -462,7 +462,11 @@ static void cmd_bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline)
     }
 }
 
-static void cmd_begin_render_pass(MtCmdBuffer *cmd_buffer, MtRenderPass *render_pass)
+static void cmd_begin_render_pass(
+    MtCmdBuffer *cmd_buffer,
+    MtRenderPass *render_pass,
+    MtClearValue *color_clear_value,
+    MtClearValue *depth_clear_value)
 {
     cmd_buffer->current_renderpass = *render_pass;
 
@@ -470,6 +474,16 @@ static void cmd_begin_render_pass(MtCmdBuffer *cmd_buffer, MtRenderPass *render_
     clear_values[0].color                = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
     clear_values[1].depthStencil.depth   = 1.0f;
     clear_values[1].depthStencil.stencil = 0;
+
+    if (color_clear_value)
+    {
+        memcpy(&clear_values[0], color_clear_value, sizeof(clear_values[0]));
+    }
+
+    if (depth_clear_value)
+    {
+        memcpy(&clear_values[1], depth_clear_value, sizeof(clear_values[1]));
+    }
 
     VkRenderPassBeginInfo render_pass_info = {
         .sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,

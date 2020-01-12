@@ -13,6 +13,23 @@ typedef struct MtSampler MtSampler;
 typedef struct MtFence MtFence;
 typedef struct MtCmdBuffer MtCmdBuffer;
 
+typedef union MtClearColorValue {
+    float float32[4];
+    int32_t int32[4];
+    uint32_t uint32[4];
+} MtClearColorValue;
+
+typedef struct MtClearDepthStencilValue
+{
+    float depth;
+    uint32_t stencil;
+} MtClearDepthStencilValue;
+
+typedef union MtClearValue {
+    MtClearColorValue color;
+    MtClearDepthStencilValue depth_stencil;
+} MtClearValue;
+
 typedef enum MtQueueType
 {
     MT_QUEUE_GRAPHICS,
@@ -283,7 +300,11 @@ typedef struct MtRenderer
     void (*cmd_copy_image_to_image)(
         MtCmdBuffer *, const MtImageCopyView *src, const MtImageCopyView *dst, MtExtent3D extent);
 
-    void (*cmd_begin_render_pass)(MtCmdBuffer *, MtRenderPass *);
+    void (*cmd_begin_render_pass)(
+        MtCmdBuffer *,
+        MtRenderPass *,
+        MtClearValue *color_clear_value,
+        MtClearValue *depth_clear_value);
     void (*cmd_end_render_pass)(MtCmdBuffer *);
 
     void (*cmd_set_viewport)(MtCmdBuffer *, MtViewport *);

@@ -58,6 +58,23 @@ common: [[
         return vec4(lin_out, srgb_in.w);
     }
 
+    vec3 uncharted2_tonemap(vec3 color) {
+        float A = 0.15;
+        float B = 0.50;
+        float C = 0.10;
+        float D = 0.20;
+        float E = 0.02;
+        float F = 0.30;
+        float W = 11.2;
+        return ((color*(A*color+C*B)+D*E)/(color*(A*color+B)+D*F))-E/F;
+    }
+
+    vec4 tonemap(vec4 color, float exposure) {
+        vec3 outcol = uncharted2_tonemap(color.rgb * exposure);
+        outcol = outcol * (1.0f / uncharted2_tonemap(vec3(11.2f)));	
+        return vec4(pow(outcol, vec3(1.0f / GAMMA)), color.a);
+    }
+
     vec3 fresnel_schlick(float cos_theta, vec3 F0) {
         return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
     }
@@ -259,23 +276,17 @@ fragment: [[
         vec3 kD = 1.0 - kS;
         kD *= 1.0 - metallic;
 
-        vec3 irradiance = srgb_to_linear(texture(irradiance_map, N)).rgb;
+        vec3 irradiance = srgb_to_linear(tonemap(texture(irradiance_map, N), environment.exposure)).rgb;
         vec3 diffuse = irradiance * albedo.rgb;
 
-        vec3 prefiltered_color = srgb_to_linear(
-                textureLod(radiance_map, R, roughness * environment.radiance_mip_levels)).rgb;
-        vec2 brdf = srgb_to_linear(
-                texture(brdf_lut, vec2(max(dot(N, V), 0.0), roughness))).rg;
+        vec3 prefiltered_color = srgb_to_linear(tonemap(
+                    textureLod(radiance_map, R, roughness * environment.radiance_mip_levels),
+                    environment.exposure)).rgb;
+        vec2 brdf = texture(brdf_lut, vec2(max(dot(N, V), 0.0), roughness)).rg;
         vec3 specular = prefiltered_color * (F * brdf.x + brdf.y);
 
         vec3 ambient = kD * diffuse + specular;
 
         out_color = vec4((ambient + Lo) * occlusion + emissive, albedo.a);
-
-        // HDR tonemapping
-        out_color.rgb = vec3(1.0) - exp(-out_color.rgb * environment.exposure);
-
-        // Gamma correct
-        out_color.rgb = pow(out_color.rgb, vec3(1.0/GAMMA));
     }
 ]]

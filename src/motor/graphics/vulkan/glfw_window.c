@@ -194,11 +194,12 @@ choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t count)
 
     for (uint32_t i = 0; i < count; i++)
     {
-        VkSurfaceFormatKHR format = formats[i];
-        if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
-            format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        VkSurfaceFormatKHR surface_format = formats[i];
+
+        // Prefer SRGB
+        if (surface_format.format == VK_FORMAT_B8G8R8A8_SRGB)
         {
-            return format;
+            return surface_format;
         }
     }
 
