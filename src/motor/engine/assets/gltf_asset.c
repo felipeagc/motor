@@ -270,17 +270,26 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                 return false;
             }
 
-            uint32_t pixel_size = 0;
+            uint32_t width  = data.pixel_width;
+            uint32_t height = data.pixel_height;
+
+            uint32_t block_size = 0;
             MtFormat format;
             switch (data.internal_format)
             {
                 case KTX_RGBA8:
                     format     = MT_FORMAT_RGBA8_UNORM;
-                    pixel_size = sizeof(uint32_t);
+                    block_size = sizeof(uint32_t);
                     break;
                 case KTX_RGBA16F:
                     format     = MT_FORMAT_RGBA16_SFLOAT;
-                    pixel_size = 2 * sizeof(uint32_t);
+                    block_size = 2 * sizeof(uint32_t);
+                    break;
+                case KTX_COMPRESSED_RGBA_BPTC_UNORM:
+                    format     = MT_FORMAT_BC7_UNORM_BLOCK;
+                    block_size = 16;
+                    width >>= 2;
+                    height >>= 2;
                     break;
                 default: assert(!"Unsupported image format");
             }
@@ -288,8 +297,8 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             asset->images[i] = mt_render.create_image(
                 asset_manager->engine->device,
                 &(MtImageCreateInfo){
-                    .width       = data.pixel_width,
-                    .height      = data.pixel_height,
+                    .width       = width,
+                    .height      = height,
                     .depth       = data.pixel_depth,
                     .mip_count   = data.mipmap_level_count,
                     .layer_count = data.face_count,
@@ -302,19 +311,21 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                 {
                     for (uint32_t si = 0; si < data.pixel_depth; si++)
                     {
-                        uint32_t mip_width  = data.pixel_width >> li;
-                        uint32_t mip_height = data.pixel_height >> li;
+                        uint32_t mip_width  = width >> li;
+                        uint32_t mip_height = height >> li;
 
                         ktx_slice_t *slice =
                             &data.mip_levels[li].array_elements[0].faces[fi].slices[si];
 
                         mt_render.transfer_to_image(
                             asset_manager->engine->device,
-                            &(MtImageCopyView){.image       = asset->images[i],
-                                               .mip_level   = li,
-                                               .array_layer = fi,
-                                               .offset      = {.z = si}},
-                            mip_width * mip_height * pixel_size,
+                            &(MtImageCopyView){
+                                .image       = asset->images[i],
+                                .mip_level   = li,
+                                .array_layer = fi,
+                                .offset      = {.z = si},
+                            },
+                            mip_width * mip_height * block_size,
                             slice->data);
                     }
                 }

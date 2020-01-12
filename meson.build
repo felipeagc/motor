@@ -107,7 +107,7 @@ motor_engine_dep = declare_dependency(
   include_directories: ['include']
   )
 
-executable('gltf_ktx', 'tools/gltf_ktx.c', dependencies: [motor_base_dep])
+executable('gltf_ktx', ['tools/gltf_ktx.c', 'tools/bc7enc16.c'], dependencies: [motor_base_dep])
 
 executable('simple', 'examples/simple.c', dependencies: [motor_engine_dep])
 executable('watcher', 'examples/watcher.c', dependencies: [motor_engine_dep])

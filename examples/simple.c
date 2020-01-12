@@ -117,11 +117,8 @@ void game_init(Game *g)
         &g->engine.asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
     assert(g->font);
 
-    load_model(g, "../assets/BoomBox.glb", 100.0f);
-    /* load_model(g, "../assets/Lantern.glb", 0.2f); */
-    /* load_model(g, "../assets/NormalTangentMirrorTest.glb", 1.0f); */
-    /* load_model(g, "../assets/both.glb", 0.1f); */
-    load_model(g, "../assets/helmet_ktx.glb", 1.0f);
+    load_model(g, "../assets/helmet.glb", 1.0f);
+    load_model(g, "../assets/boombox.glb", 100.0f);
 
     MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");

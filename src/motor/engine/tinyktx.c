@@ -105,6 +105,8 @@ static inline uint32_t get_block_size(uint32_t internal_format)
         case KTX_DEPTH_COMPONENT32F: return 4;
         case KTX_DEPTH24_STENCIL8: return 4;
         case KTX_DEPTH32F_STENCIL8: return 5;
+
+        case KTX_COMPRESSED_RGBA_BPTC_UNORM: return 16;
         default: return 0;
     }
 }
@@ -121,10 +123,10 @@ ktx_result_t ktx_read_from_file(const char *filename, uint8_t **raw_data, ktx_da
     size_t size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    uint8_t *ktx_data = malloc(size);
-    fread(ktx_data, size, 1, file);
+    *raw_data = malloc(size);
+    fread(*raw_data, size, 1, file);
 
-    ktx_result_t result = ktx_read(ktx_data, size, data);
+    ktx_result_t result = ktx_read(*raw_data, size, data);
 
     fclose(file);
 
@@ -199,6 +201,17 @@ ktx_result_t ktx_read(uint8_t *raw_data, size_t raw_data_size, ktx_data_t *data)
 
         uint32_t mip_width  = header.pixel_width / (1 << mip_level);
         uint32_t mip_height = header.pixel_height / (1 << mip_level);
+
+        switch (header.gl_internal_format)
+        {
+            case KTX_COMPRESSED_RGBA_BPTC_UNORM:
+            {
+                mip_width >>= 2;
+                mip_height >>= 2;
+                break;
+            }
+            default: break;
+        }
 
         for (uint32_t layer = 0; layer < data->array_element_count; layer++)
         {

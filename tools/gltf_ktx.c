@@ -4,10 +4,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#include "bc7enc16.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <motor/base/util.h>
 #include <motor/base/array.h>
 
 // KTX defines {{{
@@ -186,6 +189,16 @@ typedef struct ByteWriter
     uint64_t count;
 } ByteWriter;
 
+typedef struct BC7Block
+{
+    uint8_t vals[16];
+} BC7Block;
+
+typedef struct ColorQuadU8
+{
+    uint8_t vals[4];
+} ColorQuadU8;
+
 static void write_bytes(ByteWriter *bw, const void *bytes, uint64_t size)
 {
     if (!bw->buffer)
@@ -244,6 +257,24 @@ typedef struct ktx_header_t
     uint32_t bytes_of_key_value_data;
 } ktx_header_t;
 
+static inline void get_block(
+    ColorQuadU8 *image,
+    uint32_t image_width,
+    uint32_t bx,
+    uint32_t by,
+    uint32_t width,
+    uint32_t height,
+    ColorQuadU8 *pixels)
+{
+    for (uint32_t y = 0; y < height; y++)
+    {
+        memcpy(
+            pixels + y * width,
+            &image[((bx * width) + image_width * (by * height + y))],
+            width * sizeof(ColorQuadU8));
+    }
+}
+
 int main(int argc, const char *argv[])
 {
     if (argc <= 2)
@@ -254,6 +285,8 @@ int main(int argc, const char *argv[])
 
     const char *gltf_path = argv[1];
     const char *out_path  = argv[2];
+
+    bc7enc16_compress_block_init();
 
     cgltf_options gltf_options = {0};
     cgltf_data *data           = NULL;
@@ -288,12 +321,70 @@ int main(int argc, const char *argv[])
             size_t buffer_size   = buffer_view->size;
 
             int width, height, n_channels;
-            uint8_t *image_data = stbi_load_from_memory(
+            ColorQuadU8 *image_pixels = (ColorQuadU8 *)stbi_load_from_memory(
                 buffer_data, (int)buffer_size, &width, &height, &n_channels, 4);
-            if (!image_data)
+            if (!image_pixels)
             {
                 printf("Failed to load image\n");
                 exit(1);
+            }
+
+            assert(width % 4 == 0);
+            assert(height % 4 == 0);
+
+            uint32_t blocks_x = (uint32_t)width >> 2;
+            uint32_t blocks_y = (uint32_t)height >> 2;
+
+            BC7Block *packed_image = NULL;
+            mt_array_add(NULL, packed_image, blocks_x * blocks_y);
+
+            bool srgb = false;
+
+            bc7enc16_compress_block_params pack_params = {0};
+            bc7enc16_compress_block_params_init(&pack_params);
+            if (!srgb)
+                bc7enc16_compress_block_params_init_linear_weights(&pack_params);
+            pack_params.m_max_partitions_mode1 = BC7ENC16_MAX_PARTITIONS1;
+            pack_params.m_uber_level           = 0;
+
+            for (uint32_t by = 0; by < blocks_y; by++)
+            {
+                for (uint32_t bx = 0; bx < blocks_x; bx++)
+                {
+                    ColorQuadU8 pixels[16];
+
+                    /* for (uint32_t i = 0; i < MT_LENGTH(pixels); i++) */
+                    /*     printf( */
+                    /*         "%02X%02X%02X%02X ", */
+                    /*         pixels[i].vals[0], */
+                    /*         pixels[i].vals[1], */
+                    /*         pixels[i].vals[2], */
+                    /*         pixels[i].vals[3]); */
+                    /* printf("\n"); */
+
+                    memcpy(
+                        pixels + 0,
+                        &image_pixels[bx * 4 + (uint32_t)width * (by * 4 + 0)],
+                        sizeof(ColorQuadU8) * 4);
+                    memcpy(
+                        pixels + 4,
+                        &image_pixels[bx * 4 + (uint32_t)width * (by * 4 + 1)],
+                        sizeof(ColorQuadU8) * 4);
+                    memcpy(
+                        pixels + 8,
+                        &image_pixels[bx * 4 + (uint32_t)width * (by * 4 + 2)],
+                        sizeof(ColorQuadU8) * 4);
+                    memcpy(
+                        pixels + 12,
+                        &image_pixels[bx * 4 + (uint32_t)width * (by * 4 + 3)],
+                        sizeof(ColorQuadU8) * 4);
+
+                    /* get_block(image_pixels, (uint32_t)width, bx, by, 4, 4, pixels); */
+
+                    BC7Block *block = &packed_image[bx + by * blocks_x];
+
+                    bc7enc16_compress_block(block, pixels, &pack_params);
+                }
             }
 
             uint64_t offset = bw.count;
@@ -307,7 +398,7 @@ int main(int argc, const char *argv[])
 
             header.gl_format               = KTX_RGBA;
             header.gl_base_internal_format = header.gl_format;
-            header.gl_internal_format      = KTX_RGBA8;
+            header.gl_internal_format      = KTX_COMPRESSED_RGBA_BPTC_UNORM;
 
             header.pixel_width  = (uint32_t)width;
             header.pixel_height = (uint32_t)height;
@@ -320,10 +411,12 @@ int main(int argc, const char *argv[])
 
             write_bytes(&bw, &header, sizeof(header));
 
-            uint32_t image_size = (uint32_t)(width * height * 4);
+            /* const uint32_t pixel_format_bpp = 8; */
+            /* uint32_t image_size = ((uint32_t)(width * height) * pixel_format_bpp) >> 3; */
+            uint32_t image_size = mt_array_size(packed_image) * sizeof(*packed_image);
             write_bytes(&bw, &image_size, sizeof(image_size));
 
-            write_bytes(&bw, image_data, (uint64_t)image_size);
+            write_bytes(&bw, packed_image, (uint64_t)image_size);
 
             byte_writer_pad(&bw);
 
@@ -335,7 +428,7 @@ int main(int argc, const char *argv[])
 
             image->mime_type = "image/ktx";
 
-            free(image_data);
+            free(image_pixels);
         }
         else
         {

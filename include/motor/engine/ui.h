@@ -6,6 +6,7 @@
 typedef struct MtAllocator MtAllocator;
 typedef struct MtFontAsset MtFontAsset;
 typedef struct MtCmdBuffer MtCmdBuffer;
+typedef struct MtImage MtImage;
 typedef struct MtViewport MtViewport;
 typedef struct MtAssetManager MtAssetManager;
 
@@ -32,6 +33,8 @@ void mt_ui_set_color(MtUIRenderer *ui, Vec3 color);
 __attribute__((format(printf, 2, 3)))
 #endif
 void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...);
+
+void mt_ui_image(MtUIRenderer *ui, MtCmdBuffer *cb, MtImage* image);
 
 // Drawing
 void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport);

@@ -42,25 +42,34 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
     if (strcmp(ext, ".ktx") == 0)
     {
-        ktx_data_t data = {0};
-        uint8_t *raw_data;
+        ktx_data_t data     = {0};
+        uint8_t *raw_data   = NULL;
         ktx_result_t result = ktx_read_from_file(path, &raw_data, &data);
         if (result != KTX_SUCCESS)
         {
             return false;
         }
 
-        uint32_t pixel_size = 0;
+        uint32_t width  = data.pixel_width;
+        uint32_t height = data.pixel_height;
+
+        uint32_t block_size = 0;
         MtFormat format;
         switch (data.internal_format)
         {
             case KTX_RGBA8:
                 format     = MT_FORMAT_RGBA8_UNORM;
-                pixel_size = sizeof(uint32_t);
+                block_size = sizeof(uint32_t);
                 break;
             case KTX_RGBA16F:
                 format     = MT_FORMAT_RGBA16_SFLOAT;
-                pixel_size = 2 * sizeof(uint32_t);
+                block_size = 2 * sizeof(uint32_t);
+                break;
+            case KTX_COMPRESSED_RGBA_BPTC_UNORM:
+                format     = MT_FORMAT_BC7_UNORM_BLOCK;
+                block_size = 16;
+                width >>= 2;
+                height >>= 2;
                 break;
             default: assert(!"Unsupported image format");
         }
@@ -82,8 +91,8 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             {
                 for (uint32_t si = 0; si < data.pixel_depth; si++)
                 {
-                    uint32_t mip_width  = data.pixel_width >> li;
-                    uint32_t mip_height = data.pixel_height >> li;
+                    uint32_t mip_width  = width >> li;
+                    uint32_t mip_height = height >> li;
 
                     ktx_slice_t *slice =
                         &data.mip_levels[li].array_elements[0].faces[fi].slices[si];
@@ -94,7 +103,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                                            .mip_level   = li,
                                            .array_layer = fi,
                                            .offset      = {.z = si}},
-                        mip_width * mip_height * pixel_size,
+                        mip_width * mip_height * block_size,
                         slice->data);
                 }
             }

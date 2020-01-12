@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <motor/base/math.h>
 #include <motor/base/array.h>
+#include <motor/base/util.h>
 #include <motor/base/allocator.h>
 #include <motor/graphics/renderer.h>
 #include <motor/engine/asset_manager.h>
@@ -17,8 +18,10 @@ static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height);
 struct MtUIRenderer
 {
     MtAllocator *alloc;
+    MtEngine *engine;
 
     MtPipelineAsset *pipeline;
+    MtPipelineAsset *image_pipeline;
 
     MtFontAsset *font;
     uint32_t font_height;
@@ -37,11 +40,16 @@ MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtAssetManager *asset_manager)
     MtUIRenderer *ui = mt_alloc(alloc, sizeof(MtUIRenderer));
     memset(ui, 0, sizeof(*ui));
 
-    ui->alloc = alloc;
+    ui->alloc  = alloc;
+    ui->engine = asset_manager->engine;
 
     ui->pipeline =
         (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/ui.glsl");
     assert(ui->pipeline);
+
+    ui->image_pipeline =
+        (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/image.glsl");
+    assert(ui->image_pipeline);
 
     ui->font_height = 20;
     ui->pos         = V2(0.0f, 0.0f);
@@ -147,6 +155,35 @@ void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...)
     buf[sizeof(buf) - 1] = '\0';
 
     draw_text(ui, buf);
+}
+
+void mt_ui_image(MtUIRenderer *ui, MtCmdBuffer *cb, MtImage *image)
+{
+    Mat4 transform = mat4_orthographic(
+        0.0f, (float)ui->viewport.width, 0.0f, (float)ui->viewport.height, 0.0f, 1.0f);
+
+    mt_render.cmd_bind_pipeline(cb, ui->image_pipeline->pipeline);
+
+    mt_render.cmd_bind_uniform(cb, &transform, sizeof(transform), 0, 0);
+
+    mt_render.cmd_bind_image(cb, image, ui->engine->default_sampler, 0, 1);
+
+    float w = 512.0f;
+    float h = 512.0f;
+
+    MtUIVertex vertices[4] = {
+        {{0.0f, 0.0f}, {0.0f, 0.0f}, {}},
+        {{w, 0.0f}, {1.0f, 0.0f}, {}},
+        {{w, h}, {1.0f, 1.0f}, {}},
+        {{0.0f, h}, {0.0f, 1.0f}, {}},
+    };
+
+    uint16_t indices[6] = {0, 1, 2, 2, 3, 0};
+
+    mt_render.cmd_bind_vertex_data(cb, vertices, sizeof(vertices));
+    mt_render.cmd_bind_index_data(cb, indices, sizeof(indices), MT_INDEX_TYPE_UINT16);
+
+    mt_render.cmd_draw_indexed(cb, MT_LENGTH(indices), 1, 0, 0, 0);
 }
 
 void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport)
