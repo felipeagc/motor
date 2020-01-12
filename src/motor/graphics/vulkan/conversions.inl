@@ -29,6 +29,7 @@ static VkFormat format_to_vulkan(MtFormat format)
         case MT_FORMAT_D32_SFLOAT_S8_UINT: return VK_FORMAT_D32_SFLOAT_S8_UINT;
 
         case MT_FORMAT_BC7_UNORM_BLOCK: return VK_FORMAT_BC7_UNORM_BLOCK;
+        case MT_FORMAT_BC7_SRGB_BLOCK: return VK_FORMAT_BC7_SRGB_BLOCK;
     }
 
     return VK_FORMAT_UNDEFINED;

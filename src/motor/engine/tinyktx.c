@@ -107,6 +107,7 @@ static inline uint32_t get_block_size(uint32_t internal_format)
         case KTX_DEPTH32F_STENCIL8: return 5;
 
         case KTX_COMPRESSED_RGBA_BPTC_UNORM: return 16;
+        case KTX_COMPRESSED_SRGB_ALPHA_BPTC_UNORM: return 16;
         default: return 0;
     }
 }

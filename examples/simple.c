@@ -117,8 +117,8 @@ void game_init(Game *g)
         &g->engine.asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
     assert(g->font);
 
-    load_model(g, "../assets/helmet.glb", 1.0f);
-    load_model(g, "../assets/boombox.glb", 100.0f);
+    load_model(g, "../assets/helmet_ktx.glb", 1.0f);
+    load_model(g, "../assets/boombox_ktx.glb", 100.0f);
 
     MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
         &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");
@@ -237,6 +237,8 @@ int main(int argc, char *argv[])
         }
 
         mt_ui_draw(game.ui, cb);
+
+        /* mt_ui_image(game.ui, cb, game.image->image); */
 
         mt_render.cmd_end_render_pass(cb);
 

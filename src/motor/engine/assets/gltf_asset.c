@@ -270,8 +270,8 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                 return false;
             }
 
-            uint32_t width  = data.pixel_width;
-            uint32_t height = data.pixel_height;
+            uint32_t texel_width  = data.pixel_width;
+            uint32_t texel_height = data.pixel_height;
 
             uint32_t block_size = 0;
             MtFormat format;
@@ -288,8 +288,14 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                 case KTX_COMPRESSED_RGBA_BPTC_UNORM:
                     format     = MT_FORMAT_BC7_UNORM_BLOCK;
                     block_size = 16;
-                    width >>= 2;
-                    height >>= 2;
+                    texel_width >>= 2;
+                    texel_height >>= 2;
+                    break;
+                case KTX_COMPRESSED_SRGB_ALPHA_BPTC_UNORM:
+                    format     = MT_FORMAT_BC7_SRGB_BLOCK;
+                    block_size = 16;
+                    texel_width >>= 2;
+                    texel_height >>= 2;
                     break;
                 default: assert(!"Unsupported image format");
             }
@@ -297,8 +303,8 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             asset->images[i] = mt_render.create_image(
                 asset_manager->engine->device,
                 &(MtImageCreateInfo){
-                    .width       = width,
-                    .height      = height,
+                    .width       = data.pixel_width,
+                    .height      = data.pixel_height,
                     .depth       = data.pixel_depth,
                     .mip_count   = data.mipmap_level_count,
                     .layer_count = data.face_count,
@@ -311,8 +317,8 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                 {
                     for (uint32_t si = 0; si < data.pixel_depth; si++)
                     {
-                        uint32_t mip_width  = width >> li;
-                        uint32_t mip_height = height >> li;
+                        uint32_t mip_width  = texel_width >> li;
+                        uint32_t mip_height = texel_height >> li;
 
                         ktx_slice_t *slice =
                             &data.mip_levels[li].array_elements[0].faces[fi].slices[si];

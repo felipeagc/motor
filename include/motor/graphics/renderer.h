@@ -49,6 +49,7 @@ typedef enum MtFormat
     MT_FORMAT_D32_SFLOAT_S8_UINT,
 
     MT_FORMAT_BC7_UNORM_BLOCK,
+    MT_FORMAT_BC7_SRGB_BLOCK,
 } MtFormat;
 
 typedef enum MtIndexType
