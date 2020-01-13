@@ -75,18 +75,14 @@ char *mt_strcat(MtAllocator *alloc, char *dest, const char *src)
 {
     uint64_t dest_len = strlen(dest);
     uint64_t src_len  = strlen(src);
-    char *new_str     = mt_alloc(alloc, dest_len + src_len + 1);
+    dest              = mt_realloc(alloc, dest, dest_len + src_len + 1);
 
-    char *c = new_str;
-    for (uint64_t i = 0; i < dest_len; i++)
-    {
-        *(c++) = dest[i];
-    }
+    char *c = &dest[dest_len];
     for (uint64_t i = 0; i < src_len; i++)
     {
         *(c++) = src[i];
     }
     *c = '\0';
 
-    return new_str;
+    return dest;
 }

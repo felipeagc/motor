@@ -4,22 +4,9 @@ depth_write: true
 cull_mode: "front"
 front_face: "counter_clockwise"
 
-common: [[
-    struct Camera {
-        mat4 view;
-        mat4 proj;
-        vec4 pos;
-    };
-
-    struct Material {
-        vec4 base_color;
-        float metallic;
-        float roughness;
-        vec4 emissive;
-    };
-]]
-
 vertex: [[
+    #include "common.glsl"
+
     layout (location = 0) in vec3 pos;
     layout (location = 1) in vec3 normal;
     layout (location = 2) in vec3 tangent;
@@ -52,6 +39,8 @@ vertex: [[
 ]]
 
 fragment: [[
+    #include "common.glsl"
+
     layout (location = 0) in vec3 normal;
     layout (location = 1) in vec2 tex_coords;
 

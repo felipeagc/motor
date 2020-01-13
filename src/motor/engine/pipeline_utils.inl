@@ -4,6 +4,73 @@
 #include <motor/base/string_builder.h>
 #include <motor/engine/config.h>
 
+static shaderc_include_result *include_resolver(
+    void *user_data,
+    const char *requested_source,
+    int type,
+    const char *requesting_source,
+    size_t include_depth)
+{
+    MtEngine *engine   = user_data;
+    MtAllocator *alloc = engine->alloc;
+
+    assert(type == shaderc_include_type_relative);
+
+    uint64_t last_slash = 0;
+    for (uint64_t i = 0; i < strlen(requesting_source); i++)
+    {
+        if (requesting_source[i] == '/')
+            last_slash = i + 1;
+    }
+
+    char *path = NULL;
+    if (last_slash > 0)
+    {
+        path = mt_alloc(alloc, last_slash + 1);
+        memcpy(path, requesting_source, last_slash);
+        path[last_slash] = '\0';
+    }
+    path = mt_strcat(alloc, path, requested_source);
+
+    FILE *f = fopen(path, "rb");
+    if (!f)
+    {
+        printf("Could not open shader include: %s\n", path);
+        return NULL;
+    }
+
+    fseek(f, 0, SEEK_END);
+    uint64_t size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char *content = mt_alloc(alloc, size);
+    fread(content, size, 1, f);
+
+    fclose(f);
+
+    shaderc_include_result *result = mt_alloc(alloc, sizeof(*result));
+    *result                        = (shaderc_include_result){
+        .source_name        = path,
+        .source_name_length = strlen(path),
+        .content            = content,
+        .content_length     = size,
+        .user_data          = user_data,
+    };
+
+    return result;
+}
+
+// An includer callback type for destroying an include result.
+static void include_result_releaser(void *user_data, shaderc_include_result *include_result)
+{
+    MtEngine *engine   = user_data;
+    MtAllocator *alloc = engine->alloc;
+
+    mt_free(alloc, (void *)include_result->content);
+    mt_free(alloc, (void *)include_result->source_name);
+    mt_free(alloc, include_result);
+}
+
 static MtPipeline *
 create_pipeline(MtEngine *engine, const char *path, const char *input, size_t input_size)
 {
@@ -24,6 +91,8 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
     shaderc_compile_options_set_target_env(
         options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
+    shaderc_compile_options_set_include_callbacks(
+        options, include_resolver, include_result_releaser, engine);
 
     MtConfigObject *obj           = mt_config_get_root(config);
     MtConfigEntry *vertex_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
