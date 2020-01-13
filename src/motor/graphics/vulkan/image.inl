@@ -37,7 +37,6 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci)
     image->depth       = ci->depth;
     image->mip_count   = ci->mip_count;
     image->layer_count = ci->layer_count;
-    image->layout      = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     image->format      = format_to_vulkan(ci->format);
 
     assert(image->format != VK_FORMAT_UNDEFINED);

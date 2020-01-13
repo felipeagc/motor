@@ -33,147 +33,6 @@ static void get_viewport(MtCmdBuffer *cb, MtViewport *viewport)
     *viewport = cb->current_viewport;
 }
 
-static void image_barrier(
-    MtCmdBuffer *cb,
-    MtImage *image,
-    VkImageLayout old_image_layout,
-    VkImageLayout new_image_layout,
-    uint32_t mip_level,
-    uint32_t array_layer)
-{
-    VkImageSubresourceRange subresource_range = {
-        .aspectMask     = image->aspect,
-        .baseMipLevel   = mip_level,
-        .levelCount     = 1,
-        .baseArrayLayer = array_layer,
-        .layerCount     = 1,
-    };
-
-    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-
-    // Create an image barrier object
-    VkImageMemoryBarrier image_memory_barrier = {
-        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .oldLayout           = old_image_layout,
-        .newLayout           = new_image_layout,
-        .image               = image->image,
-        .subresourceRange    = subresource_range,
-    };
-
-    // Source layouts (old)
-    // Source access mask controls actions that have to be finished on the old
-    // layout before it will be transitioned to the new layout
-    switch (old_image_layout)
-    {
-        case VK_IMAGE_LAYOUT_UNDEFINED:
-            // Image layout is undefined (or does not matter)
-            // Only valid as initial layout
-            // No flags required, listed only for completeness
-            image_memory_barrier.srcAccessMask = 0;
-            break;
-
-        case VK_IMAGE_LAYOUT_PREINITIALIZED:
-            // Image is preinitialized
-            // Only valid as initial layout for linear images, preserves memory
-            // contents Make sure host writes have been finished
-            image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            // Image is a color attachment
-            // Make sure any writes to the color buffer have been finished
-            image_memory_barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            // Image is a depth/stencil attachment
-            // Make sure any writes to the depth/stencil buffer have been finished
-            image_memory_barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-            // Image is a transfer source
-            // Make sure any reads from the image have been finished
-            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-            // Image is a transfer destination
-            // Make sure any writes to the image have been finished
-            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            // Image is read by a shader
-            // Make sure any shader reads from the image have been finished
-            image_memory_barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            break;
-        default:
-            // Other source layouts aren't handled (yet)
-            break;
-    }
-
-    // Target layouts (new)
-    // Destination access mask controls the dependency for the new image layout
-    switch (new_image_layout)
-    {
-        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-            // Image will be used as a transfer destination
-            // Make sure any writes to the image have been finished
-            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-            // Image will be used as a transfer source
-            // Make sure any reads from the image have been finished
-            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            // Image will be used as a color attachment
-            // Make sure any writes to the color buffer have been finished
-            image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            // Image layout will be used as a depth/stencil attachment
-            // Make sure any writes to depth/stencil buffer have been finished
-            image_memory_barrier.dstAccessMask =
-                image_memory_barrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            // Image will be read in a shader (sampler, input attachment)
-            // Make sure any writes to the image have been finished
-            if (image_memory_barrier.srcAccessMask == 0)
-            {
-                image_memory_barrier.srcAccessMask =
-                    VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-            }
-            image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            break;
-        default:
-            // Other source layouts aren't handled (yet)
-            break;
-    }
-
-    // Put barrier inside setup command buffer
-    vkCmdPipelineBarrier(
-        cb->cmd_buffer,
-        src_stage_mask,
-        dst_stage_mask,
-        0,
-        0,
-        NULL,
-        0,
-        NULL,
-        1,
-        &image_memory_barrier);
-}
-
 static void bind_descriptor_sets(MtCmdBuffer *cb)
 {
     assert(cb->bound_pipeline_instance);
@@ -210,6 +69,104 @@ static void bind_descriptor_sets(MtCmdBuffer *cb)
                 NULL);
         }
     }
+}
+
+static void cmd_pipeline_image_barrier(MtCmdBuffer *cb, MtImageBarrier *ib)
+{
+    if (ib->level_count == 0)
+    {
+        ib->level_count = 1;
+    }
+
+    if (ib->layer_count == 0)
+    {
+        ib->layer_count = 1;
+    }
+
+    VkImageSubresourceRange subresource_range = {
+        .aspectMask     = ib->image->aspect,
+        .baseMipLevel   = ib->base_mip_level,
+        .levelCount     = ib->level_count,
+        .baseArrayLayer = ib->base_array_layer,
+        .layerCount     = ib->layer_count,
+    };
+
+    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+    VkImageMemoryBarrier image_memory_barrier = {
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .oldLayout           = image_layout_to_vulkan(ib->old_layout),
+        .newLayout           = image_layout_to_vulkan(ib->new_layout),
+        .image               = ib->image->image,
+        .subresourceRange    = subresource_range,
+    };
+
+    switch (image_memory_barrier.oldLayout)
+    {
+        case VK_IMAGE_LAYOUT_UNDEFINED: image_memory_barrier.srcAccessMask = 0; break;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            break;
+        default: break;
+    }
+
+    switch (image_memory_barrier.newLayout)
+    {
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            image_memory_barrier.dstAccessMask =
+                image_memory_barrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            if (image_memory_barrier.srcAccessMask == 0)
+            {
+                image_memory_barrier.srcAccessMask =
+                    VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+            }
+            image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            break;
+        default: break;
+    }
+
+    // Put barrier inside setup command buffer
+    vkCmdPipelineBarrier(
+        cb->cmd_buffer,
+        src_stage_mask,
+        dst_stage_mask,
+        0,
+        0,
+        NULL,
+        0,
+        NULL,
+        1,
+        &image_memory_barrier);
 }
 
 static void cmd_copy_buffer_to_buffer(
@@ -257,14 +214,6 @@ static void cmd_copy_buffer_to_image(
             },
     };
 
-    image_barrier(
-        cb,
-        dst->image,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        dst->mip_level,
-        dst->array_layer);
-
     vkCmdCopyBufferToImage(
         cb->cmd_buffer,
         src->buffer->buffer,
@@ -272,14 +221,6 @@ static void cmd_copy_buffer_to_image(
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &region);
-
-    image_barrier(
-        cb,
-        dst->image,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        dst->image->layout,
-        dst->mip_level,
-        dst->array_layer);
 }
 
 static void cmd_copy_image_to_buffer(
@@ -311,14 +252,6 @@ static void cmd_copy_image_to_buffer(
             },
     };
 
-    image_barrier(
-        cb,
-        src->image,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        src->mip_level,
-        src->array_layer);
-
     vkCmdCopyImageToBuffer(
         cb->cmd_buffer,
         src->image->image,
@@ -326,14 +259,6 @@ static void cmd_copy_image_to_buffer(
         dst->buffer->buffer,
         1,
         &region);
-
-    image_barrier(
-        cb,
-        src->image,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        src->image->layout,
-        src->mip_level,
-        src->array_layer);
 }
 
 static void cmd_copy_image_to_image(
@@ -361,22 +286,6 @@ static void cmd_copy_image_to_image(
         .extent         = {.width = extent.width, .height = extent.height, .depth = extent.depth},
     };
 
-    image_barrier(
-        cb,
-        src->image,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        src->mip_level,
-        src->array_layer);
-
-    image_barrier(
-        cb,
-        dst->image,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        dst->mip_level,
-        dst->array_layer);
-
     vkCmdCopyImage(
         cb->cmd_buffer,
         src->image->image,
@@ -385,22 +294,6 @@ static void cmd_copy_image_to_image(
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &region);
-
-    image_barrier(
-        cb,
-        src->image,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        src->image->layout,
-        src->mip_level,
-        src->array_layer);
-
-    image_barrier(
-        cb,
-        dst->image,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        dst->image->layout,
-        dst->mip_level,
-        dst->array_layer);
 }
 
 static void cmd_set_viewport(MtCmdBuffer *cb, MtViewport *viewport)
@@ -545,9 +438,10 @@ cmd_bind_image(MtCmdBuffer *cb, MtImage *image, MtSampler *sampler, uint32_t set
     assert(MT_LENGTH(cb->bound_descriptors) > set);
     assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
 
-    cb->bound_descriptors[set][binding].image.imageView   = image->image_view;
-    cb->bound_descriptors[set][binding].image.imageLayout = image->layout;
-    cb->bound_descriptors[set][binding].image.sampler     = sampler->sampler;
+    cb->bound_descriptors[set][binding].image.imageView = image->image_view;
+    cb->bound_descriptors[set][binding].image.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    cb->bound_descriptors[set][binding].image.sampler = sampler->sampler;
 }
 
 static void cmd_bind_vertex_buffer(MtCmdBuffer *cb, MtBuffer *buffer, size_t offset)

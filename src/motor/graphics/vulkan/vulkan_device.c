@@ -724,6 +724,8 @@ transfer_to_buffer(MtDevice *dev, MtBuffer *buffer, size_t offset, size_t size, 
 
     begin_cmd_buffer(cb);
 
+    // TODO: maybe we need barriers here
+
     cmd_copy_buffer_to_buffer(cb, staging, 0, buffer, 0, size);
 
     end_cmd_buffer(cb);
@@ -760,6 +762,16 @@ transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const 
 
     begin_cmd_buffer(cb);
 
+    cmd_pipeline_image_barrier(
+        cb,
+        &(MtImageBarrier){
+            .image            = dst->image,
+            .old_layout       = MT_IMAGE_LAYOUT_UNDEFINED,
+            .new_layout       = MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .base_mip_level   = dst->mip_level,
+            .base_array_layer = dst->array_layer,
+        });
+
     cmd_copy_buffer_to_image(
         cb,
         &(MtBufferCopyView){
@@ -773,6 +785,16 @@ transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const 
             .width  = dst->image->width >> dst->mip_level,
             .height = dst->image->height >> dst->mip_level,
             .depth  = dst->image->depth,
+        });
+
+    cmd_pipeline_image_barrier(
+        cb,
+        &(MtImageBarrier){
+            .image            = dst->image,
+            .old_layout       = MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .new_layout       = MT_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .base_mip_level   = dst->mip_level,
+            .base_array_layer = dst->array_layer,
         });
 
     end_cmd_buffer(cb);
@@ -903,6 +925,8 @@ static MtRenderer g_vulkan_renderer = {
     .end_cmd_buffer   = end_cmd_buffer,
 
     .cmd_get_viewport = get_viewport,
+
+    .cmd_pipeline_image_barrier = cmd_pipeline_image_barrier,
 
     .cmd_copy_buffer_to_buffer = cmd_copy_buffer_to_buffer,
     .cmd_copy_buffer_to_image  = cmd_copy_buffer_to_image,

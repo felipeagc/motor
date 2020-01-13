@@ -203,6 +203,11 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
         env->uniform.radiance_mip_levels = (float)mip_count;
     }
 
+    MtFence *fence = mt_render.create_fence(engine->device);
+
+    MtCmdBuffer *cb;
+    mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
+
     MtImage *cubemap = mt_render.create_image(
         engine->device,
         &(MtImageCreateInfo){
@@ -230,11 +235,6 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
             .color_attachment = offscreen,
         });
 
-    MtFence *fence = mt_render.create_fence(engine->device);
-
-    MtCmdBuffer *cb;
-    mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
-
     struct
     {
         Mat4 mvp;
@@ -255,10 +255,30 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
     switch (type)
     {
         case CUBEMAP_IRRADIANCE:
-            uniform.delta_phi   = (2.0f * (float)(M_PI)) / 180.0f;
-            uniform.delta_theta = (0.5f * (float)(M_PI)) / 64.0f;
+            uniform.delta_phi   = (2.0f * ((float)M_PI)) / 180.0f;
+            uniform.delta_theta = (0.5f * ((float)M_PI)) / 64.0f;
             break;
-        case CUBEMAP_RADIANCE: uniform.num_samples = 512; break;
+        case CUBEMAP_RADIANCE: uniform.num_samples = 32; break;
+    }
+
+    {
+        mt_render.begin_cmd_buffer(cb);
+
+        mt_render.cmd_pipeline_image_barrier(
+            cb,
+            &(MtImageBarrier){
+                .image       = cubemap,
+                .old_layout  = MT_IMAGE_LAYOUT_UNDEFINED,
+                .new_layout  = MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .level_count = mip_count,
+                .layer_count = 6,
+            });
+
+        mt_render.end_cmd_buffer(cb);
+
+        mt_render.submit(engine->device, cb, fence);
+        mt_render.wait_for_fence(engine->device, fence);
+        mt_render.reset_fence(engine->device, fence);
     }
 
     for (uint32_t m = 0; m < mip_count; m++)
@@ -278,13 +298,13 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
             MtClearValue clear_value = {{{0.0f, 0.0f, 0.2f, 0.0f}}};
             mt_render.cmd_begin_render_pass(cb, rp, &clear_value, NULL);
 
-            uint32_t mip_dim = dim >> m;
+            float mip_dim = (float)dim * powf(0.5f, (float)m);
 
             mt_render.cmd_set_viewport(
                 cb,
                 &(MtViewport){
-                    .width     = (float)mip_dim,
-                    .height    = (float)mip_dim,
+                    .width     = mip_dim,
+                    .height    = mip_dim,
                     .min_depth = 0.0f,
                     .max_depth = 1.0f,
                 });
@@ -299,6 +319,14 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 
             mt_render.cmd_end_render_pass(cb);
 
+            mt_render.cmd_pipeline_image_barrier(
+                cb,
+                &(MtImageBarrier){
+                    .image      = offscreen,
+                    .old_layout = MT_IMAGE_LAYOUT_UNDEFINED,
+                    .new_layout = MT_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                });
+
             mt_render.cmd_copy_image_to_image(
                 cb,
                 &(MtImageCopyView){
@@ -312,9 +340,17 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
                     .array_layer = f,
                 },
                 (MtExtent3D){
-                    .width  = mip_dim,
-                    .height = mip_dim,
+                    .width  = (uint32_t)mip_dim,
+                    .height = (uint32_t)mip_dim,
                     .depth  = 1,
+                });
+
+            mt_render.cmd_pipeline_image_barrier(
+                cb,
+                &(MtImageBarrier){
+                    .image      = offscreen,
+                    .old_layout = MT_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    .new_layout = MT_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 });
 
             mt_render.end_cmd_buffer(cb);
@@ -323,6 +359,26 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
             mt_render.wait_for_fence(engine->device, fence);
             mt_render.reset_fence(engine->device, fence);
         }
+    }
+
+    {
+        mt_render.begin_cmd_buffer(cb);
+
+        mt_render.cmd_pipeline_image_barrier(
+            cb,
+            &(MtImageBarrier){
+                .image       = cubemap,
+                .old_layout  = MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .new_layout  = MT_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .level_count = mip_count,
+                .layer_count = 6,
+            });
+
+        mt_render.end_cmd_buffer(cb);
+
+        mt_render.submit(engine->device, cb, fence);
+        mt_render.wait_for_fence(engine->device, fence);
+        mt_render.reset_fence(engine->device, fence);
     }
 
     mt_render.destroy_fence(engine->device, fence);

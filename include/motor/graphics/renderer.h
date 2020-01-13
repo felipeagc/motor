@@ -233,6 +233,30 @@ typedef struct MtRenderPassCreateInfo
     MtImage *depth_attachment;
 } MtRenderPassCreateInfo;
 
+typedef enum MtImageLayout
+{
+    MT_IMAGE_LAYOUT_UNDEFINED,
+    MT_IMAGE_LAYOUT_GENERAL,
+    MT_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    MT_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    MT_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+    MT_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    MT_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    MT_IMAGE_LAYOUT_PREINITIALIZED,
+} MtImageLayout;
+
+typedef struct MtImageBarrier
+{
+    MtImage *image;
+    MtImageLayout old_layout;
+    MtImageLayout new_layout;
+    uint32_t base_mip_level;
+    uint32_t level_count;
+    uint32_t base_array_layer;
+    uint32_t layer_count;
+} MtImageBarrier;
+
 typedef struct MtRenderer
 {
     void (*destroy_device)(MtDevice *);
@@ -285,6 +309,8 @@ typedef struct MtRenderer
     void (*end_cmd_buffer)(MtCmdBuffer *);
 
     void (*cmd_get_viewport)(MtCmdBuffer *, MtViewport *);
+
+    void (*cmd_pipeline_image_barrier)(MtCmdBuffer *, MtImageBarrier *image_barrier);
 
     void (*cmd_copy_buffer_to_buffer)(
         MtCmdBuffer *,

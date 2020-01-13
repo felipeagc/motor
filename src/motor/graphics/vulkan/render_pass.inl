@@ -51,7 +51,7 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
             .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-            .finalLayout    = ci->color_attachment->layout,
+            .finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
 
         mt_array_push(dev->alloc, attachments, color_attachment);
@@ -69,7 +69,7 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
             .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-            .finalLayout    = ci->depth_attachment->layout,
+            .finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
         };
 
         mt_array_push(dev->alloc, attachments, depth_attachment);

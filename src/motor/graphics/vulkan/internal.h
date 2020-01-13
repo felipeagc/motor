@@ -243,7 +243,6 @@ typedef struct MtImage
     uint32_t layer_count;
     VkImageAspectFlags aspect;
     VkFormat format;
-    VkImageLayout layout;
 } MtImage;
 
 typedef struct MtSampler
