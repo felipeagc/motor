@@ -31,7 +31,6 @@ fragment: [[
     layout(set = 0, binding = 0) uniform RadianceUniform {
         mat4 mvp;
         float roughness;
-        uint numSamples;
     } consts;
     layout (set = 0, binding = 1) uniform samplerCube samplerEnv;
 
@@ -85,13 +84,15 @@ fragment: [[
     }
 
     vec3 prefilterEnvMap(vec3 R, float roughness) {
+        uint numSamples = 32;
+
         vec3 N = R;
         vec3 V = R;
         vec3 color = vec3(0.0);
         float totalWeight = 0.0;
         float envMapDim = float(textureSize(samplerEnv, 0).s);
-        for(uint i = 0u; i < consts.numSamples; i++) {
-            vec2 Xi = hammersley2d(i, consts.numSamples);
+        for(uint i = 0u; i < numSamples; i++) {
+            vec2 Xi = hammersley2d(i, numSamples);
             vec3 H = importanceSample_GGX(Xi, roughness, N);
             vec3 L = 2.0 * dot(V, H) * H - V;
             float dotNL = clamp(dot(N, L), 0.0, 1.0);
@@ -104,7 +105,7 @@ fragment: [[
                 // Probability Distribution Function
                 float pdf = D_GGX(dotNH, roughness) * dotNH / (4.0 * dotVH) + 0.0001;
                 // Slid angle of current smple
-                float omegaS = 1.0 / (float(consts.numSamples) * pdf);
+                float omegaS = 1.0 / (float(numSamples) * pdf);
                 // Solid angle of 1 pixel across all cube faces
                 float omegaP = 4.0 * PI / (6.0 * envMapDim * envMapDim);
                 // Biased (+1.0) mip level for better result

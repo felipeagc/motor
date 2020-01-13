@@ -653,8 +653,6 @@ static MtCmdBuffer *begin_frame(MtWindow *window)
 {
     MtDevice *dev = window->dev;
 
-    window->last_time = glfwGetTime();
-
     vkWaitForFences(
         dev->device, 1, &window->in_flight_fences[window->current_frame], VK_TRUE, UINT64_MAX);
 
@@ -735,6 +733,7 @@ static void end_frame(MtWindow *window)
     window->current_frame = (window->current_frame + 1) % FRAMES_IN_FLIGHT;
 
     window->delta_time = glfwGetTime() - window->last_time;
+    window->last_time = glfwGetTime();
 }
 
 static MtWindow *

@@ -30,8 +30,6 @@ fragment: [[
 
     layout(set = 0, binding = 0) uniform IrradianceUniform {
         mat4 mvp;
-        float deltaPhi;
-        float deltaTheta;
     } consts;
     layout (set = 0, binding = 1) uniform samplerCube samplerEnv;
 
@@ -43,13 +41,16 @@ fragment: [[
         vec3 right = normalize(cross(up, N));
         up = cross(N, right);
 
-        const float TWO_PI = PI * 2.0;
+        const float TWO_PI  = PI * 2.0;
         const float HALF_PI = PI * 0.5;
+
+        const float delta_phi   = (2.0f * PI) / 180.0f;
+        const float delta_theta = (0.5f * PI) / 64.0f;
 
         vec3 color = vec3(0.0);
         uint sampleCount = 0u;
-        for (float phi = 0.0; phi < TWO_PI; phi += consts.deltaPhi) {
-            for (float theta = 0.0; theta < HALF_PI; theta += consts.deltaTheta) {
+        for (float phi = 0.0; phi < TWO_PI; phi += delta_phi) {
+            for (float theta = 0.0; theta < HALF_PI; theta += delta_theta) {
                 vec3 tempVec = cos(phi) * right + sin(phi) * up;
                 vec3 sampleVector = cos(theta) * N + sin(theta) * tempVec;
                 color += texture(samplerEnv, sampleVector).rgb * cos(theta) * sin(theta);

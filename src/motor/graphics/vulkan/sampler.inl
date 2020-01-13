@@ -7,7 +7,6 @@ static MtSampler *create_sampler(MtDevice *dev, MtSamplerCreateInfo *ci)
     {
         ci->max_lod = 1.0f;
     }
-
     if (ci->mag_filter == 0)
     {
         ci->mag_filter = MT_FILTER_LINEAR;
