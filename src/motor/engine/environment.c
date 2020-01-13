@@ -266,7 +266,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
         for (uint32_t f = 0; f < 6; f++)
         {
             uniform.mvp = mat4_mul(
-                direction_matrices[f], mat4_perspective(((float)M_PI / 2.0f), 1.0f, 0.1f, 512.0f));
+                direction_matrices[f], mat4_perspective(((float)MT_PI / 2.0f), 1.0f, 0.1f, 512.0f));
 
             if (type == CUBEMAP_RADIANCE)
             {
