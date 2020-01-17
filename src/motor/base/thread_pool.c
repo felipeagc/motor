@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+// TODO: handle queue resizing
+
 MT_THREAD_LOCAL uint32_t mt_thread_pool_task_id = 0;
 
 static inline uint32_t thread_pool_queue_size_no_lock(MtThreadPool *pool)

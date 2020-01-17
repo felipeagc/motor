@@ -214,6 +214,11 @@ int main(int argc, char *argv[])
             game.cam.uniform.pos.y,
             game.cam.uniform.pos.z);
 
+        mt_ui_set_font_size(game.ui, 20);
+        mt_ui_printf(game.ui, "Hello");
+
+        mt_ui_image(game.ui, cb, game.image->image);
+
         // Draw skybox
         {
             mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
@@ -221,6 +226,7 @@ int main(int argc, char *argv[])
         }
 
         // Draw model
+#if 0
         {
             static float angle = 0.0f;
 
@@ -235,10 +241,9 @@ int main(int argc, char *argv[])
                 mt_gltf_asset_draw(game.models[i], cb, &game.transforms[i], 1, 3);
             }
         }
+#endif
 
         mt_ui_draw(game.ui, cb);
-
-        /* mt_ui_image(game.ui, cb, game.image->image); */
 
         mt_render.cmd_end_render_pass(cb);
 

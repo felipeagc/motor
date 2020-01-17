@@ -29,12 +29,14 @@ void mt_ui_set_pos(MtUIRenderer *ui, Vec2 pos);
 void mt_ui_set_color(MtUIRenderer *ui, Vec3 color);
 
 // Widgets
+void mt_ui_print(MtUIRenderer *ui, const char *text);
+
 #ifdef __GNUC__
 __attribute__((format(printf, 2, 3)))
 #endif
 void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...);
 
-void mt_ui_image(MtUIRenderer *ui, MtCmdBuffer *cb, MtImage* image);
+void mt_ui_image(MtUIRenderer *ui, MtCmdBuffer *cb, MtImage *image);
 
 // Drawing
 void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport);

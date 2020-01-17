@@ -19,7 +19,6 @@ vertex: [[
 
     void main() {
         tex_coord0 = tex_coord;
-        tex_coord0.y = tex_coord0.y;
         color0 = color;
 
         gl_Position = proj * vec4(pos, 0.0, 1.0);
@@ -35,6 +34,7 @@ fragment: [[
     layout(location = 0) out vec4 out_color;
 
     void main() {
-        out_color = vec4(in_color, texture(bitmap, tex_coord).r);
+        vec4 sampled_color = texture(bitmap, tex_coord);
+        out_color = vec4(in_color * sampled_color.rgb, sampled_color.a);
     }
 ]]
