@@ -1,9 +1,12 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <motor/base/math_types.h>
 
 typedef struct MtAllocator MtAllocator;
+typedef struct MtWindow MtWindow;
+typedef struct MtEvent MtEvent;
 typedef struct MtFontAsset MtFontAsset;
 typedef struct MtCmdBuffer MtCmdBuffer;
 typedef struct MtImage MtImage;
@@ -12,6 +15,12 @@ typedef struct MtAssetManager MtAssetManager;
 
 typedef struct MtUIRenderer MtUIRenderer;
 
+#ifdef __GNUC__
+#define MT_PRINTF_FORMATTING(x, y) __attribute__((format(printf, x, y)))
+#else
+#define MT_PRINTF_FORMATTING(x, y)
+#endif
+
 typedef struct MtUIVertex
 {
     Vec2 pos;
@@ -19,8 +28,11 @@ typedef struct MtUIVertex
     Vec3 color;
 } MtUIVertex;
 
-MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtAssetManager *asset_manager);
+MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtWindow* window, MtAssetManager *asset_manager);
 void mt_ui_destroy(MtUIRenderer *ui);
+
+// Events
+void mt_ui_on_event(MtUIRenderer *ui, MtEvent *event);
 
 // Settings
 void mt_ui_set_font(MtUIRenderer *ui, MtFontAsset *font);
@@ -30,13 +42,12 @@ void mt_ui_set_color(MtUIRenderer *ui, Vec3 color);
 
 // Widgets
 void mt_ui_print(MtUIRenderer *ui, const char *text);
+MT_PRINTF_FORMATTING(2, 3) void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...);
 
-#ifdef __GNUC__
-__attribute__((format(printf, 2, 3)))
-#endif
-void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...);
+void mt_ui_rect(MtUIRenderer *ui, float w, float h);
+void mt_ui_image(MtUIRenderer *ui, MtImage *image, float w, float h);
 
-void mt_ui_image(MtUIRenderer *ui, MtCmdBuffer *cb, MtImage *image);
+bool mt_ui_button(MtUIRenderer *ui, uint64_t id, float w, float h);
 
 // Drawing
 void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport);

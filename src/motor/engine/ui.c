@@ -37,9 +37,17 @@ typedef struct UICommand
 struct MtUIRenderer
 {
     MtAllocator *alloc;
+    MtWindow *window;
     MtEngine *engine;
 
     MtPipelineAsset *pipeline;
+
+    int32_t mouse_x;
+    int32_t mouse_y;
+    uint32_t mouse_state;
+
+    uint64_t active_id;
+    uint64_t hot_id;
 
     Vec2 pos;
     Vec3 color;
@@ -78,12 +86,13 @@ static UICommand *current_command(MtUIRenderer *ui)
     return last_cmd;
 }
 
-MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtAssetManager *asset_manager)
+MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtWindow *window, MtAssetManager *asset_manager)
 {
     MtUIRenderer *ui = mt_alloc(alloc, sizeof(MtUIRenderer));
     memset(ui, 0, sizeof(*ui));
 
     ui->alloc  = alloc;
+    ui->window = window;
     ui->engine = asset_manager->engine;
 
     ui->pipeline =
@@ -108,6 +117,35 @@ void mt_ui_destroy(MtUIRenderer *ui)
     mt_free(ui->alloc, ui);
 }
 
+void mt_ui_on_event(MtUIRenderer *ui, MtEvent *event)
+{
+    switch (event->type)
+    {
+        case MT_EVENT_CURSOR_MOVED:
+        {
+            ui->mouse_x = event->pos.x;
+            ui->mouse_y = event->pos.y;
+            break;
+        }
+        case MT_EVENT_BUTTON_PRESSED:
+        {
+            ui->mouse_state = MT_INPUT_STATE_PRESS;
+            break;
+        }
+        case MT_EVENT_BUTTON_RELEASED:
+        {
+            ui->mouse_state = MT_INPUT_STATE_RELEASE;
+            ui->active_id   = 0;
+            break;
+        }
+        case MT_EVENT_KEY_PRESSED:
+        {
+            break;
+        }
+        default: break;
+    }
+}
+
 void mt_ui_set_font(MtUIRenderer *ui, MtFontAsset *font)
 {
     ui->font = font;
@@ -126,6 +164,11 @@ void mt_ui_set_pos(MtUIRenderer *ui, Vec2 pos)
 void mt_ui_set_color(MtUIRenderer *ui, Vec3 color)
 {
     ui->color = color;
+}
+
+static bool region_hit(MtUIRenderer *ui, float x, float y, float w, float h)
+{
+    return (ui->mouse_x >= x && ui->mouse_x <= x + w) && (ui->mouse_y >= y && ui->mouse_y <= y + h);
 }
 
 void mt_ui_print(MtUIRenderer *ui, const char *text)
@@ -207,20 +250,20 @@ void mt_ui_printf(MtUIRenderer *ui, const char *fmt, ...)
     mt_ui_print(ui, buf);
 }
 
-void mt_ui_image(MtUIRenderer *ui, MtCmdBuffer *cb, MtImage *image)
+static void add_rect(MtUIRenderer *ui, float w, float h)
 {
-    ui->state.image   = image;
-    ui->state.sampler = ui->engine->default_sampler;
-    UICommand *cmd    = current_command(ui);
+    UICommand *cmd = current_command(ui);
 
-    float w = 512.0f;
-    float h = 512.0f;
+    float x = ui->pos.x;
+    float y = ui->pos.y;
+
+    uint16_t first_index = (uint16_t)mt_array_size(cmd->vertices);
 
     MtUIVertex vertices[4] = {
-        {V2(0.0f, 0.0f), V2(0.0f, 0.0f), V3(1.0f, 1.0f, 1.0f)},
-        {V2(w, 0.0f), V2(1.0f, 0.0f), V3(1.0f, 1.0f, 1.0f)},
-        {V2(w, h), V2(1.0f, 1.0f), V3(1.0f, 1.0f, 1.0f)},
-        {V2(0.0f, h), V2(0.0f, 1.0f), V3(1.0f, 1.0f, 1.0f)},
+        {V2(x, y), V2(0.0f, 0.0f), ui->color},
+        {V2(x + w, y), V2(1.0f, 0.0f), ui->color},
+        {V2(x + w, y + h), V2(1.0f, 1.0f), ui->color},
+        {V2(x, y + h), V2(0.0f, 1.0f), ui->color},
     };
 
     mt_array_push(ui->alloc, cmd->vertices, vertices[0]);
@@ -228,14 +271,69 @@ void mt_ui_image(MtUIRenderer *ui, MtCmdBuffer *cb, MtImage *image)
     mt_array_push(ui->alloc, cmd->vertices, vertices[2]);
     mt_array_push(ui->alloc, cmd->vertices, vertices[3]);
 
-    uint16_t indices[6] = {0, 1, 2, 2, 3, 0};
+    mt_array_push(ui->alloc, cmd->indices, first_index);
+    mt_array_push(ui->alloc, cmd->indices, first_index + 1);
+    mt_array_push(ui->alloc, cmd->indices, first_index + 2);
+    mt_array_push(ui->alloc, cmd->indices, first_index + 2);
+    mt_array_push(ui->alloc, cmd->indices, first_index + 3);
+    mt_array_push(ui->alloc, cmd->indices, first_index);
 
-    mt_array_push(ui->alloc, cmd->indices, indices[0]);
-    mt_array_push(ui->alloc, cmd->indices, indices[1]);
-    mt_array_push(ui->alloc, cmd->indices, indices[2]);
-    mt_array_push(ui->alloc, cmd->indices, indices[3]);
-    mt_array_push(ui->alloc, cmd->indices, indices[4]);
-    mt_array_push(ui->alloc, cmd->indices, indices[5]);
+    ui->pos.y += h;
+}
+
+void mt_ui_rect(MtUIRenderer *ui, float w, float h)
+{
+    ui->state.image   = ui->engine->white_image;
+    ui->state.sampler = ui->engine->default_sampler;
+    add_rect(ui, w, h);
+}
+
+void mt_ui_image(MtUIRenderer *ui, MtImage *image, float w, float h)
+{
+    ui->state.image   = image;
+    ui->state.sampler = ui->engine->default_sampler;
+    add_rect(ui, w, h);
+}
+
+bool mt_ui_button(MtUIRenderer *ui, uint64_t id, float w, float h)
+{
+    bool result     = false;
+    Vec3 prev_color = ui->color;
+
+    float x = ui->pos.x;
+    float y = ui->pos.y;
+
+    if (region_hit(ui, x, y, w, h))
+    {
+        if (ui->active_id == 0 || ui->active_id == id)
+        {
+            ui->hot_id = id;
+        }
+
+        if (ui->active_id == 0 && ui->mouse_state == MT_INPUT_STATE_PRESS)
+        {
+            result        = true;
+            ui->active_id = id;
+        }
+    }
+
+    if (ui->active_id == id)
+    {
+        ui->color = V3(1, 0, 0);
+    }
+    else if (ui->hot_id == id)
+    {
+        ui->color = V3(0, 1, 0);
+    }
+    else
+    {
+        ui->color = V3(1, 1, 1);
+    }
+
+    mt_ui_rect(ui, w, h);
+    ui->color = prev_color;
+
+    return result;
 }
 
 void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport)
@@ -248,6 +346,8 @@ void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport)
 
     ui->font        = NULL;
     ui->font_height = DEFAULT_FONT_HEIGHT;
+
+    ui->hot_id = 0;
 }
 
 void mt_ui_draw(MtUIRenderer *ui, MtCmdBuffer *cb)
@@ -364,3 +464,4 @@ static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height)
 
     return atlas;
 }
+

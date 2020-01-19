@@ -99,7 +99,7 @@ void game_init(Game *g)
     mt_thread_pool_init(&g->thread_pool, num_threads, g->engine.alloc);
     mt_mutex_init(&g->models_mutex);
 
-    g->ui = mt_ui_create(g->engine.alloc, &g->engine.asset_manager);
+    g->ui = mt_ui_create(g->engine.alloc, g->engine.window, &g->engine.asset_manager);
 
     g->watcher = mt_file_watcher_create(g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
 
@@ -174,6 +174,7 @@ int main(int argc, char *argv[])
         MtEvent event;
         while (mt_window.next_event(win, &event))
         {
+            mt_ui_on_event(game.ui, &event);
             mt_perspective_camera_on_event(&game.cam, &event);
             switch (event.type)
             {
@@ -217,7 +218,22 @@ int main(int argc, char *argv[])
         mt_ui_set_font_size(game.ui, 20);
         mt_ui_printf(game.ui, "Hello");
 
-        mt_ui_image(game.ui, cb, game.image->image);
+        mt_ui_image(game.ui, game.image->image, 64, 64);
+
+        mt_ui_set_color(game.ui, V3(1, 0, 0));
+        mt_ui_rect(game.ui, 64, 64);
+        mt_ui_set_color(game.ui, V3(1, 1, 1));
+
+        mt_ui_rect(game.ui, 64, 64);
+        if (mt_ui_button(game.ui, 1, 100, 40))
+        {
+            printf("Hello\n");
+        }
+
+        if (mt_ui_button(game.ui, 2, 100, 40))
+        {
+            printf("Hello 2\n");
+        }
 
         // Draw skybox
         {
