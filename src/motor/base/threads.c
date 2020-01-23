@@ -4,13 +4,13 @@
 #include <string.h>
 #include <assert.h>
 
+// clang-format off
 #if defined(_WIN32) || defined(__WIN32__) || defined(__WINDOWS__)
-#define MT_THREADS_WIN32
+    #define MT_THREADS_WIN32
 #else
-#define MT_THREADS_POSIX
+    #define MT_THREADS_POSIX
 #endif
 
-// clang-format off
 #if defined(MT_THREADS_POSIX)
     #include <pthread.h>
     #include <unistd.h>

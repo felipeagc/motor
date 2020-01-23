@@ -330,7 +330,14 @@ bool mt_ui_button(MtUIRenderer *ui, uint64_t id, float w, float h)
         ui->color = V3(1, 1, 1);
     }
 
+    Vec2 button_pos = ui->pos;
+
+    mt_ui_set_pos(ui, button_pos);
+    mt_ui_printf(ui, "Hello");
+
+    mt_ui_set_pos(ui, button_pos);
     mt_ui_rect(ui, w, h);
+
     ui->color = prev_color;
 
     return result;

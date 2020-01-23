@@ -1,10 +1,10 @@
-blending: false
-depth_test: false
-depth_write: false
-cull_mode: "none"
-front_face: "clockwise"
+blending = false
+depth_test = false
+depth_write = false
+cull_mode = "none"
+front_face = "clockwise"
 
-vertex: [[
+vertex = @{
     layout(location = 0) in vec3 pos;
 
     layout(set = 0, binding = 0) uniform IrradianceUniform {
@@ -21,9 +21,9 @@ vertex: [[
 
         gl_Position = mvp * vec4(pos, 1.0);
     }
-]]
+}@
 
-fragment: [[
+fragment = @{
     layout (location = 0) in vec3 inPos;
 
     layout (location = 0) out vec4 outColor;
@@ -59,4 +59,4 @@ fragment: [[
         }
         outColor = vec4(PI * color / float(sampleCount), 1.0);
     }
-]]
+}@

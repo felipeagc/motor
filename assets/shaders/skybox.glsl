@@ -1,10 +1,10 @@
-blending: false
-depth_test: false
-depth_write: false
-cull_mode: "front"
-front_face: "clockwise"
+blending = false
+depth_test = false
+depth_write = false
+cull_mode = "front"
+front_face = "clockwise"
 
-vertex: [[
+vertex = @{
     #include "common.glsl"
 
     layout(location = 0) in vec3 pos;
@@ -27,9 +27,9 @@ vertex: [[
         vec4 position = cam.proj * view * vec4(pos * vec3(100.0), 1.0);
         gl_Position = position.xyww;
     }
-]]
+}@
 
-fragment: [[
+fragment = @{
     #include "common.glsl"
     #include "pbr_common.glsl"
 
@@ -46,4 +46,4 @@ fragment: [[
         out_color.rgb = srgb_to_linear(tonemap(textureLod(env_map, tex_coords, 1.5), environment.exposure)).rgb;
         out_color.a = 1.0f;
     }
-]]
+}@

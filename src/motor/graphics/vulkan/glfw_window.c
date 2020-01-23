@@ -209,14 +209,14 @@ choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t count)
 static VkPresentModeKHR
 choose_swapchain_present_mode(VkPresentModeKHR *present_modes, uint32_t count)
 {
-    for (uint32_t i = 0; i < count; i++)
-    {
-        VkPresentModeKHR mode = present_modes[i];
-        if (mode == VK_PRESENT_MODE_FIFO_KHR)
-        {
-            return mode;
-        }
-    }
+    /* for (uint32_t i = 0; i < count; i++) */
+    /* { */
+    /*     VkPresentModeKHR mode = present_modes[i]; */
+    /*     if (mode == VK_PRESENT_MODE_FIFO_KHR) */
+    /*     { */
+    /*         return mode; */
+    /*     } */
+    /* } */
 
     for (uint32_t i = 0; i < count; i++)
     {

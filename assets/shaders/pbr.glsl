@@ -1,10 +1,10 @@
-blending: true
-depth_test: true
-depth_write: true
-cull_mode: "front"
-front_face: "clockwise"
+blending = true
+depth_test = true
+depth_write = true
+cull_mode = "front"
+front_face = "clockwise"
 
-vertex: [[
+vertex = @{
     #include "common.glsl"
 
     layout (location = 0) in vec3 pos;
@@ -50,9 +50,9 @@ vertex: [[
 
         gl_Position = cam.proj * cam.view * vec4(world_pos, 1.0f);
     }
-]]
+}@
 
-fragment: [[
+fragment = @{
     #include "common.glsl"
     #include "pbr_common.glsl"
 
@@ -193,4 +193,4 @@ fragment: [[
 
         out_color = vec4((ambient + Lo) * occlusion + emissive, albedo.a);
     }
-]]
+}@

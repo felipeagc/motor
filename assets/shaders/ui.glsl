@@ -1,11 +1,11 @@
-blending: true
-depth_test: true
-depth_write: true
-depth_bias: false
-cull_mode: "back"
-front_face: "clockwise"
+blending = true
+depth_test = true
+depth_write = true
+depth_bias = false
+cull_mode = "back"
+front_face = "clockwise"
 
-vertex: [[
+vertex = @{
     layout(location = 0) in vec2 pos;
     layout(location = 1) in vec2 tex_coord;
     layout(location = 2) in vec3 color;
@@ -17,15 +17,16 @@ vertex: [[
     layout(location = 0) out vec2 tex_coord0;
     layout(location = 1) out vec3 color0;
 
-    void main() {
+    void main()
+    {
         tex_coord0 = tex_coord;
         color0 = color;
 
         gl_Position = proj * vec4(pos, 0.0, 1.0);
     }
-]]
+}@
 
-fragment: [[
+fragment = @{
     layout(location = 0) in vec2 tex_coord;
     layout(location = 1) in vec3 in_color;
 
@@ -33,8 +34,9 @@ fragment: [[
 
     layout(location = 0) out vec4 out_color;
 
-    void main() {
+    void main()
+    {
         vec4 sampled_color = texture(bitmap, tex_coord);
         out_color = vec4(in_color * sampled_color.rgb, sampled_color.a);
     }
-]]
+}@

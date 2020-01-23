@@ -20,20 +20,21 @@ struct MtConfig
 typedef enum TokenType
 {
     TOKEN_NEWLINE = 1,
-    TOKEN_COLON   = 2,
+    TOKEN_COLON,
+    TOKEN_EQUAL,
 
-    TOKEN_LCURLY = 3,
-    TOKEN_RCURLY = 4,
+    TOKEN_LCURLY,
+    TOKEN_RCURLY,
 
-    TOKEN_LBRACK = 5,
-    TOKEN_RBRACK = 6,
+    TOKEN_LBRACK,
+    TOKEN_RBRACK,
 
-    TOKEN_IDENT  = 7,
-    TOKEN_STRING = 8,
-    TOKEN_FLOAT  = 9,
-    TOKEN_INT    = 10,
-    TOKEN_TRUE   = 11,
-    TOKEN_FALSE  = 12,
+    TOKEN_IDENT,
+    TOKEN_STRING,
+    TOKEN_FLOAT,
+    TOKEN_INT,
+    TOKEN_TRUE,
+    TOKEN_FALSE,
 } TokenType;
 
 typedef struct Token
@@ -88,21 +89,21 @@ static bool scan_multiline_string(Parser *p, Token *token)
 {
     token->type = TOKEN_STRING;
 
-    if (s_is_at_end(p) || strncmp(p->c, "[[", 2) != 0)
+    if (s_is_at_end(p) || strncmp(p->c, "@{", 2) != 0)
     {
         return false;
     }
     p->c += 2;
 
     mt_str_builder_reset(&p->sb);
-    while (!s_is_at_end(p) && strncmp(p->c, "]]", 2) != 0)
+    while (!s_is_at_end(p) && strncmp(p->c, "}@", 2) != 0)
     {
         mt_str_builder_append_char(&p->sb, *p->c);
         p->c++;
     }
     token->string = mt_str_builder_build(&p->sb, &p->config->bump);
 
-    if (s_is_at_end(p) || strncmp(p->c, "]]", 2) != 0)
+    if (s_is_at_end(p) || strncmp(p->c, "}@", 2) != 0)
     {
         return false;
     }
@@ -218,6 +219,12 @@ static bool scan_token(Parser *p)
             token.type = TOKEN_COLON;
             break;
         }
+        case '=':
+        {
+            p->c++;
+            token.type = TOKEN_EQUAL;
+            break;
+        }
         case '{':
         {
             p->c++;
@@ -232,7 +239,19 @@ static bool scan_token(Parser *p)
         }
         case '[':
         {
-            if (*(p->c + 1) == '[')
+            p->c++;
+            token.type = TOKEN_LBRACK;
+            break;
+        }
+        case ']':
+        {
+            p->c++;
+            token.type = TOKEN_RBRACK;
+            break;
+        }
+        case '@':
+        {
+            if (*(p->c + 1) == '{')
             {
                 if (!scan_multiline_string(p, &token))
                 {
@@ -240,16 +259,8 @@ static bool scan_token(Parser *p)
                 }
                 break;
             }
-            p->c++;
-            token.type = TOKEN_LBRACK;
+            return false;
         }
-        break;
-        case ']':
-        {
-            p->c++;
-            token.type = TOKEN_RBRACK;
-        }
-        break;
         case '"':
         {
             if (!scan_string(p, &token))
@@ -321,7 +332,7 @@ static bool parse_entry(Parser *p, MtConfigEntry *entry)
     entry->key = p->t->string;
     p->t++;
 
-    if (p_is_at_end(p) || p->t->type != TOKEN_COLON)
+    if (p_is_at_end(p) || p->t->type != TOKEN_EQUAL)
     {
         return false;
     }

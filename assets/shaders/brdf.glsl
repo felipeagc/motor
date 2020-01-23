@@ -1,13 +1,13 @@
-vertex: [[
+vertex = @{
     layout (location = 0) out vec2 tex_coords;
 
     void main() {
         tex_coords = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
         gl_Position = vec4(tex_coords * 2.0f - 1.0f, 0.0f, 1.0f);
     }
-]]
+}@
 
-fragment: [[
+fragment = @{
     layout (location = 0) in vec2 tex_coords;
     layout (location = 0) out vec4 outColor;
 
@@ -91,4 +91,4 @@ fragment: [[
     void main() {
         outColor = vec4(BRDF(tex_coords.s, 1.0-tex_coords.t), 0.0, 1.0);
     }
-]]
+}@
