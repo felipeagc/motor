@@ -32,6 +32,11 @@ uint64_t mt_hash_str(const char *str)
     return (uint64_t)XXH64(str, strlen(str), 0);
 }
 
+uint64_t mt_hash_strn(const char *str, size_t length)
+{
+    return (uint64_t)XXH64(str, length, 0);
+}
+
 void mt_hash_init(MtHashMap *map, uint32_t size, MtAllocator *alloc)
 {
     memset(map, 0, sizeof(*map));

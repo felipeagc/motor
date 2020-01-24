@@ -20,8 +20,12 @@ void mt_str_builder_reset(MtStringBuilder *sb)
 
 void mt_str_builder_append_str(MtStringBuilder *sb, const char *str)
 {
-    size_t len = strlen(str);
-    for (uint32_t i = 0; i < len; i++)
+    mt_str_builder_append_strn(sb, str, strlen(str));
+}
+
+void mt_str_builder_append_strn(MtStringBuilder *sb, const char *str, size_t length)
+{
+    for (uint32_t i = 0; i < length; i++)
         sb->buf[sb->length++] = str[i];
     assert(sb->length <= sb->capacity);
 }

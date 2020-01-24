@@ -15,12 +15,12 @@ static void print_object(MtConfigObject *obj, uint32_t indent)
         }
 
         MtConfigEntry *entry = &obj->entries[i];
-        printf("%s: ", entry->key);
+        printf("%.*s = ", entry->key_length, entry->key);
         switch (entry->value.type)
         {
             case MT_CONFIG_VALUE_STRING:
             {
-                printf("\"%s\"\n", entry->value.string);
+                printf("\"%.*s\"\n", entry->value.length, entry->value.string);
                 break;
             }
             case MT_CONFIG_VALUE_BOOL:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <stddef.h>
 
 #define MT_HASH_UNUSED UINT64_MAX
 #define MT_HASH_NOT_FOUND UINT64_MAX
@@ -16,6 +17,8 @@ typedef struct MtHashMap
 } MtHashMap;
 
 uint64_t mt_hash_str(const char *str);
+
+uint64_t mt_hash_strn(const char *str, size_t length);
 
 void mt_hash_init(MtHashMap *map, uint32_t size, MtAllocator *alloc);
 

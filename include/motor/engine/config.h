@@ -26,7 +26,11 @@ typedef struct MtConfigValue
 {
     MtConfigValueType type;
     union {
-        const char *string;
+        struct
+        {
+            const char *string;
+            uint32_t length;
+        };
         int64_t i64;
         double f64;
         bool boolean;
@@ -37,6 +41,7 @@ typedef struct MtConfigValue
 typedef struct MtConfigEntry
 {
     const char *key;
+    uint32_t key_length;
     MtConfigValue value;
 } MtConfigEntry;
 

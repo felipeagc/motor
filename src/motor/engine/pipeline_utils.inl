@@ -83,6 +83,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     MtConfig *config = mt_config_parse(engine->alloc, input, input_size);
     if (!config)
     {
+        printf("Failed to parse pipeline config\n");
         goto failed;
     }
 
@@ -128,7 +129,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     {
         mt_str_builder_append_str(&sb, common_entry->value.string);
     }
-    mt_str_builder_append_str(&sb, vertex_entry->value.string);
+    mt_str_builder_append_strn(&sb, vertex_entry->value.string, vertex_entry->value.length);
     vertex_text = mt_str_builder_build(&sb, engine->alloc);
 
     mt_str_builder_reset(&sb);
@@ -137,7 +138,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     {
         mt_str_builder_append_str(&sb, common_entry->value.string);
     }
-    mt_str_builder_append_str(&sb, fragment_entry->value.string);
+    mt_str_builder_append_strn(&sb, fragment_entry->value.string, fragment_entry->value.length);
     fragment_text = mt_str_builder_build(&sb, engine->alloc);
 
     mt_str_builder_destroy(&sb);
@@ -241,19 +242,20 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
 
     if (front_face_entry)
     {
-        if (front_face_entry->value.type == MT_CONFIG_VALUE_STRING)
+        MtConfigValue *value = &front_face_entry->value;
+        if (value->type == MT_CONFIG_VALUE_STRING)
         {
-            if (strcmp(front_face_entry->value.string, "clockwise") == 0)
+            if (strncmp(value->string, "clockwise", value->length) == 0)
             {
                 front_face = MT_FRONT_FACE_CLOCKWISE;
             }
-            else if (strcmp(front_face_entry->value.string, "counter_clockwise") == 0)
+            else if (strncmp(value->string, "counter_clockwise", value->length) == 0)
             {
                 front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE;
             }
             else
             {
-                printf("Invalid pipeline front face: \"%s\"\n", front_face_entry->value.string);
+                printf("Invalid pipeline front face: \"%.*s\"\n", value->length, value->string);
                 goto failed;
             }
         }
@@ -266,23 +268,24 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
 
     if (cull_mode_entry)
     {
-        if (cull_mode_entry->value.type == MT_CONFIG_VALUE_STRING)
+        MtConfigValue *value = &cull_mode_entry->value;
+        if (value->type == MT_CONFIG_VALUE_STRING)
         {
-            if (strcmp(cull_mode_entry->value.string, "none") == 0)
+            if (strncmp(value->string, "none", value->length) == 0)
             {
                 cull_mode = MT_CULL_MODE_NONE;
             }
-            else if (strcmp(cull_mode_entry->value.string, "front") == 0)
+            else if (strncmp(value->string, "front", value->length) == 0)
             {
                 cull_mode = MT_CULL_MODE_FRONT;
             }
-            else if (strcmp(cull_mode_entry->value.string, "back") == 0)
+            else if (strncmp(value->string, "back", value->length) == 0)
             {
                 cull_mode = MT_CULL_MODE_BACK;
             }
             else
             {
-                printf("Invalid pipeline cull mode: \"%s\"\n", cull_mode_entry->value.string);
+                printf("Invalid pipeline cull mode: \"%.*s\"\n", value->length, value->string);
                 goto failed;
             }
         }

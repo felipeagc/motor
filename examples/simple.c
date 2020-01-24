@@ -236,26 +236,22 @@ int main(int argc, char *argv[])
         }
 
         // Draw skybox
-        {
-            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-            mt_environment_draw_skybox(&game.env, cb);
-        }
+        mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
+        mt_environment_draw_skybox(&game.env, cb);
 
+#if 1
         // Draw model
-#if 0
+        static float angle = 0.0f;
+
+        angle += delta_time;
+
+        mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
+        mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
+        mt_environment_bind(&game.env, cb, 2);
+
+        for (uint32_t i = 0; i < mt_array_size(game.models); i++)
         {
-            static float angle = 0.0f;
-
-            angle += delta_time;
-
-            mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
-            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-            mt_environment_bind(&game.env, cb, 2);
-
-            for (uint32_t i = 0; i < mt_array_size(game.models); i++)
-            {
-                mt_gltf_asset_draw(game.models[i], cb, &game.transforms[i], 1, 3);
-            }
+            mt_gltf_asset_draw(game.models[i], cb, &game.transforms[i], 1, 3);
         }
 #endif
 

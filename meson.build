@@ -66,6 +66,7 @@ motor_graphics_dep = declare_dependency(
 
 motor_engine_sources = [
   'src/motor/engine/file_watcher.c',
+  'src/motor/engine/lexer.c',
   'src/motor/engine/config.c',
   'src/motor/engine/engine.c',
   'src/motor/engine/ui.c',
