@@ -43,6 +43,7 @@ static VkIndexType index_type_to_vulkan(MtIndexType index_type)
         case MT_INDEX_TYPE_UINT32: return VK_INDEX_TYPE_UINT32;
         default: assert(0);
     }
+    return 0;
 }
 
 static VkCullModeFlagBits cull_mode_to_vulkan(MtCullMode cull_mode)
@@ -55,6 +56,7 @@ static VkCullModeFlagBits cull_mode_to_vulkan(MtCullMode cull_mode)
         case MT_CULL_MODE_FRONT_AND_BACK: return VK_CULL_MODE_FRONT_AND_BACK;
         default: assert(0);
     }
+    return 0;
 }
 
 static VkFrontFace front_face_to_vulkan(MtFrontFace front_face)
@@ -65,6 +67,7 @@ static VkFrontFace front_face_to_vulkan(MtFrontFace front_face)
         case MT_FRONT_FACE_COUNTER_CLOCKWISE: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
         default: assert(0);
     }
+    return 0;
 }
 
 static VkFilter filter_to_vulkan(MtFilter value)
@@ -75,6 +78,7 @@ static VkFilter filter_to_vulkan(MtFilter value)
         case MT_FILTER_NEAREST: return VK_FILTER_NEAREST;
         default: assert(0);
     }
+    return 0;
 }
 
 static VkSamplerAddressMode sampler_address_mode_to_vulkan(MtSamplerAddressMode value)
@@ -91,6 +95,7 @@ static VkSamplerAddressMode sampler_address_mode_to_vulkan(MtSamplerAddressMode 
             return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
         default: assert(0);
     }
+    return 0;
 }
 
 static VkBorderColor border_color_to_vulkan(MtBorderColor value)
@@ -106,6 +111,7 @@ static VkBorderColor border_color_to_vulkan(MtBorderColor value)
         case MT_BORDER_COLOR_INT_OPAQUE_WHITE: return VK_BORDER_COLOR_INT_OPAQUE_WHITE;
         default: assert(0);
     }
+    return 0;
 }
 
 static VkImageLayout image_layout_to_vulkan(MtImageLayout layout)
@@ -127,4 +133,5 @@ static VkImageLayout image_layout_to_vulkan(MtImageLayout layout)
         case MT_IMAGE_LAYOUT_PREINITIALIZED: return VK_IMAGE_LAYOUT_PREINITIALIZED;
         default: assert(0);
     }
+    return 0;
 }

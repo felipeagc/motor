@@ -5,7 +5,6 @@
 
 // clang-format off
 #if defined(_WIN32)
-    #include <windef.h>
 #elif defined(__APPLE__)
     #error Apple not supported
 #else
@@ -162,7 +161,7 @@ typedef struct MtWindowSystem
     MtInputState (*get_mouse_button)(MtWindow *, MtMouseButton button);
 
 #if defined(_WIN32)
-    HWND (*get_win32_window)(MtWindow *);
+    void* (*get_win32_window)(MtWindow *);
 #elif defined(__APPLE__)
 #error Apple not supported
 #else

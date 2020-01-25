@@ -87,11 +87,15 @@ motor_engine_sources = [
 
 if target_machine.system() == 'windows'
   shaderc_dep = cc.find_library('shaderc_shared', 
-	dirs: [join_paths(meson.source_root(), 'thirdparty/shaderc')],
+	dirs: [join_paths(meson.source_root(), 'thirdparty/shaderc/windows')],
 	static: false)
+  configure_file(
+    input: 'thirdparty/shaderc/windows/shaderc_shared.dll',
+    output: 'shaderc_shared.dll',
+    copy: true)
 else
   shaderc_dep = cc.find_library('shaderc', 
-	dirs: [join_paths(meson.source_root(), 'thirdparty/shaderc')],
+	dirs: [join_paths(meson.source_root(), 'thirdparty/shaderc/linux')],
 	static: true)
 endif
 motor_engine_deps = [motor_base_dep, motor_graphics_dep, shaderc_dep]
