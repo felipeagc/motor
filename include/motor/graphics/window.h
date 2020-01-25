@@ -5,7 +5,8 @@
 
 // clang-format off
 #if defined(_WIN32)
-    #include <windef.h>
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
 #elif defined(__APPLE__)
     #error Apple not supported
 #else
