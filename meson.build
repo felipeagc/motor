@@ -20,6 +20,7 @@ motor_base_sources = [
   'src/motor/base/array.c',
   'src/motor/base/hashmap.c',
   'src/motor/base/bitset.c',
+  'src/motor/base/lexer.c',
 
   'src/motor/base/xxhash.c',
 ]
@@ -66,7 +67,6 @@ motor_graphics_dep = declare_dependency(
 
 motor_engine_sources = [
   'src/motor/engine/file_watcher.c',
-  'src/motor/engine/lexer.c',
   'src/motor/engine/config.c',
   'src/motor/engine/engine.c',
   'src/motor/engine/ui.c',

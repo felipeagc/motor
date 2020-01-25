@@ -1,0 +1,37 @@
+= Motor
+
+== To-do
+
+=== Features
+* Base
+** Random number generation
+** Filesystem API
+** Atomics
+
+* Graphics
+** Render graph
+** Shadow mapping
+** Bloom
+** Gizmos
+** Procedural sky
+*** http://codeflow.org/entries/2011/apr/13/advanced-webgl-part-2-sky-rendering/
+
+* Engine
+** Introspection system
+** UI widgets
+*** Stack for pushing/popping IDs
+*** Automatic widget ID system
+*** Text input
+*** Window / container with scrollbar
+** Entity system
+** Physics
+
+
+=== Restructuring
+* Make swapchain separate from window
+* Statically link shaderc on windows
+
+=== Bug fixes
+* UI font atlas size needs to be correct
+* UI text transparency doesn't really work
+* Fix IBL cubemap generation (images are grainy)

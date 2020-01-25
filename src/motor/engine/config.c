@@ -1,6 +1,6 @@
 #include <motor/engine/config.h>
 
-#include <motor/engine/lexer.h>
+#include <motor/base/lexer.h>
 #include <motor/base/allocator.h>
 #include <motor/base/array.h>
 #include <string.h>
