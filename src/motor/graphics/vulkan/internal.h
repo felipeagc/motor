@@ -31,7 +31,6 @@ VK_DEFINE_HANDLE(VmaAllocation)
 typedef struct QueueFamilyIndices
 {
     uint32_t graphics;
-    uint32_t present;
     uint32_t transfer;
     uint32_t compute;
 } QueueFamilyIndices;
@@ -80,7 +79,6 @@ typedef struct MtDevice
 
     VkQueue graphics_queue;
     VkQueue transfer_queue;
-    VkQueue present_queue;
     VkQueue compute_queue;
 
     VmaAllocator gpu_allocator;
@@ -108,6 +106,46 @@ typedef struct MtRenderPass
     VkFramebuffer current_framebuffer;
     uint64_t hash;
 } MtRenderPass;
+
+typedef struct MtSwapchain
+{
+    MtDevice* dev;
+    MtWindow* window;
+    MtAllocator *alloc;
+
+    uint32_t present_family_index;
+
+    VkSurfaceKHR surface;
+    VkSwapchainKHR swapchain;
+
+    VkSemaphore image_available_semaphores[FRAMES_IN_FLIGHT];
+    VkSemaphore render_finished_semaphores[FRAMES_IN_FLIGHT];
+    VkFence in_flight_fences[FRAMES_IN_FLIGHT];
+
+    uint32_t swapchain_image_count;
+    uint32_t current_frame;
+    uint32_t current_image_index;
+    bool framebuffer_resized;
+
+    VkFormat swapchain_image_format;
+    VkImage *swapchain_images;
+    VkImageView *swapchain_image_views;
+
+    VkImage depth_image;
+    VmaAllocation depth_image_allocation;
+    VkImageView depth_image_view;
+
+    VkFramebuffer *swapchain_framebuffers;
+
+    MtRenderPass render_pass;
+
+    MtCmdBuffer *cmd_buffers[FRAMES_IN_FLIGHT];
+
+    double last_time;
+    double delta_time;
+
+    VkQueue present_queue;
+} MtSwapchain;
 
 typedef struct SetInfo
 {

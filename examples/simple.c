@@ -163,7 +163,8 @@ int main(int argc, char *argv[])
     Game game = {0};
     game_init(&game);
 
-    MtWindow *win = game.engine.window;
+    MtWindow *win          = game.engine.window;
+    MtSwapchain *swapchain = game.engine.swapchain;
 
     while (!mt_window.should_close(win))
     {
@@ -187,11 +188,12 @@ int main(int argc, char *argv[])
             }
         }
 
-        MtCmdBuffer *cb = mt_window.begin_frame(win);
+        MtCmdBuffer *cb = mt_render.swapchain_begin_frame(swapchain);
 
         mt_render.begin_cmd_buffer(cb);
 
-        mt_render.cmd_begin_render_pass(cb, mt_window.get_render_pass(win), NULL, NULL);
+        mt_render.cmd_begin_render_pass(
+            cb, mt_render.swapchain_get_render_pass(swapchain), NULL, NULL);
 
         MtViewport viewport;
         mt_render.cmd_get_viewport(cb, &viewport);
@@ -200,13 +202,13 @@ int main(int argc, char *argv[])
         mt_ui_set_font(game.ui, game.font);
         mt_ui_set_font_size(game.ui, 50);
 
-        float delta_time = mt_window.delta_time(win);
+        float delta_time = mt_render.swapchain_get_delta_time(swapchain);
         mt_ui_printf(game.ui, "Delta: %fms", delta_time);
 
         uint32_t width, height;
         mt_window.get_size(win, &width, &height);
         float aspect = (float)width / (float)height;
-        mt_perspective_camera_update(&game.cam, win, aspect);
+        mt_perspective_camera_update(&game.cam, win, aspect, delta_time);
 
         mt_ui_printf(
             game.ui,
@@ -261,7 +263,7 @@ int main(int argc, char *argv[])
 
         mt_render.end_cmd_buffer(cb);
 
-        mt_window.end_frame(win);
+        mt_render.swapchain_end_frame(swapchain);
     }
 
     game_destroy(&game);

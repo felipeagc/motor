@@ -24,7 +24,7 @@ static void device_wait_idle(MtDevice *dev);
 #include "cmd_buffer.inl"
 #include "render_pass.inl"
 
-#include <GLFW/glfw3.h>
+#include "swapchain.inl"
 
 #if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) && !defined(_Thread_local)
 #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
@@ -79,7 +79,6 @@ static VkBool32 debug_callback(
 static bool are_indices_complete(MtDevice *dev, QueueFamilyIndices *indices)
 {
     return indices->graphics != UINT32_MAX &&
-           ((dev->flags & MT_DEVICE_HEADLESS) || indices->present != UINT32_MAX) &&
            indices->transfer != UINT32_MAX && indices->compute != UINT32_MAX;
 }
 
@@ -161,8 +160,8 @@ static void create_instance(MtDevice *dev)
     if (!(dev->flags & MT_DEVICE_HEADLESS))
     {
         uint32_t window_extension_count;
-        const char **window_extensions = glfwGetRequiredInstanceExtensions(
-            &window_extension_count); // TODO: remove GLFW from here
+        const char **window_extensions =
+            swapchain_get_required_instance_extensions(&window_extension_count);
 
         extension_count += window_extension_count;
         extensions = mt_realloc(dev->alloc, extensions, sizeof(char *) * extension_count);
@@ -203,7 +202,6 @@ static QueueFamilyIndices find_queue_families(MtDevice *dev, VkPhysicalDevice ph
 {
     QueueFamilyIndices indices;
     indices.graphics = UINT32_MAX;
-    indices.present  = UINT32_MAX;
     indices.transfer = UINT32_MAX;
     indices.compute  = UINT32_MAX;
 
@@ -232,16 +230,6 @@ static QueueFamilyIndices find_queue_families(MtDevice *dev, VkPhysicalDevice ph
         if (queue_family->queueCount > 0 && queue_family->queueFlags & VK_QUEUE_COMPUTE_BIT)
         {
             indices.compute = i;
-        }
-
-        if (!(dev->flags & MT_DEVICE_HEADLESS))
-        {
-            // TODO: remove GLFW from here
-            if (queue_family->queueCount > 0 &&
-                glfwGetPhysicalDevicePresentationSupport(dev->instance, physical_device, i))
-            {
-                indices.present = i;
-            }
         }
 
         if (are_indices_complete(dev, &indices))
@@ -336,7 +324,7 @@ static void create_device(MtDevice *dev)
     dev->indices = find_queue_families(dev, dev->physical_device);
 
     float queue_priority                          = 1.0f;
-    VkDeviceQueueCreateInfo queue_create_infos[4] = {0};
+    VkDeviceQueueCreateInfo queue_create_infos[3] = {0};
     uint32_t queue_create_info_count              = 1;
 
     queue_create_infos[0].sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -352,19 +340,6 @@ static void create_device(MtDevice *dev)
         queue_create_infos[queue_create_info_count - 1].queueFamilyIndex = dev->indices.transfer;
         queue_create_infos[queue_create_info_count - 1].queueCount       = 1;
         queue_create_infos[queue_create_info_count - 1].pQueuePriorities = &queue_priority;
-    }
-
-    if (!(dev->flags & MT_DEVICE_HEADLESS))
-    {
-        if (dev->indices.graphics != dev->indices.present)
-        {
-            queue_create_info_count++;
-            queue_create_infos[queue_create_info_count - 1].sType =
-                VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-            queue_create_infos[queue_create_info_count - 1].queueFamilyIndex = dev->indices.present;
-            queue_create_infos[queue_create_info_count - 1].queueCount       = 1;
-            queue_create_infos[queue_create_info_count - 1].pQueuePriorities = &queue_priority;
-        }
     }
 
     if (dev->indices.graphics != dev->indices.compute)
@@ -403,12 +378,6 @@ static void create_device(MtDevice *dev)
 
     vkGetDeviceQueue(dev->device, dev->indices.graphics, 0, &dev->graphics_queue);
     vkGetDeviceQueue(dev->device, dev->indices.transfer, 0, &dev->transfer_queue);
-
-    if (!(dev->flags & MT_DEVICE_HEADLESS))
-    {
-        vkGetDeviceQueue(dev->device, dev->indices.present, 0, &dev->present_queue);
-    }
-
     vkGetDeviceQueue(dev->device, dev->indices.compute, 0, &dev->compute_queue);
 }
 
@@ -885,6 +854,15 @@ static uint32_t get_thread_id(void)
 static MtRenderer g_vulkan_renderer = {
     .destroy_device   = destroy_device,
     .device_wait_idle = device_wait_idle,
+
+    .create_swapchain  = create_swapchain,
+    .destroy_swapchain = destroy_swapchain,
+
+    .swapchain_begin_frame = swapchain_begin_frame,
+    .swapchain_end_frame   = swapchain_end_frame,
+
+    .swapchain_get_delta_time  = swapchain_get_delta_time,
+    .swapchain_get_render_pass = swapchain_get_render_pass,
 
     .set_thread_id = set_thread_id,
     .get_thread_id = get_thread_id,

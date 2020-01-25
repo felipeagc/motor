@@ -2,6 +2,7 @@
 
 #include <motor/base/arena.h>
 #include <motor/base/allocator.h>
+#include <motor/graphics/window.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/vulkan/vulkan_device.h>
 #include <motor/graphics/vulkan/glfw_window.h>
@@ -24,7 +25,8 @@ void mt_engine_init(MtEngine *engine, uint32_t num_threads)
         },
         engine->alloc);
 
-    engine->window = mt_window.create(engine->device, 1280, 720, "Motor", engine->alloc);
+    engine->window = mt_window.create(1280, 720, "Motor", engine->alloc);
+    engine->swapchain = mt_render.create_swapchain(engine->device, engine->window, engine->alloc);
 
     engine->compiler = shaderc_compiler_initialize();
 
@@ -99,10 +101,10 @@ void mt_engine_destroy(MtEngine *engine)
 
     shaderc_compiler_release(engine->compiler);
 
+    mt_render.destroy_swapchain(engine->swapchain);
     mt_window.destroy(engine->window);
 
     mt_render.destroy_device(engine->device);
-
     mt_window.destroy_window_system();
 
 #if 0

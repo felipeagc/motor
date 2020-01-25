@@ -3,6 +3,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// clang-format off
+#if defined(_WIN32)
+    typedef void* HWND;
+#elif defined(__APPLE__)
+    #error Apple not supported
+#else
+    #include <X11/Xlib.h>
+#endif
+// clang-format on
+
 typedef struct MtDevice MtDevice;
 typedef struct MtAllocator MtAllocator;
 
@@ -131,18 +141,13 @@ typedef struct MtWindowSystem
     void (*poll_events)(void);
     void (*destroy_window_system)(void);
 
-    MtWindow *(*create)(
-        MtDevice *, uint32_t width, uint32_t height, const char *title, MtAllocator *alloc);
+    MtWindow *(*create)(uint32_t width, uint32_t height, const char *title, MtAllocator *alloc);
     void (*destroy)(MtWindow *);
 
     bool (*should_close)(MtWindow *);
+    void (*wait_events)(MtWindow *);
     bool (*next_event)(MtWindow *, MtEvent *);
 
-    MtCmdBuffer *(*begin_frame)(MtWindow *);
-    void (*end_frame)(MtWindow *);
-    MtRenderPass *(*get_render_pass)(MtWindow *);
-
-    float (*delta_time)(MtWindow *);
     void (*get_size)(MtWindow *, uint32_t *width, uint32_t *height);
 
     void (*get_cursor_pos)(MtWindow *, double *x, double *y);
@@ -155,6 +160,15 @@ typedef struct MtWindowSystem
 
     MtInputState (*get_key)(MtWindow *, uint32_t key_code);
     MtInputState (*get_mouse_button)(MtWindow *, MtMouseButton button);
+
+#if defined(_WIN32)
+    HWND (*get_win32_window)(MtWindow*);
+#elif defined(__APPLE__)
+    #error Apple not supported
+#else
+    Window (*get_x11_window)(MtWindow*);
+    Display* (*get_x11_display)(MtWindow*);
+#endif
 } MtWindowSystem;
 
 extern MtWindowSystem mt_window;

@@ -4,7 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+typedef struct MtAllocator MtAllocator;
 typedef struct MtDevice MtDevice;
+typedef struct MtWindow MtWindow;
 typedef struct MtRenderPass MtRenderPass;
 typedef struct MtPipeline MtPipeline;
 typedef struct MtBuffer MtBuffer;
@@ -12,6 +14,7 @@ typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
 typedef struct MtFence MtFence;
 typedef struct MtCmdBuffer MtCmdBuffer;
+typedef struct MtSwapchain MtSwapchain;
 
 typedef union MtClearColorValue {
     float float32[4];
@@ -261,6 +264,15 @@ typedef struct MtRenderer
 {
     void (*destroy_device)(MtDevice *);
     void (*device_wait_idle)(MtDevice *);
+
+    MtSwapchain *(*create_swapchain)(MtDevice *, MtWindow *, MtAllocator *);
+    void (*destroy_swapchain)(MtSwapchain *);
+
+    MtCmdBuffer *(*swapchain_begin_frame)(MtSwapchain *);
+    void (*swapchain_end_frame)(MtSwapchain *);
+
+    float (*swapchain_get_delta_time)(MtSwapchain *);
+    MtRenderPass *(*swapchain_get_render_pass)(MtSwapchain *);
 
     void (*set_thread_id)(uint32_t thread_id);
     uint32_t (*get_thread_id)(void);

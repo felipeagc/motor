@@ -8,6 +8,7 @@
 #include <motor/base/util.h>
 #include <motor/base/allocator.h>
 #include <motor/graphics/renderer.h>
+#include <motor/graphics/window.h>
 #include <motor/engine/asset_manager.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/font_asset.h>

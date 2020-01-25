@@ -36,4 +36,5 @@ void mt_perspective_camera_init(MtPerspectiveCamera *c);
 
 void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event);
 
-void mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float aspect);
+void mt_perspective_camera_update(
+    MtPerspectiveCamera *c, MtWindow *win, float aspect, float delta_time);

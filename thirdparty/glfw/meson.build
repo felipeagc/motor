@@ -19,11 +19,12 @@ conf_data = configuration_data()
 
 if target_machine.system() == 'linux'
     x11_dep = dependency('x11')
+    x11_xcb_dep = dependency('x11-xcb')
     xrandr_dep = dependency('xrandr')
     xinerama_dep = dependency('xinerama')
     xkb_dep = dependency('xkbcommon')
     xcursor_dep = dependency('xcursor')
-    glfw_deps += [x11_dep, xrandr_dep, xinerama_dep, xkb_dep, xcursor_dep]
+    glfw_deps += [x11_dep, xrandr_dep, xinerama_dep, xkb_dep, xcursor_dep, x11_xcb_dep]
     glfw_platform_src += [
 	  'src/x11_init.c',
 	  'src/x11_monitor.c',

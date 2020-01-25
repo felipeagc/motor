@@ -1,9 +1,10 @@
 #pragma once
 
 #include "asset_manager.h"
-#include <motor/graphics/window.h>
 
 typedef struct MtDevice MtDevice;
+typedef struct MtWindow MtWindow;
+typedef struct MtSwapchain MtSwapchain;
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
 typedef struct shaderc_compiler *shaderc_compiler_t;
@@ -12,6 +13,7 @@ typedef struct MtEngine
 {
     MtDevice *device;
     MtWindow *window;
+    MtSwapchain *swapchain;
 
     MtAllocator *alloc;
     MtAssetManager asset_manager;

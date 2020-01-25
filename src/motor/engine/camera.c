@@ -50,7 +50,8 @@ void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event)
     }
 }
 
-void mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float aspect)
+void mt_perspective_camera_update(
+    MtPerspectiveCamera *c, MtWindow *win, float aspect, float delta_time)
 {
     double x, y;
     mt_window.get_cursor_pos(win, &x, &y);
@@ -77,7 +78,7 @@ void mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float a
     Vec3 right = v3_normalize(v3_cross(front, V3(0.0f, 1.0f, 0.0f)));
     Vec3 up    = v3_normalize(v3_cross(right, front));
 
-    float delta = c->speed * (float)mt_window.delta_time(win);
+    float delta = c->speed * delta_time;
     if (mt_window.get_key(win, 'W'))
     {
         c->pos = v3_add(c->pos, v3_muls(front, delta));
