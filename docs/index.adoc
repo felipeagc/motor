@@ -7,7 +7,6 @@
 ** Random number generation
 ** Filesystem API
 ** Atomics
-** Time
 
 * Graphics
 ** Render graph
@@ -29,7 +28,6 @@
 
 
 === Restructuring
-* Make swapchain separate from window
 * Statically link shaderc on windows
 
 === Bug fixes

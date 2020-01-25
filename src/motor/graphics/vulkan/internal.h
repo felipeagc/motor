@@ -141,8 +141,8 @@ typedef struct MtSwapchain
 
     MtCmdBuffer *cmd_buffers[FRAMES_IN_FLIGHT];
 
-    double last_time;
-    double delta_time;
+    uint64_t last_time;
+    float delta_time;
 
     VkQueue present_queue;
 } MtSwapchain;

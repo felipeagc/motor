@@ -2,10 +2,11 @@
  * Setup functions
  */
 
-#include <GLFW/glfw3.h>
+#include <motor/base/time.h>
 
 // clang-format off
 #if defined(_WIN32)
+    #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
     #include <vulkan/vulkan_win32.h>
 #elif defined(__APPLE__)
@@ -700,8 +701,8 @@ static void swapchain_end_frame(MtSwapchain *swapchain)
 
     swapchain->current_frame = (swapchain->current_frame + 1) % FRAMES_IN_FLIGHT;
 
-    swapchain->delta_time = glfwGetTime() - swapchain->last_time;
-    swapchain->last_time  = glfwGetTime();
+    swapchain->delta_time = (float)(mt_time_ns() - swapchain->last_time) / 1.0e9;
+    swapchain->last_time  = mt_time_ns();
 }
 
 static MtSwapchain *create_swapchain(MtDevice *dev, MtWindow *window, MtAllocator *alloc)
@@ -792,5 +793,5 @@ static MtRenderPass *swapchain_get_render_pass(MtSwapchain *swapchain)
 
 static float swapchain_get_delta_time(MtSwapchain *swapchain)
 {
-    return (float)swapchain->delta_time;
+    return swapchain->delta_time;
 }
