@@ -4,6 +4,7 @@
 #include <motor/base/allocator.h>
 #include <motor/base/array.h>
 #include <string.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
 
@@ -22,7 +23,7 @@ typedef struct Parser
     MtConfig *config;
 } Parser;
 
-static bool p_is_at_end(Parser *p)
+static inline bool is_at_end(Parser *p)
 {
     return p->t >= (p->tokens + p->token_count);
 }
@@ -31,7 +32,7 @@ static bool parse_object_entries(Parser *p, MtConfigObject *obj);
 
 static bool parse_entry(Parser *p, MtConfigEntry *entry)
 {
-    if (p_is_at_end(p) || p->t->type != MT_TOKEN_IDENT)
+    if (is_at_end(p) || p->t->type != MT_TOKEN_IDENT)
     {
         return false;
     }
@@ -39,13 +40,13 @@ static bool parse_entry(Parser *p, MtConfigEntry *entry)
     entry->key_length = p->t->length;
     p->t++;
 
-    if (p_is_at_end(p) || p->t->type != MT_TOKEN_EQUAL)
+    if (is_at_end(p) || p->t->type != MT_TOKEN_EQUAL)
     {
         return false;
     }
     p->t++;
 
-    if (p_is_at_end(p))
+    if (is_at_end(p))
     {
         return false;
     }
@@ -97,32 +98,35 @@ static bool parse_entry(Parser *p, MtConfigEntry *entry)
             entry->value.type = MT_CONFIG_VALUE_OBJECT;
             p->t++;
 
-            while (!p_is_at_end(p) && p->t->type == MT_TOKEN_NEWLINE)
+            while (!is_at_end(p) && p->t->type == MT_TOKEN_NEWLINE)
             {
                 p->t++;
             }
 
-            if (p_is_at_end(p) || !parse_object_entries(p, &entry->value.object))
+            if (is_at_end(p) || !parse_object_entries(p, &entry->value.object))
             {
                 return false;
             }
 
-            while (!p_is_at_end(p) && p->t->type == MT_TOKEN_NEWLINE)
+            while (!is_at_end(p) && p->t->type == MT_TOKEN_NEWLINE)
             {
                 p->t++;
             }
 
-            if (p_is_at_end(p) || p->t->type != MT_TOKEN_RCURLY)
+            if (is_at_end(p) || p->t->type != MT_TOKEN_RCURLY)
             {
                 return false;
             }
             p->t++;
             break;
         }
-        default: return false;
+        default:
+        {
+            return false;
+        }
     }
 
-    while (!p_is_at_end(p) && p->t->type == MT_TOKEN_NEWLINE)
+    while (!is_at_end(p) && p->t->type == MT_TOKEN_NEWLINE)
     {
         p->t++;
     }
@@ -137,7 +141,7 @@ static bool parse_object_entries(Parser *p, MtConfigObject *obj)
 
     bool res = true;
     MtConfigEntry entry;
-    while (!p_is_at_end(p) && p->t->type != MT_TOKEN_RCURLY && (res = parse_entry(p, &entry)))
+    while (!is_at_end(p) && p->t->type != MT_TOKEN_RCURLY && (res = parse_entry(p, &entry)))
     {
         uint64_t key_hash = mt_hash_strn(entry.key, entry.key_length);
         if (!mt_hash_get_ptr(&obj->map, key_hash))

@@ -118,6 +118,7 @@ executable('gltf_ktx', ['tools/gltf_ktx.c', 'tools/bc7enc16.c'], dependencies: [
 executable('simple', 'examples/simple.c', dependencies: [motor_engine_dep])
 executable('watcher', 'examples/watcher.c', dependencies: [motor_engine_dep])
 executable('read_config', 'examples/read_config.c', dependencies: [motor_engine_dep])
+executable('tokenizer', 'examples/tokenizer.c', dependencies: [motor_base_dep])
 
 arena_tests = executable('arena_tests', 'tests/arena_tests.c', dependencies: [motor_base_dep])
 test('arena', arena_tests)

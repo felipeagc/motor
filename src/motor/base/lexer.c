@@ -18,35 +18,51 @@ typedef struct Lexer
     size_t token_count;
 } Lexer;
 
-static bool is_alpha(char c)
+static inline bool is_whitespace(char c)
+{
+    return c == ' ' || c == '\t';
+}
+
+static inline bool is_alpha(char c)
 {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-static bool is_alphanum(char c)
+static inline bool is_alphanum(char c)
 {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 }
 
-static bool is_numeric(char c)
+static inline bool is_numeric(char c)
 {
-    return ((c >= '0' && c <= '9') || c == '.' || c == '-');
+    return (c >= '0' && c <= '9');
 }
 
-static bool is_at_end(Lexer *l)
+static inline bool is_at_end(Lexer *l)
 {
     return (uint64_t)(l->c - l->input) >= l->input_size || *l->c == '\0';
 }
 
-static bool scan_multiline_string(Lexer *l, MtToken *token)
+static void skip_whitespace(Lexer *l)
+{
+    while (is_whitespace(l->c[0]))
+    {
+        l->c++;
+    }
+
+    if (l->c[0] == '/' && l->c[1] == '/')
+    {
+        // Comment
+        while (!is_at_end(l) && *l->c != '\n')
+        {
+            l->c++;
+        }
+    }
+}
+
+static void scan_multiline_string(Lexer *l, MtToken *token)
 {
     token->type = MT_TOKEN_STRING;
-
-    if (is_at_end(l) || strncmp(l->c, "@{", 2) != 0)
-    {
-        return false;
-    }
-    l->c += 2;
 
     token->string = l->c;
     while (!is_at_end(l) && strncmp(l->c, "}@", 2) != 0)
@@ -57,20 +73,14 @@ static bool scan_multiline_string(Lexer *l, MtToken *token)
 
     if (is_at_end(l) || strncmp(l->c, "}@", 2) != 0)
     {
-        return false;
+        return;
     }
     l->c += 2;
-
-    return true;
 }
 
-static bool scan_string(Lexer *l, MtToken *token)
+static void scan_string(Lexer *l, MtToken *token)
 {
     token->type = MT_TOKEN_STRING;
-
-    if (is_at_end(l) || *l->c != '"')
-        return false;
-    l->c++;
 
     token->string = l->c;
     while (!is_at_end(l) && *l->c != '"')
@@ -80,13 +90,11 @@ static bool scan_string(Lexer *l, MtToken *token)
     token->length = (size_t)(l->c - token->string);
 
     if (is_at_end(l) || *l->c != '"')
-        return false;
+        return;
     l->c++;
-
-    return true;
 }
 
-static bool scan_identifier(Lexer *l, MtToken *token)
+static void scan_identifier(Lexer *l, MtToken *token)
 {
     token->string = l->c;
     while (!is_at_end(l) && is_alphanum(*l->c))
@@ -96,20 +104,23 @@ static bool scan_identifier(Lexer *l, MtToken *token)
     token->length = (size_t)(l->c - token->string);
 
     token->type = MT_TOKEN_IDENT;
-
-    return true;
 }
 
-static bool scan_number(Lexer *l, MtToken *token)
+static void scan_number(Lexer *l, MtToken *token)
 {
     bool found_dot = false;
 
     char str[48];
     char *s = str;
-    while (!is_at_end(l) && ((*l->c >= '0' && *l->c <= '9') || *l->c == '-' || *l->c == '.'))
+    while (!is_at_end(l) &&
+           ((l->c[0] >= '0' && l->c[0] <= '9') || l->c[0] == '-' || l->c[0] == '.'))
     {
-        if (*l->c == '.')
+        if (l->c[0] == '.')
             found_dot = true;
+        *(s++) = *(l->c++);
+    }
+    if (l->c[0] == 'f')
+    {
         *(s++) = *(l->c++);
     }
     *s = '\0';
@@ -125,139 +136,92 @@ static bool scan_number(Lexer *l, MtToken *token)
         token->i64  = strtol(str, NULL, 10);
     }
 
-    return true;
+    token->length = (size_t)(l->c - token->string);
 }
 
-static bool scan_token(Lexer *l)
+static MtToken scan_token(Lexer *l)
 {
-    if (is_at_end(l))
-        return true;
-
     MtToken token = {0};
+    token.string  = l->c;
+    token.length  = 1;
 
-    switch (*l->c)
+    const char *c = l->c;
+    l->c++;
+
+    switch (c[0])
     {
-        case ' ':
         case '\r':
-        case '\t':
+        case '\n': token.type = MT_TOKEN_NEWLINE; break;
+        case ':': token.type = MT_TOKEN_COLON; break;
+        case ';': token.type = MT_TOKEN_SEMICOLON; break;
+        case ',': token.type = MT_TOKEN_COMMA; break;
+        case '=': token.type = MT_TOKEN_EQUAL; break;
+        case '*': token.type = MT_TOKEN_ASTERISK; break;
+        case '{': token.type = MT_TOKEN_LCURLY; break;
+        case '}': token.type = MT_TOKEN_RCURLY; break;
+        case '[': token.type = MT_TOKEN_LBRACK; break;
+        case ']': token.type = MT_TOKEN_RBRACK; break;
+        case '(': token.type = MT_TOKEN_LPAREN; break;
+        case ')': token.type = MT_TOKEN_RPAREN; break;
+        case '-':
         {
-            l->c++;
-            return true;
-        }
-        case '\n':
-        {
-            l->c++;
-            token.type = MT_TOKEN_NEWLINE;
+            if (is_numeric(c[1]))
+            {
+                l->c--;
+                scan_number(l, &token);
+                break;
+            }
+            token.type = MT_TOKEN_MINUS;
             break;
         }
-        case ':':
+        case '.':
         {
-            l->c++;
-            token.type = MT_TOKEN_COLON;
-            break;
-        }
-        case '=':
-        {
-            l->c++;
-            token.type = MT_TOKEN_EQUAL;
-            break;
-        }
-        case '{':
-        {
-            l->c++;
-            token.type = MT_TOKEN_LCURLY;
-            break;
-        }
-        case '}':
-        {
-            l->c++;
-            token.type = MT_TOKEN_RCURLY;
-            break;
-        }
-        case '[':
-        {
-            l->c++;
-            token.type = MT_TOKEN_LBRACK;
-            break;
-        }
-        case ']':
-        {
-            l->c++;
-            token.type = MT_TOKEN_RBRACK;
+            if (is_numeric(c[1]))
+            {
+                l->c--;
+                scan_number(l, &token);
+                break;
+            }
+            token.type = MT_TOKEN_DOT;
             break;
         }
         case '@':
         {
-            if (*(l->c + 1) == '{')
+            if (c[1] == '{')
             {
-                if (!scan_multiline_string(l, &token))
-                {
-                    return false;
-                }
+                l->c++;
+                scan_multiline_string(l, &token);
                 break;
-            }
-            return false;
-        }
-        case '"':
-        {
-            if (!scan_string(l, &token))
-            {
-                return false;
             }
             break;
         }
-        case '/':
+        case '"':
         {
-            if (*(l->c + 1) == '/')
-            {
-                // Comment
-                while (!is_at_end(l) && *l->c != '\n')
-                {
-                    l->c++;
-                }
-                return true;
-            }
-
-            return false;
+            scan_string(l, &token);
+            break;
         }
         default:
         {
-            if (is_alpha(*l->c))
+            if (is_alpha(c[0]))
             {
-                if (!scan_identifier(l, &token))
-                {
-                    return false;
-                }
-                break;
-            }
-            if (is_numeric(*l->c))
-            {
-                if (!scan_number(l, &token))
-                {
-                    return false;
-                }
+                l->c--;
+                scan_identifier(l, &token);
                 break;
             }
 
-            return false;
+            if (is_numeric(c[0]))
+            {
+                l->c--;
+                scan_number(l, &token);
+                break;
+            }
+
+            token.type = MT_TOKEN_UNKNOWN;
+            break;
         }
     }
 
-    if (l->tokens == NULL)
-    {
-        l->token_capacity = 32;
-        l->tokens         = mt_alloc(l->alloc, l->token_capacity * sizeof(MtToken));
-    }
-
-    if (l->token_capacity <= l->token_count)
-    {
-        l->token_capacity *= 2;
-        l->tokens = mt_realloc(l->alloc, l->tokens, l->token_capacity * sizeof(MtToken));
-    }
-
-    l->tokens[l->token_count++] = token;
-
-    return true;
+    return token;
 }
 
 MtToken *
@@ -271,11 +235,28 @@ mt_lexer_scan(const char *input, uint64_t input_size, MtAllocator *alloc, uint64
 
     while (!is_at_end(&l))
     {
-        if (!scan_token(&l))
+        skip_whitespace(&l);
+
+        if (is_at_end(&l))
         {
-            mt_free(alloc, l.tokens);
-            return NULL;
+            break;
         }
+
+        MtToken token = scan_token(&l);
+
+        if (l.tokens == NULL)
+        {
+            l.token_capacity = 32;
+            l.tokens         = mt_alloc(l.alloc, l.token_capacity * sizeof(MtToken));
+        }
+
+        if (l.token_capacity <= l.token_count)
+        {
+            l.token_capacity *= 2;
+            l.tokens = mt_realloc(l.alloc, l.tokens, l.token_capacity * sizeof(MtToken));
+        }
+
+        l.tokens[l.token_count++] = token;
     }
 
     *token_count = l.token_count;
