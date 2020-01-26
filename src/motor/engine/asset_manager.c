@@ -110,6 +110,49 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
     return NULL;
 }
 
+typedef struct AssetLoadInfo
+{
+    MtAssetManager *asset_manager;
+    MtAsset **out_asset;
+    const char *path;
+} AssetLoadInfo;
+
+static int32_t asset_load(void *arg)
+{
+    AssetLoadInfo *info = arg;
+    MtAssetManager *am  = info->asset_manager;
+
+    MtAsset *asset = mt_asset_manager_load(am, info->path);
+
+    if (info->out_asset)
+    {
+        *info->out_asset = asset;
+    }
+
+    mt_free(am->engine->alloc, info);
+    return 0;
+}
+
+void mt_asset_manager_queue_load(MtAssetManager *am, const char *path, MtAsset **out_asset)
+{
+    AssetLoadInfo *info = mt_alloc(am->engine->alloc, sizeof(AssetLoadInfo));
+
+    info->asset_manager = am;
+    info->path          = path;
+    info->out_asset     = out_asset;
+
+    mt_thread_pool_enqueue(&am->engine->thread_pool, asset_load, info);
+}
+
+MtAsset *mt_asset_manager_get(MtAssetManager *am, const char *path)
+{
+    uint64_t path_hash = mt_hash_str(path);
+    mt_mutex_lock(&am->mutex);
+    MtIAsset *iasset = mt_hash_get_ptr(&am->asset_map, path_hash);
+    mt_mutex_unlock(&am->mutex);
+    return iasset->inst;
+}
+
 void mt_asset_manager_destroy(MtAssetManager *am)
 {
     mt_mutex_lock(&am->mutex);

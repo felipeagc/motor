@@ -6,8 +6,26 @@
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/vulkan/vulkan_device.h>
 #include <motor/graphics/vulkan/glfw_window.h>
+#include <motor/engine/file_watcher.h>
+#include <motor/engine/ui.h>
 #include <shaderc/shaderc.h>
 #include <string.h>
+#include <stdio.h>
+
+void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data)
+{
+    MtEngine *engine = (MtEngine *)user_data;
+
+    switch (e->type)
+    {
+        case MT_FILE_WATCHER_EVENT_MODIFY:
+        {
+            mt_asset_manager_load(&engine->asset_manager, e->src);
+            break;
+        }
+        default: break;
+    }
+}
 
 void mt_engine_init(MtEngine *engine, uint32_t num_threads)
 {
@@ -17,6 +35,8 @@ void mt_engine_init(MtEngine *engine, uint32_t num_threads)
     mt_arena_init(engine->alloc, 1 << 16);
 #endif
 
+    printf("Using %u threads\n", num_threads);
+
     mt_glfw_vulkan_window_system_init();
 
     engine->device = mt_vulkan_device_init(
@@ -25,7 +45,7 @@ void mt_engine_init(MtEngine *engine, uint32_t num_threads)
         },
         engine->alloc);
 
-    engine->window = mt_window.create(1280, 720, "Motor", engine->alloc);
+    engine->window    = mt_window.create(1280, 720, "Motor", engine->alloc);
     engine->swapchain = mt_render.create_swapchain(engine->device, engine->window, engine->alloc);
 
     engine->compiler = shaderc_compiler_initialize();
@@ -87,12 +107,23 @@ void mt_engine_init(MtEngine *engine, uint32_t num_threads)
             .border_color = MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
         });
 
+    mt_thread_pool_init(&engine->thread_pool, num_threads, engine->alloc);
     mt_asset_manager_init(&engine->asset_manager, engine);
+    mt_entity_manager_init(&engine->entity_manager, engine->alloc);
+
+    engine->ui      = mt_ui_create(engine->alloc, engine->window, &engine->asset_manager);
+    engine->watcher = mt_file_watcher_create(
+        engine->alloc, MT_FILE_WATCHER_EVENT_MODIFY, asset_watcher_handler, "../assets");
 }
 
 void mt_engine_destroy(MtEngine *engine)
 {
+    mt_entity_manager_destroy(&engine->entity_manager);
     mt_asset_manager_destroy(&engine->asset_manager);
+    mt_thread_pool_destroy(&engine->thread_pool);
+
+    mt_file_watcher_destroy(engine->watcher);
+    mt_ui_destroy(engine->ui);
 
     mt_render.destroy_image(engine->device, engine->default_cubemap);
     mt_render.destroy_image(engine->device, engine->white_image);

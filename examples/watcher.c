@@ -42,11 +42,11 @@ int main()
     mt_arena_init(&alloc, 1 << 16);
 
     MtFileWatcher *watcher =
-        mt_file_watcher_create(&alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
+        mt_file_watcher_create(&alloc, MT_FILE_WATCHER_EVENT_MODIFY, handler, "../assets");
 
     while (1)
     {
-        mt_file_watcher_poll(watcher, handler, NULL);
+        mt_file_watcher_poll(watcher, NULL);
     }
 
     mt_file_watcher_destroy(watcher);

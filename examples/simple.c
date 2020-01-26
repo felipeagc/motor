@@ -2,7 +2,6 @@
 #include <motor/base/util.h>
 #include <motor/base/math.h>
 #include <motor/base/array.h>
-#include <motor/base/thread_pool.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/window.h>
 #include <motor/engine/ui.h>
@@ -10,9 +9,10 @@
 #include <motor/engine/engine.h>
 #include <motor/engine/camera.h>
 #include <motor/engine/environment.h>
+#include <motor/engine/entities.h>
+#include <motor/engine/entity_archetypes.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/image_asset.h>
-#include <motor/engine/assets/font_asset.h>
 #include <motor/engine/assets/gltf_asset.h>
 #include <stdio.h>
 #include <assert.h>
@@ -22,139 +22,61 @@ typedef struct Game
 {
     MtEngine engine;
 
-    MtUIRenderer *ui;
-
-    MtFileWatcher *watcher;
-    MtPerspectiveCamera cam;
-
     MtImageAsset *image;
-    MtFontAsset *font;
-
     MtPipelineAsset *model_pipeline;
 
-    MtMutex models_mutex;
-    MtGltfAsset **models;
-    Mat4 *transforms;
-
+    MtPerspectiveCamera cam;
     MtEnvironment env;
-
-    MtThreadPool thread_pool;
 } Game;
-
-typedef struct AssetLoadInfo
-{
-    Game *g;
-    const char *path;
-    float scale;
-} AssetLoadInfo;
-
-static int32_t asset_load(void *arg)
-{
-    AssetLoadInfo *info = arg;
-    Game *g             = info->g;
-    const char *path    = info->path;
-    float scale         = info->scale;
-    mt_free(g->engine.alloc, info);
-
-    MtAsset *asset = mt_asset_manager_load(&g->engine.asset_manager, path);
-
-    mt_mutex_lock(&g->models_mutex);
-
-    mt_array_push(g->engine.alloc, g->models, (MtGltfAsset *)asset);
-    MtGltfAsset **model = mt_array_last(g->models);
-
-    assert(*model);
-
-    Mat4 transform = mat4_identity();
-    transform      = mat4_scale(transform, V3(scale, scale, scale));
-    transform =
-        mat4_translate(transform, V3((float)(mt_array_size(g->models) - 1) * 5.0f, 0.0f, 0.0f));
-    mt_array_push(g->engine.alloc, g->transforms, transform);
-
-    mt_mutex_unlock(&g->models_mutex);
-
-    return 0;
-}
-
-void load_model(Game *g, const char *path, float scale)
-{
-    AssetLoadInfo *info = mt_alloc(g->engine.alloc, sizeof(AssetLoadInfo));
-
-    info->g     = g;
-    info->path  = path;
-    info->scale = scale;
-
-    mt_thread_pool_enqueue(&g->thread_pool, asset_load, info);
-}
 
 void game_init(Game *g)
 {
     memset(g, 0, sizeof(*g));
 
     uint32_t num_threads = mt_cpu_count() / 2;
-    printf("Using %u threads\n", num_threads);
-
     mt_engine_init(&g->engine, num_threads);
 
-    mt_thread_pool_init(&g->thread_pool, num_threads, g->engine.alloc);
-    mt_mutex_init(&g->models_mutex);
+    MtImageAsset *skybox_asset = NULL;
+    mt_asset_manager_queue_load(
+        &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx", (MtAsset **)&skybox_asset);
+    mt_asset_manager_queue_load(
+        &g->engine.asset_manager, "../assets/test.png", (MtAsset **)&g->image);
+    mt_asset_manager_queue_load(
+        &g->engine.asset_manager, "../assets/shaders/pbr.glsl", (MtAsset **)&g->model_pipeline);
 
-    g->ui = mt_ui_create(g->engine.alloc, g->engine.window, &g->engine.asset_manager);
+    mt_asset_manager_queue_load(&g->engine.asset_manager, "../assets/helmet_ktx.glb", NULL);
+    mt_asset_manager_queue_load(&g->engine.asset_manager, "../assets/boombox_ktx.glb", NULL);
 
-    g->watcher = mt_file_watcher_create(g->engine.alloc, MT_FILE_WATCHER_EVENT_MODIFY, "../assets");
+    // Wait for assets to load
+    mt_thread_pool_wait_all(&g->engine.thread_pool);
 
     mt_perspective_camera_init(&g->cam);
-
-    g->image =
-        (MtImageAsset *)mt_asset_manager_load(&g->engine.asset_manager, "../assets/test.png");
-    assert(g->image);
-
-    g->model_pipeline = (MtPipelineAsset *)mt_asset_manager_load(
-        &g->engine.asset_manager, "../assets/shaders/pbr.glsl");
-    assert(g->model_pipeline);
-
-    g->font = (MtFontAsset *)mt_asset_manager_load(
-        &g->engine.asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
-    assert(g->font);
-
-    load_model(g, "../assets/helmet_ktx.glb", 1.0f);
-    load_model(g, "../assets/boombox_ktx.glb", 100.0f);
-
-    MtImageAsset *skybox_asset = (MtImageAsset *)mt_asset_manager_load(
-        &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx");
-
     mt_environment_init(&g->env, &g->engine.asset_manager, skybox_asset);
-
-    mt_thread_pool_wait_all(&g->thread_pool);
 }
 
 void game_destroy(Game *g)
 {
-    mt_array_free(g->engine.alloc, g->models);
-    mt_array_free(g->engine.alloc, g->transforms);
-
-    mt_file_watcher_destroy(g->watcher);
-    mt_ui_destroy(g->ui);
     mt_environment_destroy(&g->env);
-
-    mt_thread_pool_destroy(&g->thread_pool);
-    mt_mutex_destroy(&g->models_mutex);
-
     mt_engine_destroy(&g->engine);
 }
 
-void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data)
+void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
 {
-    Game *g = (Game *)user_data;
-
-    switch (e->type)
+    for (MtEntityBlock *block = archetype->blocks;
+         block != (archetype->blocks + mt_array_size(archetype->blocks));
+         ++block)
     {
-        case MT_FILE_WATCHER_EVENT_MODIFY:
+        for (uint32_t i = 0; i < block->entity_count; ++i)
         {
-            mt_asset_manager_load(&g->engine.asset_manager, e->src);
-            break;
+            MtModelArchetype *b = block->data;
+
+            Mat4 transform = mat4_identity();
+            transform      = mat4_scale(transform, b->scale[i]);
+            transform      = mat4_mul(quat_to_mat4(b->rot[i]), transform);
+            transform      = mat4_translate(transform, b->pos[i]);
+
+            mt_gltf_asset_draw(b->model[i], cb, &transform, 1, 3);
         }
-        default: break;
     }
 }
 
@@ -166,16 +88,40 @@ int main(int argc, char *argv[])
     MtWindow *win          = game.engine.window;
     MtSwapchain *swapchain = game.engine.swapchain;
 
+    MtEntityManager *em = &game.engine.entity_manager;
+    MtAssetManager *am  = &game.engine.asset_manager;
+
+    uint32_t model_archetype =
+        mt_entity_manager_register_archetype(em, mt_model_archetype_init, sizeof(MtModelArchetype));
+
+    MtModelArchetype *block;
+    uint32_t e;
+
+    {
+        block           = mt_entity_manager_add_entity(em, model_archetype, &e);
+        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
+        block->pos[e]   = V3(-1.5, 0, 0);
+    }
+
+    {
+        block           = mt_entity_manager_add_entity(em, model_archetype, &e);
+        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
+        block->scale[e] = V3(100, 100, 100);
+        block->pos[e]   = V3(1.5, 0, 0);
+    }
+
+    MtUIRenderer *ui = game.engine.ui;
+
     while (!mt_window.should_close(win))
     {
-        mt_file_watcher_poll(game.watcher, asset_watcher_handler, &game);
+        mt_file_watcher_poll(game.engine.watcher, &game.engine);
 
         mt_window.poll_events();
 
         MtEvent event;
         while (mt_window.next_event(win, &event))
         {
-            mt_ui_on_event(game.ui, &event);
+            mt_ui_on_event(ui, &event);
             mt_perspective_camera_on_event(&game.cam, &event);
             switch (event.type)
             {
@@ -197,13 +143,12 @@ int main(int argc, char *argv[])
 
         MtViewport viewport;
         mt_render.cmd_get_viewport(cb, &viewport);
-        mt_ui_begin(game.ui, &viewport);
+        mt_ui_begin(ui, &viewport);
 
-        mt_ui_set_font(game.ui, game.font);
-        mt_ui_set_font_size(game.ui, 50);
+        mt_ui_set_font_size(ui, 50);
 
         float delta_time = mt_render.swapchain_get_delta_time(swapchain);
-        mt_ui_printf(game.ui, "Delta: %fms", delta_time);
+        mt_ui_printf(ui, "Delta: %fms", delta_time);
 
         uint32_t width, height;
         mt_window.get_size(win, &width, &height);
@@ -211,28 +156,28 @@ int main(int argc, char *argv[])
         mt_perspective_camera_update(&game.cam, win, aspect, delta_time);
 
         mt_ui_printf(
-            game.ui,
+            ui,
             "Pos: %.2f  %.2f  %.2f",
             game.cam.uniform.pos.x,
             game.cam.uniform.pos.y,
             game.cam.uniform.pos.z);
 
-        mt_ui_set_font_size(game.ui, 20);
-        mt_ui_printf(game.ui, "Hello");
+        mt_ui_set_font_size(ui, 20);
+        mt_ui_printf(ui, "Hello");
 
-        mt_ui_image(game.ui, game.image->image, 64, 64);
+        mt_ui_image(ui, game.image->image, 64, 64);
 
-        mt_ui_set_color(game.ui, V3(1, 0, 0));
-        mt_ui_rect(game.ui, 64, 64);
-        mt_ui_set_color(game.ui, V3(1, 1, 1));
+        mt_ui_set_color(ui, V3(1, 0, 0));
+        mt_ui_rect(ui, 64, 64);
+        mt_ui_set_color(ui, V3(1, 1, 1));
 
-        mt_ui_rect(game.ui, 64, 64);
-        if (mt_ui_button(game.ui, 1, 100, 40))
+        mt_ui_rect(ui, 64, 64);
+        if (mt_ui_button(ui, 1, 100, 40))
         {
             printf("Hello\n");
         }
 
-        if (mt_ui_button(game.ui, 2, 100, 40))
+        if (mt_ui_button(ui, 2, 100, 40))
         {
             printf("Hello 2\n");
         }
@@ -241,23 +186,18 @@ int main(int argc, char *argv[])
         mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
         mt_environment_draw_skybox(&game.env, cb);
 
-#if 1
         // Draw model
         static float angle = 0.0f;
-
         angle += delta_time;
 
         mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
         mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
         mt_environment_bind(&game.env, cb, 2);
 
-        for (uint32_t i = 0; i < mt_array_size(game.models); i++)
-        {
-            mt_gltf_asset_draw(game.models[i], cb, &game.transforms[i], 1, 3);
-        }
-#endif
+        // Draw the models
+        model_system(cb, &game.engine.entity_manager.archetypes[model_archetype]);
 
-        mt_ui_draw(game.ui, cb);
+        mt_ui_draw(ui, cb);
 
         mt_render.cmd_end_render_pass(cb);
 

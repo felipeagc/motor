@@ -42,6 +42,7 @@ struct MtUIRenderer
     MtEngine *engine;
 
     MtPipelineAsset *pipeline;
+    MtFontAsset *default_font;
 
     int32_t mouse_x;
     int32_t mouse_y;
@@ -99,6 +100,10 @@ MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtWindow *window, MtAssetManager 
     ui->pipeline =
         (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/ui.glsl");
     assert(ui->pipeline);
+
+    ui->default_font = (MtFontAsset *)mt_asset_manager_load(
+        asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
+    assert(ui->default_font);
 
     ui->font_height = DEFAULT_FONT_HEIGHT;
     ui->pos         = V2(0.0f, 0.0f);
@@ -357,7 +362,7 @@ void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport)
     ui->pos   = V2(0.0f, 0.0f);
     ui->color = V3(1.0f, 1.0f, 1.0f);
 
-    ui->font        = NULL;
+    ui->font        = ui->default_font;
     ui->font_height = DEFAULT_FONT_HEIGHT;
 
     ui->hot_id = 0;
@@ -477,4 +482,3 @@ static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height)
 
     return atlas;
 }
-

@@ -21,6 +21,8 @@ typedef struct WatcherItem
 struct MtFileWatcher
 {
     MtAllocator *alloc;
+    MtFileWatcherHandler handler;
+
     int notifierfd;
 
     uint32_t watch_flags;
@@ -96,13 +98,14 @@ watcher_recursive_add(MtFileWatcher *w, char *path_buffer, size_t path_len, size
     closedir(dirp);
 }
 
-MtFileWatcher *
-mt_file_watcher_create(MtAllocator *alloc, MtFileWatcherEventType types, const char *dir)
+MtFileWatcher *mt_file_watcher_create(
+    MtAllocator *alloc, MtFileWatcherEventType types, MtFileWatcherHandler handler, const char *dir)
 {
     MtFileWatcher *w = mt_alloc(alloc, sizeof(MtFileWatcher));
     memset(w, 0, sizeof(*w));
 
-    w->alloc = alloc;
+    w->alloc   = alloc;
+    w->handler = handler;
 
     if (types & MT_FILE_WATCHER_EVENT_CREATE)
         w->watch_flags |= IN_CREATE;
@@ -161,8 +164,10 @@ static char *build_full_path(MtFileWatcher *watcher, int wd, const char *name, u
     return res;
 }
 
-void mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherHandler handler, void *user_data)
+void mt_file_watcher_poll(MtFileWatcher *w, void *user_data)
 {
+    MtFileWatcherHandler handler = w->handler;
+
     char *move_src       = 0x0;
     uint32_t move_cookie = 0;
 
@@ -321,6 +326,7 @@ void mt_file_watcher_destroy(MtFileWatcher *w)
 struct MtFileWatcher
 {
     MtAllocator *alloc;
+    MtFileWatcherHandler handler;
 
     const char *watch_dir;
     size_t watch_dir_len;
@@ -353,13 +359,14 @@ static void watcher_begin_read(MtFileWatcher *w)
     assert(success);
 }
 
-MtFileWatcher *
-mt_file_watcher_create(MtAllocator *alloc, MtFileWatcherEventType types, const char *dir)
+MtFileWatcher *mt_file_watcher_create(
+    MtAllocator *alloc, MtFileWatcherEventType types, MtFileWatcherHandler handler, const char *dir)
 {
     MtFileWatcher *w = mt_alloc(alloc, sizeof(MtFileWatcher));
     memset(w, 0, sizeof(*w));
 
-    w->alloc = alloc;
+    w->alloc   = alloc;
+    w->handler = handler;
 
     w->watch_dir     = mt_strdup(w->alloc, dir);
     w->watch_dir_len = strlen(w->watch_dir);
@@ -402,8 +409,10 @@ static char *build_full_path(MtFileWatcher *w, FILE_NOTIFY_INFORMATION *ev)
     return res;
 }
 
-void mt_file_watcher_poll(MtFileWatcher *w, MtFileWatcherHandler handler, void *user_data)
+void mt_file_watcher_poll(MtFileWatcher *w, void *user_data)
 {
+    MtFileWatcherHandler handler = w->handler;
+
     DWORD bytes;
     BOOL res = GetOverlappedResult(w->directory, &w->overlapped, &bytes, FALSE);
 
