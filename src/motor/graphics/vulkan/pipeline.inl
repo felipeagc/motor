@@ -495,7 +495,7 @@ static void create_graphics_pipeline_instance(
         .sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable  = options->depth_test,
         .depthWriteEnable = options->depth_write,
-        .depthCompareOp   = VK_COMPARE_OP_LESS,
+        .depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL,
     };
 
     VkPipelineColorBlendAttachmentState color_blend_attachment_enabled = {
