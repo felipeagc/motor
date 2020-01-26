@@ -51,6 +51,14 @@ static const char **swapchain_get_required_instance_extensions(uint32_t *count)
 static void swapchain_create_surface(MtDevice *dev, MtWindow *window, VkSurfaceKHR *surface)
 {
 #if defined(_WIN32)
+    PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR =
+        (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(dev->instance, "vkCreateWin32SurfaceKHR");
+    if (!vkCreateWin32SurfaceKHR)
+    {
+        printf("Failed to get vkCreateXcbSurfaceKHR function pointer\n");
+        exit(1);
+    }
+
     VkWin32SurfaceCreateInfoKHR sci = {0};
     sci.sType                       = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
     sci.hinstance                   = GetModuleHandle(NULL);

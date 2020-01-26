@@ -172,6 +172,7 @@ static VkDescriptorSet descriptor_pool_alloc(
     }
 
     assert(0);
+    return VK_NULL_HANDLE;
 }
 
 static void descriptor_pool_reset(MtDevice *dev, DescriptorPool *p)
