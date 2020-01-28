@@ -35,6 +35,6 @@ typedef struct MtEngine
     MtSampler *default_sampler;
 } MtEngine;
 
-void mt_engine_init(MtEngine *engine, uint32_t num_threads);
+void mt_engine_init(MtEngine *engine);
 
 void mt_engine_destroy(MtEngine *engine);

@@ -9,15 +9,18 @@
 typedef struct FontAtlas
 {
     MtImage *image;
-    stbtt_packedchar *chardata;
+    stbtt_bakedchar *chardata;
     uint32_t dim;
+    float height;
 } FontAtlas;
 
 struct MtFontAsset
 {
     MtAssetManager *asset_manager;
     MtSampler *sampler;
+
     uint8_t *font_data;
+
     FontAtlas *atlases;
     MtHashMap map;
 };

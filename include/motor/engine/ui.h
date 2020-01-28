@@ -47,7 +47,7 @@ MT_PRINTF_FORMATTING(2, 3) void mt_ui_printf(MtUIRenderer *ui, const char *fmt, 
 void mt_ui_rect(MtUIRenderer *ui, float w, float h);
 void mt_ui_image(MtUIRenderer *ui, MtImage *image, float w, float h);
 
-bool mt_ui_button(MtUIRenderer *ui, uint64_t id, float w, float h);
+bool mt_ui_button(MtUIRenderer *ui, const char* text);
 
 // Drawing
 void mt_ui_begin(MtUIRenderer *ui, MtViewport *viewport);

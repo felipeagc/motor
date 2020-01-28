@@ -27,13 +27,15 @@ void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data)
     }
 }
 
-void mt_engine_init(MtEngine *engine, uint32_t num_threads)
+void mt_engine_init(MtEngine *engine)
 {
     memset(engine, 0, sizeof(*engine));
 #if 0
     engine->alloc = mt_alloc(NULL, sizeof(MtAllocator));
     mt_arena_init(engine->alloc, 1 << 16);
 #endif
+
+    uint32_t num_threads = mt_cpu_count() / 2;
 
     printf("Using %u threads\n", num_threads);
 

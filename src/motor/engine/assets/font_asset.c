@@ -31,7 +31,10 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
     asset->sampler = mt_render.create_sampler(
         asset_manager->engine->device,
-        &(MtSamplerCreateInfo){.min_filter = MT_FILTER_LINEAR, .mag_filter = MT_FILTER_LINEAR});
+        &(MtSamplerCreateInfo){
+            .min_filter = MT_FILTER_LINEAR,
+            .mag_filter = MT_FILTER_LINEAR,
+        });
 
     return true;
 }

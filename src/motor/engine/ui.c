@@ -6,6 +6,7 @@
 #include <motor/base/math.h>
 #include <motor/base/array.h>
 #include <motor/base/util.h>
+#include <motor/base/hashmap.h>
 #include <motor/base/allocator.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/window.h>
@@ -16,7 +17,7 @@
 
 enum
 {
-    DEFAULT_FONT_HEIGHT = 20
+    DEFAULT_FONT_HEIGHT = 32
 };
 
 static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height);
@@ -40,6 +41,8 @@ struct MtUIRenderer
     MtAllocator *alloc;
     MtWindow *window;
     MtEngine *engine;
+
+    MtSampler *sampler;
 
     MtPipelineAsset *pipeline;
     MtFontAsset *default_font;
@@ -102,18 +105,30 @@ MtUIRenderer *mt_ui_create(MtAllocator *alloc, MtWindow *window, MtAssetManager 
     assert(ui->pipeline);
 
     ui->default_font = (MtFontAsset *)mt_asset_manager_load(
-        asset_manager, "../assets/fonts/PTSerif-BoldItalic.ttf");
+        asset_manager, "../assets/fonts/SourceSansPro-Regular.ttf");
     assert(ui->default_font);
 
     ui->font_height = DEFAULT_FONT_HEIGHT;
     ui->pos         = V2(0.0f, 0.0f);
     ui->color       = V3(1.0f, 1.0f, 1.0f);
 
+    ui->sampler = mt_render.create_sampler(
+        ui->engine->device,
+        &(MtSamplerCreateInfo){
+            .anisotropy   = false,
+            .mag_filter   = MT_FILTER_NEAREST,
+            .min_filter   = MT_FILTER_NEAREST,
+            .address_mode = MT_SAMPLER_ADDRESS_MODE_REPEAT,
+            .border_color = MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+        });
+
     return ui;
 }
 
 void mt_ui_destroy(MtUIRenderer *ui)
 {
+    mt_render.destroy_sampler(ui->engine->device, ui->sampler);
+
     for (uint32_t i = 0; i < ui->max_command_count; ++i)
     {
         mt_array_free(ui->alloc, ui->commands[i].vertices);
@@ -177,21 +192,38 @@ static bool region_hit(MtUIRenderer *ui, float x, float y, float w, float h)
     return (ui->mouse_x >= x && ui->mouse_x <= x + w) && (ui->mouse_y >= y && ui->mouse_y <= y + h);
 }
 
-void mt_ui_print(MtUIRenderer *ui, const char *text)
+static float text_width(MtUIRenderer *ui, const char *text)
 {
-    FontAtlas *atlas  = get_atlas(ui->font, ui->font_height);
-    ui->state.image   = atlas->image;
-    ui->state.sampler = ui->engine->default_sampler;
-    UICommand *cmd    = current_command(ui);
-
-    ui->pos.y += (float)ui->font_height;
+    FontAtlas *atlas = get_atlas(ui->font, ui->font_height);
 
     float last_x = 0.0f;
 
     uint32_t ci = 0;
     while (text[ci])
     {
-        stbtt_packedchar *cd = &atlas->chardata[(uint32_t)text[ci]];
+        stbtt_bakedchar *cd = &atlas->chardata[(uint32_t)text[ci]];
+        last_x += cd->xadvance;
+        ci++;
+    }
+
+    return last_x;
+}
+
+void mt_ui_print(MtUIRenderer *ui, const char *text)
+{
+    FontAtlas *atlas  = get_atlas(ui->font, ui->font_height);
+    ui->state.image   = atlas->image;
+    ui->state.sampler = ui->sampler;
+    UICommand *cmd    = current_command(ui);
+
+    ui->pos.y += atlas->height;
+
+    float last_x = 0.0f;
+
+    uint32_t ci = 0;
+    while (text[ci])
+    {
+        stbtt_bakedchar *cd = &atlas->chardata[(uint32_t)text[ci]];
 
         uint16_t first_vertex = mt_array_size(cmd->vertices);
 
@@ -200,24 +232,27 @@ void mt_ui_print(MtUIRenderer *ui, const char *text)
         float y0 = (float)cd->y0 / (float)atlas->dim;
         float y1 = (float)cd->y1 / (float)atlas->dim;
 
+        float cw = (float)(cd->x1 - cd->x0);
+        float ch = (float)(cd->y1 - cd->y0);
+
         MtUIVertex vertices[4] = {
             {
-                {last_x + ui->pos.x, ui->pos.y},
+                {last_x + ui->pos.x, ui->pos.y + ch + cd->yoff},
                 {x0, y1},
                 ui->color,
             }, // Bottom Left
             {
-                {last_x + ui->pos.x, cd->yoff + ui->pos.y},
+                {last_x + ui->pos.x, ui->pos.y + cd->yoff},
                 {x0, y0},
                 ui->color,
             }, // Top Left
             {
-                {last_x + cd->xoff2 + ui->pos.x, cd->yoff + ui->pos.y},
+                {last_x + cw + ui->pos.x, ui->pos.y + cd->yoff},
                 {x1, y0},
                 ui->color,
             }, // Top Right
             {
-                {last_x + cd->xoff2 + ui->pos.x, ui->pos.y},
+                {last_x + cw + ui->pos.x, ui->pos.y + ch + cd->yoff},
                 {x1, y1},
                 ui->color,
             }, // Bottom Right
@@ -290,21 +325,33 @@ static void add_rect(MtUIRenderer *ui, float w, float h)
 void mt_ui_rect(MtUIRenderer *ui, float w, float h)
 {
     ui->state.image   = ui->engine->white_image;
-    ui->state.sampler = ui->engine->default_sampler;
+    ui->state.sampler = ui->sampler;
     add_rect(ui, w, h);
 }
 
 void mt_ui_image(MtUIRenderer *ui, MtImage *image, float w, float h)
 {
     ui->state.image   = image;
-    ui->state.sampler = ui->engine->default_sampler;
+    ui->state.sampler = ui->sampler;
     add_rect(ui, w, h);
 }
 
-bool mt_ui_button(MtUIRenderer *ui, uint64_t id, float w, float h)
+bool mt_ui_button(MtUIRenderer *ui, const char *text)
 {
+    uint64_t id = mt_hash_str(text);
+
     bool result     = false;
     Vec3 prev_color = ui->color;
+
+    static const float pad = 10.0f;
+
+    FontAtlas *atlas = get_atlas(ui->font, ui->font_height);
+
+    float text_w = text_width(ui, text);
+    float text_h = atlas->height;
+
+    float w = text_w + pad * 2.0f;
+    float h = text_h + pad * 2.0f;
 
     float x = ui->pos.x;
     float y = ui->pos.y;
@@ -336,16 +383,14 @@ bool mt_ui_button(MtUIRenderer *ui, uint64_t id, float w, float h)
         ui->color = V3(0, 0, 0);
     }
 
-    Vec2 button_pos = ui->pos;
+    Vec2 text_pos = ui->pos;
 
-    mt_ui_set_pos(ui, button_pos);
     mt_ui_rect(ui, w, h);
-
     Vec2 after_button_pos = ui->pos;
 
     ui->color = V3(1, 1, 1);
-    mt_ui_set_pos(ui, button_pos);
-    mt_ui_printf(ui, "Hello");
+    mt_ui_set_pos(ui, V2(text_pos.x + pad, text_pos.y + pad));
+    mt_ui_printf(ui, text);
 
     mt_ui_set_pos(ui, after_button_pos);
 
@@ -418,37 +463,31 @@ static FontAtlas *get_atlas(MtFontAsset *asset, uint32_t height)
         atlas = mt_array_last(asset->atlases);
         memset(atlas, 0, sizeof(*atlas));
 
-        atlas->dim = 2048;
+        stbtt_fontinfo stbfont;
+        stbtt_InitFont(&stbfont, asset->font_data, 0);
 
+        int ascent, descent, linegap;
+        stbtt_GetFontVMetrics(&stbfont, &ascent, &descent, &linegap);
+        float scale   = stbtt_ScaleForMappingEmToPixels(&stbfont, (float)height);
+        atlas->height = ((float)(ascent - descent + linegap) * scale + 0.5) * 0.5;
+
+        int first_char = 0;
+        int char_count = 255;
+
+        atlas->dim      = 2048;
         uint8_t *pixels = mt_alloc(alloc, atlas->dim * atlas->dim);
+        atlas->chardata = mt_alloc(alloc, sizeof(stbtt_bakedchar) * (char_count - first_char));
 
-        stbtt_pack_context spc;
-        int res = stbtt_PackBegin(&spc, pixels, atlas->dim, atlas->dim, 0, 1, NULL);
-        if (!res)
-        {
-            return NULL;
-        }
-
-        stbtt_PackSetOversampling(&spc, 2, 2);
-
-        int first_char  = 0;
-        int char_count  = 255;
-        atlas->chardata = mt_alloc(alloc, sizeof(stbtt_packedchar) * (char_count - first_char));
-
-        res = stbtt_PackFontRange(
-            &spc,
+        stbtt_BakeFontBitmap(
             asset->font_data,
             0,
-            STBTT_POINT_SIZE((float)height),
+            (float)height,
+            pixels,
+            (int)atlas->dim,
+            (int)atlas->dim,
             first_char,
             char_count,
             atlas->chardata);
-        if (!res)
-        {
-            return NULL;
-        }
-
-        stbtt_PackEnd(&spc);
 
         uint8_t *new_pixels = mt_alloc(alloc, 4 * atlas->dim * atlas->dim);
         for (uint32_t i = 0; i < atlas->dim * atlas->dim; ++i)

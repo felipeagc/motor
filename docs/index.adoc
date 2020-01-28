@@ -20,17 +20,13 @@
 ** Introspection system
 ** UI widgets
 *** Stack for pushing/popping IDs
-*** Automatic widget ID system
 *** Text input
 *** Window / container with scrollbar
-** Entity system
 ** Physics
-
 
 === Restructuring
 * Statically link shaderc on windows
 
 === Bug fixes
 * UI font atlas size needs to be correct
-* UI text transparency doesn't really work
 * Fix IBL cubemap generation (images are grainy)
