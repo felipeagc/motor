@@ -13,6 +13,7 @@ static VkFormat format_to_vulkan(MtFormat format)
         case MT_FORMAT_RGBA8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
 
         case MT_FORMAT_BGRA8_UNORM: return VK_FORMAT_B8G8R8A8_UNORM;
+        case MT_FORMAT_BGRA8_SRGB: return VK_FORMAT_B8G8R8A8_SRGB;
 
         case MT_FORMAT_R32_SFLOAT: return VK_FORMAT_R32_SFLOAT;
         case MT_FORMAT_RG32_SFLOAT: return VK_FORMAT_R32G32_SFLOAT;

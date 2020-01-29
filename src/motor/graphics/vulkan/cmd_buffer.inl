@@ -363,19 +363,29 @@ static void cmd_begin_render_pass(
 {
     cmd_buffer->current_renderpass = *render_pass;
 
-    VkClearValue clear_values[2]         = {0};
-    clear_values[0].color                = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
-    clear_values[1].depthStencil.depth   = 1.0f;
-    clear_values[1].depthStencil.stencil = 0;
+    VkClearValue color_value = {.color = {{0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkClearValue depth_value = {.depthStencil = {1.0f, 0}};
 
     if (color_clear_value)
     {
-        memcpy(&clear_values[0], color_clear_value, sizeof(clear_values[0]));
+        memcpy(&color_value, color_clear_value, sizeof(color_value));
     }
-
     if (depth_clear_value)
     {
-        memcpy(&clear_values[1], depth_clear_value, sizeof(clear_values[1]));
+        memcpy(&depth_value, depth_clear_value, sizeof(depth_value));
+    }
+
+    VkClearValue clear_values[8] = {0};
+    uint32_t clear_value_count   = 0;
+
+    for (uint32_t i = 0; i < render_pass->color_attachment_count; ++i)
+    {
+        clear_values[clear_value_count++] = color_value;
+    }
+
+    if (render_pass->has_depth_attachment)
+    {
+        clear_values[clear_value_count++] = depth_value;
     }
 
     VkRenderPassBeginInfo render_pass_info = {
@@ -384,7 +394,7 @@ static void cmd_begin_render_pass(
         .framebuffer       = render_pass->current_framebuffer,
         .renderArea.offset = (VkOffset2D){0, 0},
         .renderArea.extent = render_pass->extent,
-        .clearValueCount   = MT_LENGTH(clear_values),
+        .clearValueCount   = clear_value_count,
         .pClearValues      = clear_values,
     };
 

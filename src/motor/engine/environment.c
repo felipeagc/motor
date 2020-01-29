@@ -116,7 +116,7 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     MtRenderPass *rp = mt_render.create_render_pass(
         engine->device,
         &(MtRenderPassCreateInfo){
-            .color_attachment = brdf,
+            .color_attachments = &brdf,
         });
 
     MtFence *fence = mt_render.create_fence(engine->device);
@@ -232,7 +232,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
     MtRenderPass *rp = mt_render.create_render_pass(
         engine->device,
         &(MtRenderPassCreateInfo){
-            .color_attachment = offscreen,
+            .color_attachments = &offscreen,
         });
 
     struct
@@ -446,7 +446,7 @@ void mt_environment_init(
 
     env->brdf_image = generate_brdf_lut(engine);
 
-    env->uniform.sun_direction = V3(0.0f, -1.0f, 0.0f);
+    env->uniform.sun_direction = V3(1.0f, -1.0f, -1.0f);
     env->uniform.exposure      = 4.5f;
 
     env->uniform.sun_color     = V3(1.0f, 1.0f, 1.0f);

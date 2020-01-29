@@ -522,19 +522,30 @@ static void create_graphics_pipeline_instance(
                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
     };
 
+    VkPipelineColorBlendAttachmentState blend_infos[8];
+    if (options->blending)
+    {
+        for (uint32_t i = 0; i < MT_LENGTH(blend_infos); ++i)
+        {
+            blend_infos[i] = color_blend_attachment_enabled;
+        }
+    }
+    else
+    {
+        for (uint32_t i = 0; i < MT_LENGTH(blend_infos); ++i)
+        {
+            blend_infos[i] = color_blend_attachment_disabled;
+        }
+    }
+
     VkPipelineColorBlendStateCreateInfo color_blending = {
         .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .logicOpEnable   = VK_FALSE,
         .logicOp         = VK_LOGIC_OP_COPY, // Optional
-        .attachmentCount = 1,
-        .pAttachments    = &color_blend_attachment_disabled,
+        .attachmentCount = render_pass->color_attachment_count,
+        .pAttachments    = blend_infos,
         .blendConstants  = {0.0f, 0.0f, 0.0f, 0.0f},
     };
-
-    if (options->blending)
-    {
-        color_blending.pAttachments = &color_blend_attachment_enabled;
-    }
 
     VkDynamicState dynamic_states[4] = {
         VK_DYNAMIC_STATE_VIEWPORT,

@@ -52,7 +52,8 @@ static void swapchain_create_surface(MtDevice *dev, MtWindow *window, VkSurfaceK
 {
 #if defined(_WIN32)
     PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR =
-        (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(dev->instance, "vkCreateWin32SurfaceKHR");
+        (PFN_vkCreateWin32SurfaceKHR)vkGetInstanceProcAddr(
+            dev->instance, "vkCreateWin32SurfaceKHR");
     if (!vkCreateWin32SurfaceKHR)
     {
         printf("Failed to get vkCreateXcbSurfaceKHR function pointer\n");
@@ -498,6 +499,8 @@ static void swapchain_create_renderpass(MtSwapchain *swapchain)
     VK_CHECK(vkCreateRenderPass(
         dev->device, &renderpass_create_info, NULL, &swapchain->render_pass.renderpass));
 
+    swapchain->render_pass.color_attachment_count = 1;
+    swapchain->render_pass.has_depth_attachment   = true;
     swapchain->render_pass.hash = vulkan_hash_render_pass(&renderpass_create_info);
 }
 

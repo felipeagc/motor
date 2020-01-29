@@ -8,8 +8,8 @@
 const float GAMMA = 2.2f;
 
 vec4 srgb_to_linear(vec4 srgb_in) {
-    vec3 lin_out = pow(srgb_in.xyz, vec3(GAMMA));
-    return vec4(lin_out, srgb_in.w);
+    vec3 lin_out = pow(srgb_in.rgb, vec3(GAMMA));
+    return vec4(lin_out, srgb_in.a);
 }
 
 vec3 uncharted2_tonemap(vec3 color) {

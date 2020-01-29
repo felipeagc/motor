@@ -86,6 +86,7 @@ fragment = @{
     layout (set = 3, binding = 5) uniform sampler2D emissive_texture;
 
     layout (location = 0) out vec4 out_color;
+    layout (location = 1) out vec4 out_emissive;
     
     void main() {
         vec3 V = normalize(cam.pos.xyz - world_pos);
@@ -192,5 +193,6 @@ fragment = @{
         vec3 ambient = kD * diffuse + specular;
 
         out_color = vec4((ambient + Lo) * occlusion + emissive, albedo.a);
+        out_emissive = vec4(emissive.rgb, 1.0f);
     }
 }@

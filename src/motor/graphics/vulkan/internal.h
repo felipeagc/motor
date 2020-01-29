@@ -105,12 +105,14 @@ typedef struct MtRenderPass
     VkExtent2D extent;
     VkFramebuffer current_framebuffer;
     uint64_t hash;
+    uint32_t color_attachment_count;
+    bool has_depth_attachment;
 } MtRenderPass;
 
 typedef struct MtSwapchain
 {
-    MtDevice* dev;
-    MtWindow* window;
+    MtDevice *dev;
+    MtWindow *window;
     MtAllocator *alloc;
 
     uint32_t present_family_index;

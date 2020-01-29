@@ -3,16 +3,28 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
     MtRenderPass *rp = mt_alloc(dev->alloc, sizeof(MtRenderPass));
     memset(rp, 0, sizeof(*rp));
 
-    if (ci->color_attachment)
+    if (ci->color_attachments != NULL && ci->color_attachment_count == 0)
+    {
+        ci->color_attachment_count = 1;
+    }
+
+    rp->color_attachment_count = ci->color_attachment_count;
+
+    if (ci->depth_attachment)
+    {
+        rp->has_depth_attachment = true;
+    }
+
+    for (uint32_t i = 0; i < ci->color_attachment_count; ++i)
     {
         if (rp->extent.width == 0 && rp->extent.height == 0)
         {
-            rp->extent.width  = ci->color_attachment->width;
-            rp->extent.height = ci->color_attachment->height;
+            rp->extent.width  = ci->color_attachments[i]->width;
+            rp->extent.height = ci->color_attachments[i]->height;
         }
 
-        if (rp->extent.width != ci->color_attachment->width ||
-            rp->extent.height != ci->color_attachment->height)
+        if (rp->extent.width != ci->color_attachments[i]->width ||
+            rp->extent.height != ci->color_attachments[i]->height)
         {
             mt_free(dev->alloc, rp);
             return NULL;
@@ -36,16 +48,16 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
     }
 
     VkAttachmentDescription *attachments = NULL;
-    uint32_t color_attachment_index      = UINT32_MAX;
+    uint32_t *color_attachment_indices   = NULL;
     uint32_t depth_attachment_index      = UINT32_MAX;
 
-    if (ci->color_attachment)
+    for (uint32_t i = 0; i < ci->color_attachment_count; ++i)
     {
-        color_attachment_index = mt_array_size(attachments);
+        mt_array_push(dev->alloc, color_attachment_indices, mt_array_size(attachments));
 
         VkAttachmentDescription color_attachment = {
-            .format         = ci->color_attachment->format,
-            .samples        = ci->color_attachment->sample_count,
+            .format         = ci->color_attachments[i]->format,
+            .samples        = ci->color_attachments[i]->sample_count,
             .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
             .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -75,10 +87,16 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
         mt_array_push(dev->alloc, attachments, depth_attachment);
     }
 
-    VkAttachmentReference color_attachment_ref = {
-        .attachment = color_attachment_index,
-        .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
+    VkAttachmentReference *color_attachment_refs = NULL;
+
+    for (uint32_t i = 0; i < ci->color_attachment_count; ++i)
+    {
+        VkAttachmentReference ref = {
+            .attachment = color_attachment_indices[i],
+            .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+        mt_array_push(dev->alloc, color_attachment_refs, ref);
+    }
 
     VkAttachmentReference depth_attachment_ref = {
         .attachment = depth_attachment_index,
@@ -88,10 +106,10 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
     VkSubpassDescription subpass = {0};
     subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-    if (ci->color_attachment)
+    if (ci->color_attachment_count > 0)
     {
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments    = &color_attachment_ref;
+        subpass.colorAttachmentCount = mt_array_size(color_attachment_refs);
+        subpass.pColorAttachments    = color_attachment_refs;
     }
 
     if (ci->depth_attachment)
@@ -124,9 +142,9 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
 
     VkImageView *image_views = NULL;
 
-    if (ci->color_attachment)
+    for (uint32_t i = 0; i < ci->color_attachment_count; ++i)
     {
-        mt_array_push(dev->alloc, image_views, ci->color_attachment->image_view);
+        mt_array_push(dev->alloc, image_views, ci->color_attachments[i]->image_view);
     }
 
     if (ci->depth_attachment)
@@ -147,6 +165,8 @@ static MtRenderPass *create_render_pass(MtDevice *dev, MtRenderPassCreateInfo *c
     VK_CHECK(
         vkCreateFramebuffer(dev->device, &framebuffer_create_info, NULL, &rp->current_framebuffer));
 
+    mt_array_free(dev->alloc, color_attachment_indices);
+    mt_array_free(dev->alloc, color_attachment_refs);
     mt_array_free(dev->alloc, attachments);
     mt_array_free(dev->alloc, image_views);
 

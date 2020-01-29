@@ -53,6 +53,7 @@ typedef enum MtFormat
     MT_FORMAT_RGBA8_UNORM,
 
     MT_FORMAT_BGRA8_UNORM,
+    MT_FORMAT_BGRA8_SRGB,
 
     MT_FORMAT_R32_SFLOAT,
     MT_FORMAT_RG32_SFLOAT,
@@ -232,8 +233,9 @@ typedef struct MtImageCopyView
 
 typedef struct MtRenderPassCreateInfo
 {
-    MtImage *color_attachment;
+    MtImage **color_attachments;
     MtImage *depth_attachment;
+    uint32_t color_attachment_count;
 } MtRenderPassCreateInfo;
 
 typedef enum MtImageLayout
