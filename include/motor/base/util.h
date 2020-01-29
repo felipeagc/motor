@@ -10,6 +10,12 @@
 #elif defined(__GNUC__)
     #define MT_ALIGNAS(x) __attribute__((aligned(x)))
 #endif
+
+#ifdef __GNUC__
+    #define MT_PRINTF_FORMATTING(x, y) __attribute__((format(printf, x, y)))
+#else
+    #define MT_PRINTF_FORMATTING(x, y)
+#endif
 // clang-format on
 
 #define MT_LENGTH(array) (sizeof(array) / sizeof((array)[0]))

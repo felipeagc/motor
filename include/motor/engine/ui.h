@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <motor/base/util.h>
 #include <motor/base/math_types.h>
 
 typedef struct MtAllocator MtAllocator;
@@ -14,12 +15,6 @@ typedef struct MtViewport MtViewport;
 typedef struct MtAssetManager MtAssetManager;
 
 typedef struct MtUIRenderer MtUIRenderer;
-
-#ifdef __GNUC__
-#define MT_PRINTF_FORMATTING(x, y) __attribute__((format(printf, x, y)))
-#else
-#define MT_PRINTF_FORMATTING(x, y)
-#endif
 
 typedef struct MtUIVertex
 {

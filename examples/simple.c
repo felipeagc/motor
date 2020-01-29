@@ -1,3 +1,4 @@
+#include <motor/base/log.h>
 #include <motor/base/allocator.h>
 #include <motor/base/util.h>
 #include <motor/base/math.h>
@@ -131,6 +132,8 @@ static void game_init(Game *g)
     memset(g, 0, sizeof(*g));
 
     mt_engine_init(&g->engine);
+
+    mt_log("Hello");
 
     MtImageAsset *skybox_asset = NULL;
     mt_asset_manager_queue_load(

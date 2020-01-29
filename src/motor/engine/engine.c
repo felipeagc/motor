@@ -1,5 +1,6 @@
 #include <motor/engine/engine.h>
 
+#include <motor/base/log.h>
 #include <motor/base/arena.h>
 #include <motor/base/allocator.h>
 #include <motor/graphics/window.h>
@@ -35,9 +36,11 @@ void mt_engine_init(MtEngine *engine)
     mt_arena_init(engine->alloc, 1 << 16);
 #endif
 
+    mt_log_init();
+
     uint32_t num_threads = mt_cpu_count() / 2;
 
-    printf("Using %u threads\n", num_threads);
+    mt_log_debug("Using %u threads", num_threads);
 
     mt_glfw_vulkan_window_system_init();
 

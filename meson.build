@@ -22,6 +22,7 @@ motor_base_sources = [
   'src/motor/base/bitset.c',
   'src/motor/base/lexer.c',
   'src/motor/base/time.c',
+  'src/motor/base/log.c',
 
   'src/motor/base/xxhash.c',
 ]

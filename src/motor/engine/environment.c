@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <motor/base/log.h>
 #include <motor/base/allocator.h>
 #include <motor/base/math.h>
 #include <motor/engine/engine.h>
@@ -86,7 +87,7 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     FILE *f = fopen(path, "rb");
     if (!f)
     {
-        printf("Failed to open file: %s\n", path);
+        mt_log_error("Failed to open file: %s", path);
         return NULL;
     }
 
@@ -165,7 +166,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
     FILE *f = fopen(path, "rb");
     if (!f)
     {
-        printf("Failed to open file: %s\n", path);
+        mt_log_error("Failed to open file: %s", path);
         return NULL;
     }
 
@@ -390,13 +391,13 @@ static void maybe_generate_images(MtEnvironment *env)
             mt_render.destroy_image(engine->device, old_skybox);
         }
 
-        printf("Generating irradiance cubemap\n");
+        mt_log_debug("Generating irradiance cubemap");
         env->irradiance_image = generate_cubemap(env, CUBEMAP_IRRADIANCE);
-        printf("Generated irradiance cubemap\n");
+        mt_log_debug("Generated irradiance cubemap");
 
-        printf("Generating radiance cubemap\n");
+        mt_log_debug("Generating radiance cubemap");
         env->radiance_image = generate_cubemap(env, CUBEMAP_RADIANCE);
-        printf("Generated radiance cubemap\n");
+        mt_log_debug("Generated radiance cubemap");
     }
 
     if (env->irradiance_image != old_irradiance)

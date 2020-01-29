@@ -2,14 +2,16 @@
 
 #include <stdio.h>
 #include <string.h>
+
+#include <motor/base/log.h>
 #include <motor/base/util.h>
 #include <motor/base/allocator.h>
 #include <motor/base/array.h>
 #include <motor/base/thread_pool.h>
-#include <motor/engine/engine.h>
 
 #include <motor/graphics/renderer.h>
 
+#include <motor/engine/engine.h>
 #include <motor/engine/assets/image_asset.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/font_asset.h>
@@ -46,14 +48,14 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
 
             if (strcmp(ext, path_ext) == 0)
             {
-                printf("Loading asset: %s\n", path);
+                mt_log_debug("Loading asset: %s", path);
 
                 MtAsset *temp_asset_ptr = mt_alloc(am->alloc, vt->size);
 
                 bool initialized = vt->init(am, temp_asset_ptr, path);
                 if (!initialized)
                 {
-                    printf("Failed to load asset: %s\n", path);
+                    mt_log_error("Failed to load asset: %s", path);
                     mt_free(am->alloc, temp_asset_ptr);
                     temp_asset_ptr = NULL;
                 }
@@ -105,7 +107,7 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
         }
     }
 
-    printf("No asset loader found for file: %s\n", path);
+    mt_log_error("No asset loader found for file: %s", path);
 
     return NULL;
 }
