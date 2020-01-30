@@ -13,6 +13,7 @@ typedef struct MtBuffer MtBuffer;
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
 typedef struct MtFence MtFence;
+typedef struct MtSemaphore MtSemaphore;
 typedef struct MtCmdBuffer MtCmdBuffer;
 typedef struct MtSwapchain MtSwapchain;
 
@@ -262,6 +263,29 @@ typedef struct MtImageBarrier
     uint32_t layer_count;
 } MtImageBarrier;
 
+typedef enum MtPipelineStage
+{
+    MT_PIPELINE_STAGE_FRAGMENT_SHADER,
+    MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT,
+    MT_PIPELINE_STAGE_ALL_GRAPHICS,
+    MT_PIPELINE_STAGE_COMPUTE,
+    MT_PIPELINE_STAGE_TRANSFER,
+} MtPipelineStage;
+
+typedef struct MtSubmitInfo
+{
+    MtCmdBuffer *cmd_buffer;
+
+    uint32_t wait_semaphore_count;
+    MtSemaphore **wait_semaphores;
+    const MtPipelineStage *wait_stages; // which stage to execute after waiting
+
+    uint32_t signal_semaphore_count;
+    MtSemaphore **signal_semaphores;
+
+    MtFence *fence;
+} MtSubmitInfo;
+
 typedef struct MtRenderer
 {
     void (*destroy_device)(MtDevice *);
@@ -285,9 +309,12 @@ typedef struct MtRenderer
     MtFence *(*create_fence)(MtDevice *);
     void (*destroy_fence)(MtDevice *, MtFence *fence);
 
+    MtSemaphore *(*create_semaphore)(MtDevice *);
+    void (*destroy_semaphore)(MtDevice *, MtSemaphore *semaphore);
+
     void (*reset_fence)(MtDevice *, MtFence *);
     void (*wait_for_fence)(MtDevice *, MtFence *);
-    void (*submit)(MtDevice *, MtCmdBuffer *, MtFence *fence);
+    void (*submit)(MtDevice *, MtSubmitInfo *submit_info);
 
     MtBuffer *(*create_buffer)(MtDevice *, MtBufferCreateInfo *);
     void (*destroy_buffer)(MtDevice *, MtBuffer *);

@@ -78,8 +78,8 @@ static VkBool32 debug_callback(
 
 static bool are_indices_complete(MtDevice *dev, QueueFamilyIndices *indices)
 {
-    return indices->graphics != UINT32_MAX &&
-           indices->transfer != UINT32_MAX && indices->compute != UINT32_MAX;
+    return indices->graphics != UINT32_MAX && indices->transfer != UINT32_MAX &&
+           indices->compute != UINT32_MAX;
 }
 
 static bool check_validation_layer_support(MtDevice *device)
@@ -615,6 +615,24 @@ static void destroy_fence(MtDevice *dev, MtFence *fence)
     mt_free(dev->alloc, fence);
 }
 
+static MtSemaphore *create_semaphore(MtDevice *dev)
+{
+    MtSemaphore *semaphore = mt_alloc(dev->alloc, sizeof(MtSemaphore));
+
+    VkSemaphoreCreateInfo create_info = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
+
+    VK_CHECK(vkCreateSemaphore(dev->device, &create_info, NULL, &semaphore->semaphore));
+    return semaphore;
+}
+
+static void destroy_semaphore(MtDevice *dev, MtSemaphore *semaphore)
+{
+    vkDestroySemaphore(dev->device, semaphore->semaphore, NULL);
+    mt_free(dev->alloc, semaphore);
+}
+
 static void reset_fence(MtDevice *dev, MtFence *fence)
 {
     VK_CHECK(vkResetFences(dev->device, 1, &fence->fence));
@@ -625,47 +643,76 @@ static void wait_for_fence(MtDevice *dev, MtFence *fence)
     VK_CHECK(vkWaitForFences(dev->device, 1, &fence->fence, VK_TRUE, UINT64_MAX));
 }
 
-static void submit(MtDevice *dev, MtCmdBuffer *cmd_buffer, MtFence *fence)
+static void submit(MtDevice *dev, MtSubmitInfo *info)
 {
-    VkQueue queue = VK_NULL_HANDLE;
-
-    switch (cmd_buffer->queue_type)
+    if (info->wait_semaphores && info->wait_semaphore_count == 0)
     {
-        case MT_QUEUE_GRAPHICS:
-        {
-            queue = dev->graphics_queue;
-            break;
-        }
-        case MT_QUEUE_COMPUTE:
-        {
-            queue = dev->compute_queue;
-            break;
-        }
-        case MT_QUEUE_TRANSFER:
-        {
-            queue = dev->transfer_queue;
-            break;
-        }
-        default: assert(0);
+        info->wait_semaphore_count = 1;
     }
 
+    if (info->signal_semaphores && info->signal_semaphore_count == 0)
+    {
+        info->signal_semaphore_count = 1;
+    }
+
+    VkQueue queue = VK_NULL_HANDLE;
+    switch (info->cmd_buffer->queue_type)
+    {
+        case MT_QUEUE_GRAPHICS: queue = dev->graphics_queue; break;
+        case MT_QUEUE_COMPUTE: queue = dev->compute_queue; break;
+        case MT_QUEUE_TRANSFER: queue = dev->transfer_queue; break;
+        default: assert(0);
+    }
     assert(queue);
 
+    VkSemaphore wait_semaphores[8];
+    VkSemaphore signal_semaphores[8];
+    VkPipelineStageFlags wait_dst_stages[8];
+    for (uint32_t i = 0; i < info->wait_semaphore_count; ++i)
+    {
+        wait_semaphores[i] = info->wait_semaphores[i]->semaphore;
+        switch (info->wait_stages[i])
+        {
+            case MT_PIPELINE_STAGE_FRAGMENT_SHADER:
+                wait_dst_stages[i] = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+                break;
+            case MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT:
+                wait_dst_stages[i] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                break;
+            case MT_PIPELINE_STAGE_ALL_GRAPHICS:
+                wait_dst_stages[i] = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+                break;
+            case MT_PIPELINE_STAGE_COMPUTE:
+                wait_dst_stages[i] = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+                break;
+            case MT_PIPELINE_STAGE_TRANSFER:
+                wait_dst_stages[i] = VK_PIPELINE_STAGE_TRANSFER_BIT;
+                break;
+        }
+    }
+    for (uint32_t i = 0; i < info->signal_semaphore_count; ++i)
+    {
+        signal_semaphores[i] = info->signal_semaphores[i]->semaphore;
+    }
+
     VkSubmitInfo submit_info = {
-        .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount   = 0,
-        .pWaitSemaphores      = NULL,
-        .pWaitDstStageMask    = NULL,
-        .commandBufferCount   = 1,
-        .pCommandBuffers      = &cmd_buffer->cmd_buffer,
-        .signalSemaphoreCount = 0,
-        .pSignalSemaphores    = NULL,
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+
+        .commandBufferCount = 1,
+        .pCommandBuffers    = &info->cmd_buffer->cmd_buffer,
+
+        .waitSemaphoreCount = info->wait_semaphore_count,
+        .pWaitSemaphores    = wait_semaphores,
+        .pWaitDstStageMask  = wait_dst_stages,
+
+        .signalSemaphoreCount = info->signal_semaphore_count,
+        .pSignalSemaphores    = signal_semaphores,
     };
 
     VkFence vk_fence = VK_NULL_HANDLE;
-    if (fence)
+    if (info->fence)
     {
-        vk_fence = fence->fence;
+        vk_fence = info->fence->fence;
     }
     mt_mutex_lock(&dev->device_mutex);
     VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, vk_fence));
@@ -699,7 +746,7 @@ transfer_to_buffer(MtDevice *dev, MtBuffer *buffer, size_t offset, size_t size, 
 
     end_cmd_buffer(cb);
 
-    submit(dev, cb, fence);
+    submit(dev, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
     wait_for_fence(dev, fence);
 
     free_cmd_buffers(dev, MT_QUEUE_TRANSFER, 1, &cb);
@@ -768,7 +815,7 @@ transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const 
 
     end_cmd_buffer(cb);
 
-    submit(dev, cb, fence);
+    submit(dev, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
     wait_for_fence(dev, fence);
 
     free_cmd_buffers(dev, MT_QUEUE_TRANSFER, 1, &cb);
@@ -872,6 +919,9 @@ static MtRenderer g_vulkan_renderer = {
 
     .create_fence  = create_fence,
     .destroy_fence = destroy_fence,
+
+    .create_semaphore  = create_semaphore,
+    .destroy_semaphore = destroy_semaphore,
 
     .submit         = submit,
     .reset_fence    = reset_fence,

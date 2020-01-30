@@ -138,7 +138,7 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
         mt_render.end_cmd_buffer(cb);
     }
 
-    mt_render.submit(engine->device, cb, fence);
+    mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
     mt_render.wait_for_fence(engine->device, fence);
 
     mt_render.destroy_fence(engine->device, fence);
@@ -257,7 +257,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 
         mt_render.end_cmd_buffer(cb);
 
-        mt_render.submit(engine->device, cb, fence);
+        mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
         mt_render.wait_for_fence(engine->device, fence);
         mt_render.reset_fence(engine->device, fence);
     }
@@ -337,7 +337,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 
             mt_render.end_cmd_buffer(cb);
 
-            mt_render.submit(engine->device, cb, fence);
+            mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
             mt_render.wait_for_fence(engine->device, fence);
             mt_render.reset_fence(engine->device, fence);
         }
@@ -358,7 +358,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 
         mt_render.end_cmd_buffer(cb);
 
-        mt_render.submit(engine->device, cb, fence);
+        mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
         mt_render.wait_for_fence(engine->device, fence);
         mt_render.reset_fence(engine->device, fence);
     }

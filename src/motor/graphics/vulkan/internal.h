@@ -231,6 +231,11 @@ typedef struct MtFence
     VkFence fence;
 } MtFence;
 
+typedef struct MtSemaphore
+{
+    VkSemaphore semaphore;
+} MtSemaphore;
+
 enum
 {
     MAX_DESCRIPTOR_BINDINGS = 8
