@@ -15,7 +15,8 @@ typedef struct MtPipelineAsset MtPipelineAsset;
 typedef struct MtPointLight
 {
     Vec4 pos;
-    Vec4 color;
+    Vec3 color;
+    float radius;
 } MtPointLight;
 
 typedef struct MtEnvironmentUniform

@@ -10,11 +10,14 @@
 
 * Graphics
 ** Render graph
+** Deferred shading
+*** Render light volumes
 ** Shadow mapping
 ** Bloom
 ** Gizmos
 ** Procedural sky
 *** http://codeflow.org/entries/2011/apr/13/advanced-webgl-part-2-sky-rendering/
+** Revert swapchain format to UNORM instead of SRGB (maybe)
 
 * Engine
 ** Introspection system

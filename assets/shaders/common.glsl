@@ -9,7 +9,8 @@
 
 struct PointLight {
     vec4 pos;
-    vec4 color;
+    vec3 color;
+    float radius;
 };
 
 struct Camera {

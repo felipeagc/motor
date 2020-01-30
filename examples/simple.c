@@ -27,7 +27,14 @@ typedef struct GBuffers
     MtRenderPass *render_pass;
 
     MtImage *depth_image;
-    MtImage *color_image;
+
+    MtImage *albedo_image;
+    MtImage *metallic_roughness_image;
+    MtImage *occlusion_image;
+    MtImage *emissive_image;
+
+    MtImage *pos_image;
+    MtImage *normal_image;
 } GBuffers;
 
 static void gbuffers_resize(GBuffers *pass, uint32_t width, uint32_t height);
@@ -44,7 +51,12 @@ static void gbuffers_destroy(GBuffers *pass)
     mt_render.destroy_render_pass(pass->dev, pass->render_pass);
 
     mt_render.destroy_image(pass->dev, pass->depth_image);
-    mt_render.destroy_image(pass->dev, pass->color_image);
+    mt_render.destroy_image(pass->dev, pass->albedo_image);
+    mt_render.destroy_image(pass->dev, pass->metallic_roughness_image);
+    mt_render.destroy_image(pass->dev, pass->emissive_image);
+    mt_render.destroy_image(pass->dev, pass->occlusion_image);
+    mt_render.destroy_image(pass->dev, pass->pos_image);
+    mt_render.destroy_image(pass->dev, pass->normal_image);
 }
 
 static void gbuffers_resize(GBuffers *pass, uint32_t width, uint32_t height)
@@ -63,13 +75,35 @@ static void gbuffers_resize(GBuffers *pass, uint32_t width, uint32_t height)
             .usage  = MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
             .aspect = MT_IMAGE_ASPECT_DEPTH_BIT | MT_IMAGE_ASPECT_STENCIL_BIT,
         });
+    MtImageCreateInfo color_create_info = {
+        .width  = width,
+        .height = height,
+        .format = MT_FORMAT_RGBA8_UNORM,
+        .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .aspect = MT_IMAGE_ASPECT_COLOR_BIT,
+    };
 
-    pass->color_image = mt_render.create_image(
+    pass->albedo_image             = mt_render.create_image(pass->dev, &color_create_info);
+    pass->metallic_roughness_image = mt_render.create_image(pass->dev, &color_create_info);
+    pass->occlusion_image          = mt_render.create_image(pass->dev, &color_create_info);
+    pass->emissive_image           = mt_render.create_image(pass->dev, &color_create_info);
+
+    pass->pos_image = mt_render.create_image(
         pass->dev,
         &(MtImageCreateInfo){
             .width  = width,
             .height = height,
-            .format = MT_FORMAT_BGRA8_SRGB,
+            .format = MT_FORMAT_RGBA16_SFLOAT,
+            .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            .aspect = MT_IMAGE_ASPECT_COLOR_BIT,
+        });
+
+    pass->normal_image = mt_render.create_image(
+        pass->dev,
+        &(MtImageCreateInfo){
+            .width  = width,
+            .height = height,
+            .format = MT_FORMAT_RGBA16_SFLOAT,
             .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
             .aspect = MT_IMAGE_ASPECT_COLOR_BIT,
         });
@@ -77,8 +111,13 @@ static void gbuffers_resize(GBuffers *pass, uint32_t width, uint32_t height)
     pass->render_pass = mt_render.create_render_pass(
         pass->dev,
         &(MtRenderPassCreateInfo){
-            .color_attachment_count = 1,
-            .color_attachments      = (MtImage *[]){pass->color_image},
+            .color_attachment_count = 6,
+            .color_attachments      = (MtImage *[]){pass->albedo_image,
+                                               pass->metallic_roughness_image,
+                                               pass->occlusion_image,
+                                               pass->emissive_image,
+                                               pass->pos_image,
+                                               pass->normal_image},
             .depth_attachment       = pass->depth_image,
         });
 }
@@ -88,8 +127,10 @@ typedef struct Game
     MtEngine engine;
 
     MtImageAsset *image;
-    MtPipelineAsset *model_pipeline;
+    MtPipelineAsset *pbr_pipeline;
+    MtPipelineAsset *pbr_deferred_pipeline;
     MtPipelineAsset *fullscreen_pipeline;
+    MtPipelineAsset *gbuffer_pipeline;
     MtPipelineAsset *bloom_blur_pipeline;
 
     MtPerspectiveCamera cam;
@@ -108,7 +149,15 @@ static void game_init(Game *g)
     mt_asset_manager_queue_load(
         &g->engine.asset_manager, "../assets/test.png", (MtAsset **)&g->image);
     mt_asset_manager_queue_load(
-        &g->engine.asset_manager, "../assets/shaders/pbr.glsl", (MtAsset **)&g->model_pipeline);
+        &g->engine.asset_manager, "../assets/shaders/pbr.glsl", (MtAsset **)&g->pbr_pipeline);
+    mt_asset_manager_queue_load(
+        &g->engine.asset_manager,
+        "../assets/shaders/pbr_deferred.glsl",
+        (MtAsset **)&g->pbr_deferred_pipeline);
+    mt_asset_manager_queue_load(
+        &g->engine.asset_manager,
+        "../assets/shaders/gbuffers.glsl",
+        (MtAsset **)&g->gbuffer_pipeline);
     mt_asset_manager_queue_load(
         &g->engine.asset_manager,
         "../assets/shaders/fullscreen.glsl",
@@ -158,8 +207,18 @@ static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float
             env->uniform.point_lights[l].pos.z += z;
             env->uniform.point_lights[l].pos.w = 1.0f;
 
-            env->uniform.point_lights[l].color.xyz = b->color[i];
-            env->uniform.point_lights[l].color.w   = 1.0f;
+            env->uniform.point_lights[l].color = b->color[i];
+
+            float constant  = 1.0;
+            float linear    = 0.7;
+            float quadratic = 1.8;
+            float light_max = fmaxf(fmaxf(b->color[i].r, b->color[i].g), b->color[i].b);
+            float radius =
+                (-linear +
+                 sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 5.0) * light_max))) /
+                (2 * quadratic);
+
+            env->uniform.point_lights[l].radius = radius / 2.0f;
 
             env->uniform.point_light_count++;
         }
@@ -181,7 +240,7 @@ static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
             transform      = mat4_mul(quat_to_mat4(b->rot[i]), transform);
             transform      = mat4_translate(transform, b->pos[i]);
 
-            mt_gltf_asset_draw(b->model[i], cb, &transform, 1, 3);
+            mt_gltf_asset_draw(b->model[i], cb, &transform, 1, 2);
         }
     }
 }
@@ -193,6 +252,7 @@ static void draw_ui(Game *g)
 
     float delta_time = mt_render.swapchain_get_delta_time(swapchain);
     mt_ui_printf(ui, "Delta: %fms", delta_time);
+    mt_ui_printf(ui, "FPS: %.0f", 1.0f / delta_time);
 
     mt_ui_printf(
         ui,
@@ -271,11 +331,17 @@ int main(int argc, char *argv[])
     uint32_t width, height;
     mt_window.get_size(win, &width, &height);
 
-    GBuffers gbuffers;
-    gbuffers_init(&gbuffers, dev, width, height);
+    uint32_t gbuffer_index = 0;
+    GBuffers gbuffers[1];
+    for (uint32_t i = 0; i < MT_LENGTH(gbuffers); ++i)
+    {
+        gbuffers_init(&gbuffers[i], dev, width, height);
+    }
 
     while (!mt_window.should_close(win))
     {
+        gbuffer_index = (gbuffer_index + 1) % MT_LENGTH(gbuffers);
+
         mt_file_watcher_poll(game.engine.watcher, &game.engine);
         mt_window.poll_events();
 
@@ -288,7 +354,10 @@ int main(int argc, char *argv[])
             {
                 case MT_EVENT_FRAMEBUFFER_RESIZED:
                 {
-                    gbuffers_resize(&gbuffers, event.size.width, event.size.height);
+                    for (uint32_t i = 0; i < MT_LENGTH(gbuffers); ++i)
+                    {
+                        gbuffers_resize(&gbuffers[i], event.size.width, event.size.height);
+                    }
                     break;
                 }
                 case MT_EVENT_WINDOW_CLOSED:
@@ -312,16 +381,15 @@ int main(int argc, char *argv[])
         mt_render.begin_cmd_buffer(cb);
 
         {
-            mt_render.cmd_begin_render_pass(cb, gbuffers.render_pass, NULL, NULL);
+            mt_render.cmd_begin_render_pass(cb, gbuffers[gbuffer_index].render_pass, NULL, NULL);
 
-            // Draw skybox
-            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-            mt_environment_draw_skybox(&game.env, cb);
+            /* // Draw skybox */
+            /* mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0); */
+            /* mt_environment_draw_skybox(&game.env, cb); */
 
             // Draw model
-            mt_render.cmd_bind_pipeline(cb, game.model_pipeline->pipeline);
+            mt_render.cmd_bind_pipeline(cb, game.gbuffer_pipeline->pipeline);
             mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-            mt_environment_bind(&game.env, cb, 2);
             model_system(cb, &em->archetypes[model_archetype]);
 
             mt_render.cmd_end_render_pass(cb);
@@ -331,9 +399,30 @@ int main(int argc, char *argv[])
             mt_render.cmd_begin_render_pass(
                 cb, mt_render.swapchain_get_render_pass(swapchain), NULL, NULL);
 
-            mt_render.cmd_bind_pipeline(cb, game.fullscreen_pipeline->pipeline);
-            mt_render.cmd_bind_image(cb, gbuffers.color_image, game.engine.default_sampler, 0, 0);
+            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
+            mt_environment_draw_skybox(&game.env, cb);
+
+            GBuffers *gb = &gbuffers[gbuffer_index];
+            mt_render.cmd_bind_pipeline(cb, game.pbr_deferred_pipeline->pipeline);
+
+            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
+
+            mt_environment_bind(&game.env, cb, 1);
+
+            mt_render.cmd_bind_image(cb, gb->albedo_image, game.engine.default_sampler, 2, 0);
+            mt_render.cmd_bind_image(
+                cb, gb->metallic_roughness_image, game.engine.default_sampler, 2, 1);
+            mt_render.cmd_bind_image(cb, gb->occlusion_image, game.engine.default_sampler, 2, 2);
+            mt_render.cmd_bind_image(cb, gb->emissive_image, game.engine.default_sampler, 2, 3);
+            mt_render.cmd_bind_image(cb, gb->normal_image, game.engine.default_sampler, 2, 4);
+            mt_render.cmd_bind_image(cb, gb->pos_image, game.engine.default_sampler, 2, 5);
+
             mt_render.cmd_draw(cb, 3, 1, 0, 0);
+
+            /* mt_render.cmd_bind_pipeline(cb, game.fullscreen_pipeline->pipeline); */
+            /* mt_render.cmd_bind_image(cb, gb->metallic_roughness_image,
+             * game.engine.default_sampler, 0, 0); */
+            /* mt_render.cmd_draw(cb, 3, 1, 0, 0); */
 
             // Begin UI
             MtViewport viewport;
@@ -342,6 +431,13 @@ int main(int argc, char *argv[])
 
             // Submit UI commands
             draw_ui(&game);
+
+            /* mt_ui_image(ui, gb->albedo_image, 64, 64); */
+            /* mt_ui_image(ui, gb->metallic_roughness_image, 64, 64); */
+            /* mt_ui_image(ui, gb->occlusion_image, 64, 64); */
+            /* mt_ui_image(ui, gb->emissive_image, 64, 64); */
+            /* mt_ui_image(ui, gb->normal_image, 64, 64); */
+            /* mt_ui_image(ui, gb->pos_image, 64, 64); */
 
             // Draw UI
             mt_ui_draw(ui, cb);
@@ -353,7 +449,10 @@ int main(int argc, char *argv[])
         mt_render.swapchain_end_frame(swapchain);
     }
 
-    gbuffers_destroy(&gbuffers);
+    for (uint32_t i = 0; i < MT_LENGTH(gbuffers); ++i)
+    {
+        gbuffers_destroy(&gbuffers[i]);
+    }
     game_destroy(&game);
 
     return 0;
