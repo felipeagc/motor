@@ -152,9 +152,8 @@ static VkDescriptorSet descriptor_pool_alloc(
         {
             if (*allocated_set_count >= SETS_PER_PAGE)
             {
-                // No sets available in this pool, so create a new pool
-                descriptor_pool_grow(dev, p);
-                return descriptor_pool_alloc(dev, p, descriptors, descriptors_hash);
+                // No sets available in this pool, so continue looking for another one
+                continue;
             }
 
             // Update existing descriptor set, because we haven't found any
@@ -171,8 +170,8 @@ static VkDescriptorSet descriptor_pool_alloc(
         }
     }
 
-    assert(0);
-    return VK_NULL_HANDLE;
+    descriptor_pool_grow(dev, p);
+    return descriptor_pool_alloc(dev, p, descriptors, descriptors_hash);
 }
 
 static void descriptor_pool_reset(MtDevice *dev, DescriptorPool *p)
