@@ -5,7 +5,7 @@
 #define PI 3.14159265359
 #endif
 
-#define MAX_POINT_LIGHTS 20
+#define MAX_POINT_LIGHTS 64
 
 struct PointLight {
     vec4 pos;

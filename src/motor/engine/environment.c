@@ -476,8 +476,8 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 
     mt_render.cmd_bind_pipeline(cb, env->skybox_pipeline->pipeline);
 
-    mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 0);
-    mt_render.cmd_bind_image(cb, env->radiance_image, env->radiance_sampler, 1, 1);
+    mt_render.cmd_bind_image(cb, env->radiance_image, env->skybox_sampler, 1, 0);
+    mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 1);
     mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
 
     mt_render.cmd_draw(cb, 36, 1, 0, 0);

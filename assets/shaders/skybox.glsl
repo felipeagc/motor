@@ -17,7 +17,7 @@ vertex = @{
 
     void main() {
         tex_coords0 = pos;
-        /* tex_coords0.y *= -1.0f; */
+        // tex_coords0.y *= -1.0f;
 
         mat4 view = cam.view;
         view[3][0] = 0.0;
@@ -35,15 +35,14 @@ fragment = @{
 
     layout (location = 0) in vec3 tex_coords;
 
-    layout (set = 1, binding = 0) uniform EnvironmentUniform {
+    layout (set = 1, binding = 0) uniform samplerCube env_map;
+    layout (set = 1, binding = 1) uniform EnvironmentUniform {
         Environment environment;
     };
-    layout (set = 1, binding = 1) uniform samplerCube env_map;
 
     layout (location = 0) out vec4 out_color;
 
     void main() {
-        out_color.rgb = srgb_to_linear(tonemap(textureLod(env_map, tex_coords, 1.5), environment.exposure)).rgb;
-        out_color.a = 1.0f;
+        out_color = tonemap(srgb_to_linear(textureLod(env_map, tex_coords, 1.5)), environment.exposure);
     }
 }@

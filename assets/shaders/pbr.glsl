@@ -86,7 +86,6 @@ fragment = @{
     layout (set = 3, binding = 5) uniform sampler2D emissive_texture;
 
     layout (location = 0) out vec4 out_color;
-    layout (location = 1) out vec4 out_emissive;
     
     void main() {
         vec3 V = normalize(cam.pos.xyz - world_pos);
@@ -181,18 +180,16 @@ fragment = @{
         vec3 kD = 1.0 - kS;
         kD *= 1.0 - metallic;
 
-        vec3 irradiance = srgb_to_linear(tonemap(texture(irradiance_map, N), environment.exposure)).rgb;
+        vec3 irradiance = tonemap(srgb_to_linear(texture(irradiance_map, N)), environment.exposure).rgb;
         vec3 diffuse = irradiance * albedo.rgb;
 
-        vec3 prefiltered_color = srgb_to_linear(tonemap(
-                    textureLod(radiance_map, R, roughness * environment.radiance_mip_levels),
-                    environment.exposure)).rgb;
-        vec2 brdf = texture(brdf_lut, vec2(max(dot(N, V), 0.0), roughness)).rg;
+        vec3 prefiltered_color = 
+                    tonemap(srgb_to_linear(textureLod(radiance_map, R, roughness * environment.radiance_mip_levels)), environment.exposure).rgb;
+        vec2 brdf = srgb_to_linear(texture(brdf_lut, vec2(max(dot(N, V), 0.0), roughness))).rg;
         vec3 specular = prefiltered_color * (F * brdf.x + brdf.y);
 
         vec3 ambient = kD * diffuse + specular;
 
-        out_color = vec4((ambient + Lo) * occlusion + emissive, albedo.a);
-        out_emissive = vec4(emissive.rgb, 1.0f);
+        out_color = vec4((ambient + Lo) * occlusion + emissive, 1.0);
     }
 }@

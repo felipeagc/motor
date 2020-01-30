@@ -10,7 +10,7 @@ typedef struct MtAssetManager MtAssetManager;
 typedef struct MtImageAsset MtImageAsset;
 typedef struct MtPipelineAsset MtPipelineAsset;
 
-#define MT_MAX_POINT_LIGHTS 20
+#define MT_MAX_POINT_LIGHTS 64
 
 typedef struct MtPointLight
 {
