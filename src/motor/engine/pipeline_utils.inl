@@ -2,6 +2,7 @@
 #include <string.h>
 #include <shaderc/shaderc.h>
 #include <motor/base/string_builder.h>
+#include <motor/base/log.h>
 #include <motor/engine/config.h>
 
 static shaderc_include_result *include_resolver(
@@ -35,7 +36,7 @@ static shaderc_include_result *include_resolver(
     FILE *f = fopen(path, "rb");
     if (!f)
     {
-        printf("Could not open shader include: %s\n", path);
+        mt_log_error("Could not open shader include: %s", path);
         return NULL;
     }
 
@@ -71,21 +72,15 @@ static void include_result_releaser(void *user_data, shaderc_include_result *inc
     mt_free(alloc, include_result);
 }
 
-static MtPipeline *
-create_pipeline(MtEngine *engine, const char *path, const char *input, size_t input_size)
+static MtPipeline *create_compute_pipeline(MtEngine *engine, const char *path, MtConfig *config)
 {
-    shaderc_compile_options_t options = NULL;
-    char *vertex_text = NULL, *fragment_text = NULL;
+    MtConfigObject *obj         = mt_config_get_root(config);
+    MtConfigEntry *common_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
+    MtConfigEntry *comp_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("comp"));
 
-    shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
-
-    // Parse file
-    MtConfig *config = mt_config_parse(engine->alloc, input, input_size);
-    if (!config)
-    {
-        printf("Failed to parse pipeline config\n");
-        goto failed;
-    }
+    shaderc_compile_options_t options        = NULL;
+    char *comp_text                          = NULL;
+    shaderc_compilation_result_t comp_result = NULL;
 
     options = shaderc_compile_options_initialize();
     shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
@@ -95,10 +90,65 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     shaderc_compile_options_set_include_callbacks(
         options, include_resolver, include_result_releaser, engine);
 
-    MtConfigObject *obj           = mt_config_get_root(config);
+    if (comp_entry->value.type != MT_CONFIG_VALUE_STRING)
+    {
+        mt_log_error("Pipeline asset requires \"comp\"  to be a string");
+        goto failed;
+    }
+
+    MtStringBuilder sb;
+    mt_str_builder_init(&sb, engine->alloc);
+
+    if (common_entry)
+    {
+        mt_str_builder_append_str(&sb, common_entry->value.string);
+    }
+    mt_str_builder_append_strn(&sb, comp_entry->value.string, comp_entry->value.length);
+    comp_text = mt_str_builder_build(&sb, engine->alloc);
+
+    mt_str_builder_destroy(&sb);
+
+    size_t comp_text_size = strlen(comp_text);
+
+    // Compile vertex shader
+    comp_result = shaderc_compile_into_spv(
+        engine->compiler, comp_text, comp_text_size, shaderc_compute_shader, path, "main", options);
+
+    if (shaderc_result_get_compilation_status(comp_result) ==
+        shaderc_compilation_status_compilation_error)
+    {
+        mt_log_error("%s", shaderc_result_get_error_message(comp_result));
+        goto failed;
+    }
+
+    MtPipeline *pipeline = mt_render.create_compute_pipeline(
+        engine->device,
+        (uint8_t *)shaderc_result_get_bytes(comp_result),
+        shaderc_result_get_length(comp_result));
+
+    shaderc_compile_options_release(options);
+
+    shaderc_result_release(comp_result);
+
+    return pipeline;
+
+failed:
+    if (options)
+        shaderc_compile_options_release(options);
+
+    if (comp_result)
+        shaderc_result_release(comp_result);
+
+    return NULL;
+}
+
+static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, MtConfig *config)
+{
+    MtConfigObject *obj = mt_config_get_root(config);
+
+    MtConfigEntry *common_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
     MtConfigEntry *vertex_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
     MtConfigEntry *fragment_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
-    MtConfigEntry *common_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
 
     MtConfigEntry *blending_entry    = mt_hash_get_ptr(&obj->map, mt_hash_str("blending"));
     MtConfigEntry *depth_test_entry  = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_test"));
@@ -108,17 +158,23 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     MtConfigEntry *front_face_entry  = mt_hash_get_ptr(&obj->map, mt_hash_str("front_face"));
     MtConfigEntry *line_width_entry  = mt_hash_get_ptr(&obj->map, mt_hash_str("line_width"));
 
-    if (!vertex_entry || !fragment_entry)
-    {
-        printf("Pipeline asset requires \"vertex\" and \"fragment\" properties\n");
-        goto failed;
-    }
+    shaderc_compile_options_t options = NULL;
+    char *vertex_text = NULL, *fragment_text = NULL;
+    shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
+
+    options = shaderc_compile_options_initialize();
+    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
+    shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
+    shaderc_compile_options_set_target_env(
+        options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
+    shaderc_compile_options_set_include_callbacks(
+        options, include_resolver, include_result_releaser, engine);
 
     if (vertex_entry->value.type != MT_CONFIG_VALUE_STRING ||
         fragment_entry->value.type != MT_CONFIG_VALUE_STRING)
     {
-        printf("Pipeline asset requires \"vertex\" and \"fragment\" to be "
-               "strings\n");
+        mt_log_error("Pipeline asset requires \"vertex\" and \"fragment\" to be "
+                     "strings");
         goto failed;
     }
 
@@ -159,7 +215,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     if (shaderc_result_get_compilation_status(vertex_result) ==
         shaderc_compilation_status_compilation_error)
     {
-        printf("%s\n", shaderc_result_get_error_message(vertex_result));
+        mt_log_error("%s", shaderc_result_get_error_message(vertex_result));
         goto failed;
     }
 
@@ -176,7 +232,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     if (shaderc_result_get_compilation_status(fragment_result) ==
         shaderc_compilation_status_compilation_error)
     {
-        printf("%s\n", shaderc_result_get_error_message(fragment_result));
+        mt_log_error("%s", shaderc_result_get_error_message(fragment_result));
         goto failed;
     }
 
@@ -196,7 +252,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
         }
         else
         {
-            printf("Invalid pipeline blending type, wanted bool\n");
+            mt_log_error("Invalid pipeline blending type, wanted bool");
             goto failed;
         }
     }
@@ -209,7 +265,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
         }
         else
         {
-            printf("Invalid pipeline depth test type, wanted bool\n");
+            mt_log_error("Invalid pipeline depth test type, wanted bool");
             goto failed;
         }
     }
@@ -222,7 +278,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
         }
         else
         {
-            printf("Invalid pipeline depth write type, wanted bool\n");
+            mt_log_error("Invalid pipeline depth write type, wanted bool");
             goto failed;
         }
     }
@@ -235,7 +291,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
         }
         else
         {
-            printf("Invalid pipeline depth bias type, wanted bool\n");
+            mt_log_error("Invalid pipeline depth bias type, wanted bool");
             goto failed;
         }
     }
@@ -255,13 +311,13 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
             }
             else
             {
-                printf("Invalid pipeline front face: \"%.*s\"\n", value->length, value->string);
+                mt_log_error("Invalid pipeline front face: \"%.*s\"", value->length, value->string);
                 goto failed;
             }
         }
         else
         {
-            printf("Invalid pipeline front face type, wanted string\n");
+            mt_log_error("Invalid pipeline front face type, wanted string");
             goto failed;
         }
     }
@@ -285,13 +341,13 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
             }
             else
             {
-                printf("Invalid pipeline cull mode: \"%.*s\"\n", value->length, value->string);
+                mt_log_error("Invalid pipeline cull mode: \"%.*s\"", value->length, value->string);
                 goto failed;
             }
         }
         else
         {
-            printf("Invalid pipeline cull mode type, wanted string\n");
+            mt_log_error("Invalid pipeline cull mode type, wanted string");
             goto failed;
         }
     }
@@ -304,7 +360,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
         }
         else
         {
-            printf("Invalid pipeline line width type, wanted float\n");
+            mt_log_error("Invalid pipeline line width type, wanted float");
             goto failed;
         }
     }
@@ -326,7 +382,6 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
         });
 
     shaderc_compile_options_release(options);
-    mt_config_destroy(config);
 
     shaderc_result_release(vertex_result);
     shaderc_result_release(fragment_result);
@@ -336,12 +391,45 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
 failed:
     if (options)
         shaderc_compile_options_release(options);
-    if (config)
-        mt_config_destroy(config);
 
     if (vertex_result)
         shaderc_result_release(vertex_result);
     if (fragment_result)
         shaderc_result_release(fragment_result);
     return NULL;
+}
+
+static MtPipeline *
+create_pipeline(MtEngine *engine, const char *path, const char *input, size_t input_size)
+{
+    // Parse file
+    MtConfig *config = mt_config_parse(engine->alloc, input, input_size);
+    if (!config)
+    {
+        mt_log_error("Failed to parse pipeline config: \"%s\"", path);
+        return NULL;
+    }
+
+    MtConfigObject *obj           = mt_config_get_root(config);
+    MtConfigEntry *vertex_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
+    MtConfigEntry *fragment_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
+    MtConfigEntry *comp_entry     = mt_hash_get_ptr(&obj->map, mt_hash_str("comp"));
+
+    MtPipeline *pipeline = NULL;
+
+    if (comp_entry && !vertex_entry && !fragment_entry)
+    {
+        pipeline = create_compute_pipeline(engine, path, config);
+    }
+    else if (!comp_entry && vertex_entry && fragment_entry)
+    {
+        pipeline = create_graphics_pipeline(engine, path, config);
+    }
+    else
+    {
+        mt_log_error("Failed to create pipeline: \"%s\", missing required shader fields", path);
+    }
+
+    mt_config_destroy(config);
+    return pipeline;
 }
