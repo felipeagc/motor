@@ -160,6 +160,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
 
     shaderc_compile_options_t options = NULL;
     char *vertex_text = NULL, *fragment_text = NULL;
+    size_t vertex_text_size = 0, fragment_text_size = 0;
     shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
 
     options = shaderc_compile_options_initialize();
@@ -170,71 +171,89 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
     shaderc_compile_options_set_include_callbacks(
         options, include_resolver, include_result_releaser, engine);
 
-    if (vertex_entry->value.type != MT_CONFIG_VALUE_STRING ||
-        fragment_entry->value.type != MT_CONFIG_VALUE_STRING)
+    if (vertex_entry && vertex_entry->value.type != MT_CONFIG_VALUE_STRING)
     {
-        mt_log_error("Pipeline asset requires \"vertex\" and \"fragment\" to be "
-                     "strings");
+        mt_log_error("Pipeline asset requires \"vertex\" field to be a string");
         goto failed;
     }
+
+    if (fragment_entry && fragment_entry->value.type != MT_CONFIG_VALUE_STRING)
+    {
+        mt_log_error("Pipeline asset requires \"fragment\" field to be a string");
+        goto failed;
+    }
+
+    uint8_t *vertex_code = NULL, *fragment_code = NULL;
+    size_t vertex_code_size = 0, fragment_code_size = 0;
 
     MtStringBuilder sb;
     mt_str_builder_init(&sb, engine->alloc);
 
-    if (common_entry)
+    if (vertex_entry)
     {
-        mt_str_builder_append_str(&sb, common_entry->value.string);
+        mt_str_builder_reset(&sb);
+        if (common_entry)
+        {
+            mt_str_builder_append_str(&sb, common_entry->value.string);
+        }
+        mt_str_builder_append_strn(&sb, vertex_entry->value.string, vertex_entry->value.length);
+        vertex_text      = mt_str_builder_build(&sb, engine->alloc);
+        vertex_text_size = strlen(vertex_text);
+
+        // Compile vertex shader
+        vertex_result = shaderc_compile_into_spv(
+            engine->compiler,
+            vertex_text,
+            vertex_text_size,
+            shaderc_vertex_shader,
+            path,
+            "main",
+            options);
+
+        if (shaderc_result_get_compilation_status(vertex_result) ==
+            shaderc_compilation_status_compilation_error)
+        {
+            mt_log_error("%s", shaderc_result_get_error_message(vertex_result));
+            goto failed;
+        }
+
+        vertex_code      = (uint8_t *)shaderc_result_get_bytes(vertex_result);
+        vertex_code_size = shaderc_result_get_length(vertex_result);
     }
-    mt_str_builder_append_strn(&sb, vertex_entry->value.string, vertex_entry->value.length);
-    vertex_text = mt_str_builder_build(&sb, engine->alloc);
 
-    mt_str_builder_reset(&sb);
-
-    if (common_entry)
+    if (fragment_entry)
     {
-        mt_str_builder_append_str(&sb, common_entry->value.string);
+        mt_str_builder_reset(&sb);
+        if (common_entry)
+        {
+            mt_str_builder_append_str(&sb, common_entry->value.string);
+        }
+        mt_str_builder_append_strn(&sb, fragment_entry->value.string, fragment_entry->value.length);
+        fragment_text      = mt_str_builder_build(&sb, engine->alloc);
+        fragment_text_size = strlen(fragment_text);
+
+        // Compile fragment shader
+        fragment_result = shaderc_compile_into_spv(
+            engine->compiler,
+            fragment_text,
+            fragment_text_size,
+            shaderc_fragment_shader,
+            path,
+            "main",
+            options);
+
+        if (shaderc_result_get_compilation_status(fragment_result) ==
+            shaderc_compilation_status_compilation_error)
+        {
+            mt_log_error("%s", shaderc_result_get_error_message(fragment_result));
+            goto failed;
+        }
+
+        fragment_code      = (uint8_t *)shaderc_result_get_bytes(fragment_result);
+        fragment_code_size = shaderc_result_get_length(fragment_result);
     }
-    mt_str_builder_append_strn(&sb, fragment_entry->value.string, fragment_entry->value.length);
-    fragment_text = mt_str_builder_build(&sb, engine->alloc);
 
     mt_str_builder_destroy(&sb);
-
-    size_t vertex_text_size   = strlen(vertex_text);
-    size_t fragment_text_size = strlen(fragment_text);
-
-    // Compile vertex shader
-    vertex_result = shaderc_compile_into_spv(
-        engine->compiler,
-        vertex_text,
-        vertex_text_size,
-        shaderc_vertex_shader,
-        path,
-        "main",
-        options);
-
-    if (shaderc_result_get_compilation_status(vertex_result) ==
-        shaderc_compilation_status_compilation_error)
-    {
-        mt_log_error("%s", shaderc_result_get_error_message(vertex_result));
-        goto failed;
-    }
-
-    // Compile fragment shader
-    fragment_result = shaderc_compile_into_spv(
-        engine->compiler,
-        fragment_text,
-        fragment_text_size,
-        shaderc_fragment_shader,
-        path,
-        "main",
-        options);
-
-    if (shaderc_result_get_compilation_status(fragment_result) ==
-        shaderc_compilation_status_compilation_error)
-    {
-        mt_log_error("%s", shaderc_result_get_error_message(fragment_result));
-        goto failed;
-    }
 
     bool blending          = true;
     bool depth_test        = true;
@@ -367,10 +386,10 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
 
     MtPipeline *pipeline = mt_render.create_graphics_pipeline(
         engine->device,
-        (uint8_t *)shaderc_result_get_bytes(vertex_result),
-        shaderc_result_get_length(vertex_result),
-        (uint8_t *)shaderc_result_get_bytes(fragment_result),
-        shaderc_result_get_length(fragment_result),
+        vertex_code,
+        vertex_code_size,
+        fragment_code,
+        fragment_code_size,
         &(MtGraphicsPipelineCreateInfo){
             .blending    = blending,
             .depth_test  = depth_test,
@@ -421,7 +440,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     {
         pipeline = create_compute_pipeline(engine, path, config);
     }
-    else if (!comp_entry && vertex_entry && fragment_entry)
+    else if (!comp_entry && vertex_entry)
     {
         pipeline = create_graphics_pipeline(engine, path, config);
     }

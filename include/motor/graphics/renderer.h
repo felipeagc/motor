@@ -16,6 +16,10 @@ typedef struct MtFence MtFence;
 typedef struct MtSemaphore MtSemaphore;
 typedef struct MtCmdBuffer MtCmdBuffer;
 typedef struct MtSwapchain MtSwapchain;
+typedef struct MtRenderGraph MtRenderGraph;
+typedef struct MtRenderGraphPass MtRenderGraphPass;
+
+typedef void (*MtRenderGraphPassBuilder)(MtCmdBuffer *cb, void *user_data);
 
 typedef union MtClearColorValue {
     float float32[4];
@@ -286,6 +290,16 @@ typedef struct MtSubmitInfo
     MtFence *fence;
 } MtSubmitInfo;
 
+typedef struct MtAttachmentInfo
+{
+    uint32_t width;
+    uint32_t height;
+    uint32_t sample_count;
+    uint32_t mip_count;
+    uint32_t layer_count;
+    MtFormat format;
+} MtAttachmentInfo;
+
 typedef struct MtRenderer
 {
     void (*destroy_device)(MtDevice *);
@@ -293,9 +307,6 @@ typedef struct MtRenderer
 
     MtSwapchain *(*create_swapchain)(MtDevice *, MtWindow *, MtAllocator *);
     void (*destroy_swapchain)(MtSwapchain *);
-
-    MtCmdBuffer *(*swapchain_begin_frame)(MtSwapchain *);
-    void (*swapchain_end_frame)(MtSwapchain *);
 
     float (*swapchain_get_delta_time)(MtSwapchain *);
     MtRenderPass *(*swapchain_get_render_pass)(MtSwapchain *);
@@ -306,7 +317,7 @@ typedef struct MtRenderer
     void (*allocate_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
     void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
 
-    MtFence *(*create_fence)(MtDevice *);
+    MtFence *(*create_fence)(MtDevice *, bool signaled);
     void (*destroy_fence)(MtDevice *, MtFence *fence);
 
     MtSemaphore *(*create_semaphore)(MtDevice *);
@@ -406,6 +417,20 @@ typedef struct MtRenderer
 
     void (*cmd_dispatch)(
         MtCmdBuffer *, uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z);
+
+    MtRenderGraph *(*create_graph)(MtDevice *, MtSwapchain *, void *user_data);
+    void (*destroy_graph)(MtRenderGraph *);
+    void (*graph_set_backbuffer)(MtRenderGraph *, const char *name);
+    void (*graph_bake)(MtRenderGraph *);
+    void (*graph_execute)(MtRenderGraph *);
+    MtImage *(*graph_get_attachment)(MtRenderGraph *, const char *name);
+
+    MtRenderGraphPass *(*graph_add_pass)(MtRenderGraph *, const char *name, MtPipelineStage stage);
+    void (*pass_set_builder)(MtRenderGraphPass *, MtRenderGraphPassBuilder builder);
+    void (*pass_add_color_output)(MtRenderGraphPass *, const char *name, MtAttachmentInfo *info);
+    void (*pass_set_depth_stencil_output)(
+        MtRenderGraphPass *, const char *name, MtAttachmentInfo *info);
+    void (*pass_add_attachment_input)(MtRenderGraphPass *, const char *name);
 } MtRenderer;
 
 extern MtRenderer mt_render;

@@ -91,36 +91,6 @@ static void swapchain_create_surface(MtDevice *dev, MtWindow *window, VkSurfaceK
 #endif
 }
 
-static void swapchain_create_semaphores(MtSwapchain *swapchain)
-{
-    MtDevice *dev = swapchain->dev;
-
-    VkSemaphoreCreateInfo semaphore_info = {0};
-    semaphore_info.sType                 = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
-    {
-        VK_CHECK(vkCreateSemaphore(
-            dev->device, &semaphore_info, NULL, &swapchain->image_available_semaphores[i]));
-        VK_CHECK(vkCreateSemaphore(
-            dev->device, &semaphore_info, NULL, &swapchain->render_finished_semaphores[i]));
-    }
-}
-
-static void swapchain_create_fences(MtSwapchain *swapchain)
-{
-    MtDevice *dev = swapchain->dev;
-
-    VkFenceCreateInfo fence_info = {0};
-    fence_info.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_info.flags             = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
-    {
-        VK_CHECK(vkCreateFence(dev->device, &fence_info, NULL, &swapchain->in_flight_fences[i]));
-    }
-}
-
 static SwapchainSupport swapchain_query_swapchain_support(MtSwapchain *swapchain)
 {
     MtDevice *dev = swapchain->dev;
@@ -341,7 +311,7 @@ static void swapchain_create_swapchain(MtSwapchain *swapchain)
 
     swapchain->swapchain_image_count  = image_count;
     swapchain->swapchain_image_format = surface_format.format;
-    swapchain->render_pass.extent     = extent;
+    swapchain->swapchain_extent       = extent;
 
     mt_free(swapchain->alloc, swapchain_support.formats);
     mt_free(swapchain->alloc, swapchain_support.present_modes);
@@ -389,8 +359,8 @@ static void swapchain_create_depth_images(MtSwapchain *swapchain)
         .format    = dev->preferred_depth_format,
         .extent =
             {
-                .width  = swapchain->render_pass.extent.width,
-                .height = swapchain->render_pass.extent.height,
+                .width  = swapchain->swapchain_extent.width,
+                .height = swapchain->swapchain_extent.height,
                 .depth  = 1,
             },
         .mipLevels     = 1,
@@ -432,109 +402,9 @@ static void swapchain_create_depth_images(MtSwapchain *swapchain)
     VK_CHECK(vkCreateImageView(dev->device, &create_info, NULL, &swapchain->depth_image_view));
 }
 
-static void swapchain_create_renderpass(MtSwapchain *swapchain)
-{
-    MtDevice *dev = swapchain->dev;
-
-    VkAttachmentDescription color_attachment = {
-        .format         = swapchain->swapchain_image_format,
-        .samples        = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    };
-
-    VkAttachmentReference color_attachment_ref = {
-        .attachment = 0,
-        .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-
-    VkAttachmentDescription depth_attachment = {
-        .format         = dev->preferred_depth_format,
-        .samples        = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-
-    VkAttachmentReference depth_attachment_ref = {
-        .attachment = 1,
-        .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    };
-
-    VkSubpassDescription subpass = {
-        .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .colorAttachmentCount    = 1,
-        .pColorAttachments       = &color_attachment_ref,
-        .pDepthStencilAttachment = &depth_attachment_ref,
-    };
-
-    VkSubpassDependency dependency = {
-        .srcSubpass    = VK_SUBPASS_EXTERNAL,
-        .dstSubpass    = 0,
-        .srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    };
-
-    VkAttachmentDescription attachments[2] = {color_attachment, depth_attachment};
-
-    VkRenderPassCreateInfo renderpass_create_info = {
-        .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = MT_LENGTH(attachments),
-        .pAttachments    = attachments,
-        .subpassCount    = 1,
-        .pSubpasses      = &subpass,
-        .dependencyCount = 1,
-        .pDependencies   = &dependency,
-    };
-
-    VK_CHECK(vkCreateRenderPass(
-        dev->device, &renderpass_create_info, NULL, &swapchain->render_pass.renderpass));
-
-    swapchain->render_pass.color_attachment_count = 1;
-    swapchain->render_pass.has_depth_attachment   = true;
-    swapchain->render_pass.hash = vulkan_hash_render_pass(&renderpass_create_info);
-}
-
-static void swapchain_create_framebuffers(MtSwapchain *swapchain)
-{
-    MtDevice *dev = swapchain->dev;
-
-    swapchain->swapchain_framebuffers = mt_realloc(
-        swapchain->alloc,
-        swapchain->swapchain_framebuffers,
-        sizeof(VkFramebuffer) * swapchain->swapchain_image_count);
-
-    for (size_t i = 0; i < swapchain->swapchain_image_count; i++)
-    {
-        VkImageView attachments[2] = {swapchain->swapchain_image_views[i],
-                                      swapchain->depth_image_view};
-
-        VkFramebufferCreateInfo create_info = {
-            .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-            .renderPass      = swapchain->render_pass.renderpass,
-            .attachmentCount = MT_LENGTH(attachments),
-            .pAttachments    = attachments,
-            .width           = swapchain->render_pass.extent.width,
-            .height          = swapchain->render_pass.extent.height,
-            .layers          = 1,
-        };
-
-        VK_CHECK(vkCreateFramebuffer(
-            dev->device, &create_info, NULL, &swapchain->swapchain_framebuffers[i]));
-    }
-}
-
 static void swapchain_create_resizables(MtSwapchain *swapchain)
 {
+    mt_log("Creating resizables");
     MtDevice *dev = swapchain->dev;
 
     uint32_t width = 0, height = 0;
@@ -551,8 +421,6 @@ static void swapchain_create_resizables(MtSwapchain *swapchain)
     swapchain_create_swapchain(swapchain);
     swapchain_create_swapchain_image_views(swapchain);
     swapchain_create_depth_images(swapchain);
-    swapchain_create_renderpass(swapchain);
-    swapchain_create_framebuffers(swapchain);
 }
 
 static void swapchain_destroy_resizables(MtSwapchain *swapchain)
@@ -562,22 +430,6 @@ static void swapchain_destroy_resizables(MtSwapchain *swapchain)
     mt_mutex_lock(&dev->device_mutex);
     VK_CHECK(vkDeviceWaitIdle(dev->device));
     mt_mutex_unlock(&dev->device_mutex);
-
-    for (uint32_t i = 0; i < swapchain->swapchain_image_count; i++)
-    {
-        VkFramebuffer *framebuffer = &swapchain->swapchain_framebuffers[i];
-        if (framebuffer)
-        {
-            vkDestroyFramebuffer(dev->device, *framebuffer, NULL);
-            *framebuffer = VK_NULL_HANDLE;
-        }
-    }
-
-    if (swapchain->render_pass.renderpass)
-    {
-        vkDestroyRenderPass(dev->device, swapchain->render_pass.renderpass, NULL);
-        swapchain->render_pass.renderpass = VK_NULL_HANDLE;
-    }
 
     for (uint32_t i = 0; i < swapchain->swapchain_image_count; i++)
     {
@@ -603,115 +455,12 @@ static void swapchain_destroy_resizables(MtSwapchain *swapchain)
     }
 }
 
-static void swapchain_allocate_cmd_buffers(MtSwapchain *swapchain)
-{
-    mt_render.allocate_cmd_buffers(
-        swapchain->dev, MT_QUEUE_GRAPHICS, FRAMES_IN_FLIGHT, swapchain->cmd_buffers);
-}
-
-static void swapchain_free_cmd_buffers(MtSwapchain *swapchain)
-{
-    mt_render.free_cmd_buffers(
-        swapchain->dev, MT_QUEUE_GRAPHICS, FRAMES_IN_FLIGHT, swapchain->cmd_buffers);
-}
-
 /*
  * Swapchain functions
  */
 
-static MtCmdBuffer *swapchain_begin_frame(MtSwapchain *swapchain)
-{
-    MtDevice *dev = swapchain->dev;
-
-    vkWaitForFences(
-        dev->device,
-        1,
-        &swapchain->in_flight_fences[swapchain->current_frame],
-        VK_TRUE,
-        UINT64_MAX);
-
-    VkResult res = vkAcquireNextImageKHR(
-        dev->device,
-        swapchain->swapchain,
-        UINT64_MAX,
-        swapchain->image_available_semaphores[swapchain->current_frame],
-        VK_NULL_HANDLE,
-        &swapchain->current_image_index);
-
-    if (res == VK_ERROR_OUT_OF_DATE_KHR)
-    {
-        swapchain_destroy_resizables(swapchain);
-        swapchain_create_resizables(swapchain);
-        return swapchain_begin_frame(swapchain);
-    }
-    else
-    {
-        VK_CHECK(res);
-    }
-
-    swapchain->render_pass.current_framebuffer =
-        swapchain->swapchain_framebuffers[swapchain->current_image_index];
-
-    return swapchain->cmd_buffers[swapchain->current_frame];
-}
-
 static void swapchain_end_frame(MtSwapchain *swapchain)
 {
-    MtDevice *dev = swapchain->dev;
-
-    VkSubmitInfo submit_info = {0};
-    submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore wait_semaphores[1] = {
-        swapchain->image_available_semaphores[swapchain->current_frame]};
-    VkSemaphore signal_semaphores[1] = {
-        swapchain->render_finished_semaphores[swapchain->current_frame]};
-
-    submit_info.waitSemaphoreCount = MT_LENGTH(wait_semaphores);
-    submit_info.pWaitSemaphores    = wait_semaphores;
-
-    VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    submit_info.pWaitDstStageMask   = &wait_stage;
-
-    MtCmdBuffer *cmd_buffer = swapchain->cmd_buffers[swapchain->current_frame];
-
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = &cmd_buffer->cmd_buffer;
-
-    submit_info.signalSemaphoreCount = MT_LENGTH(signal_semaphores);
-    submit_info.pSignalSemaphores    = signal_semaphores;
-
-    vkResetFences(dev->device, 1, &swapchain->in_flight_fences[swapchain->current_frame]);
-    VK_CHECK(vkQueueSubmit(
-        dev->graphics_queue,
-        1,
-        &submit_info,
-        swapchain->in_flight_fences[swapchain->current_frame]));
-
-    VkPresentInfoKHR present_info = {
-        .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .waitSemaphoreCount = MT_LENGTH(signal_semaphores),
-        .pWaitSemaphores    = signal_semaphores,
-        .swapchainCount     = 1,
-        .pSwapchains        = &swapchain->swapchain,
-        .pImageIndices      = &swapchain->current_image_index,
-    };
-
-    VkResult res = vkQueuePresentKHR(swapchain->present_queue, &present_info);
-    if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR ||
-        swapchain->framebuffer_resized)
-    {
-        swapchain->framebuffer_resized = false;
-        swapchain_destroy_resizables(swapchain);
-        swapchain_create_resizables(swapchain);
-    }
-    else
-    {
-        VK_CHECK(res);
-    }
-
-    swapchain->current_frame = (swapchain->current_frame + 1) % FRAMES_IN_FLIGHT;
-
     swapchain->delta_time = (float)(mt_time_ns() - swapchain->last_time) / 1.0e9;
     swapchain->last_time  = mt_time_ns();
 }
@@ -765,12 +514,7 @@ static MtSwapchain *create_swapchain(MtDevice *dev, MtWindow *window, MtAllocato
     // Get present queue
     vkGetDeviceQueue(dev->device, swapchain->present_family_index, 0, &swapchain->present_queue);
 
-    swapchain_create_semaphores(swapchain);
-    swapchain_create_fences(swapchain);
-
     swapchain_create_resizables(swapchain);
-
-    swapchain_allocate_cmd_buffers(swapchain);
 
     return swapchain;
 }
@@ -783,23 +527,9 @@ static void destroy_swapchain(MtSwapchain *swapchain)
     VK_CHECK(vkDeviceWaitIdle(dev->device));
     mt_mutex_unlock(&dev->device_mutex);
 
-    swapchain_free_cmd_buffers(swapchain);
-
     swapchain_destroy_resizables(swapchain);
 
-    for (uint32_t i = 0; i < FRAMES_IN_FLIGHT; i++)
-    {
-        vkDestroySemaphore(dev->device, swapchain->image_available_semaphores[i], NULL);
-        vkDestroySemaphore(dev->device, swapchain->render_finished_semaphores[i], NULL);
-        vkDestroyFence(dev->device, swapchain->in_flight_fences[i], NULL);
-    }
-
     vkDestroySurfaceKHR(dev->instance, swapchain->surface, NULL);
-}
-
-static MtRenderPass *swapchain_get_render_pass(MtSwapchain *swapchain)
-{
-    return &swapchain->render_pass;
 }
 
 static float swapchain_get_delta_time(MtSwapchain *swapchain)

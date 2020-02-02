@@ -657,6 +657,8 @@ static MtPipeline *create_graphics_pipeline(
     size_t fragment_code_size,
     MtGraphicsPipelineCreateInfo *ci)
 {
+    assert(vertex_code);
+
     MtPipeline *pipeline = mt_alloc(dev->alloc, sizeof(MtPipeline));
     memset(pipeline, 0, sizeof(*pipeline));
 
@@ -666,15 +668,26 @@ static MtPipeline *create_graphics_pipeline(
     }
 
     pipeline->create_info = *ci;
-    mt_array_add(dev->alloc, pipeline->shaders, 2);
 
-    shader_init(dev, &pipeline->shaders[0], vertex_code, vertex_code_size);
-    shader_init(dev, &pipeline->shaders[1], fragment_code, fragment_code_size);
+    Shader vertex_shader;
+    shader_init(dev, &vertex_shader, vertex_code, vertex_code_size);
+    mt_array_push(dev->alloc, pipeline->shaders, vertex_shader);
+
+    // Fragment shader is optional
+    if (fragment_code)
+    {
+        Shader fragment_shader;
+        shader_init(dev, &fragment_shader, fragment_code, fragment_code_size);
+        mt_array_push(dev->alloc, pipeline->shaders, fragment_shader);
+    }
 
     XXH64_state_t state = {0};
 
     XXH64_update(&state, vertex_code, vertex_code_size);
-    XXH64_update(&state, fragment_code, fragment_code_size);
+    if (fragment_code)
+    {
+        XXH64_update(&state, fragment_code, fragment_code_size);
+    }
 
     XXH64_update(&state, &ci->blending, sizeof(ci->blending));
     XXH64_update(&state, &ci->depth_test, sizeof(ci->depth_test));

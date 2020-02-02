@@ -21,120 +21,22 @@
 #include <assert.h>
 #include <string.h>
 
-typedef struct GBuffers
-{
-    MtDevice *dev;
-    MtRenderPass *render_pass;
-
-    MtImage *depth_image;
-
-    MtImage *albedo_image;
-    MtImage *metallic_roughness_image;
-    MtImage *occlusion_image;
-    MtImage *emissive_image;
-
-    MtImage *pos_image;
-    MtImage *normal_image;
-} GBuffers;
-
-static void gbuffers_resize(GBuffers *pass, uint32_t width, uint32_t height);
-
-static void gbuffers_init(GBuffers *pass, MtDevice *dev, uint32_t width, uint32_t height)
-{
-    memset(pass, 0, sizeof(*pass));
-    pass->dev = dev;
-    gbuffers_resize(pass, width, height);
-}
-
-static void gbuffers_destroy(GBuffers *pass)
-{
-    mt_render.destroy_render_pass(pass->dev, pass->render_pass);
-
-    mt_render.destroy_image(pass->dev, pass->depth_image);
-    mt_render.destroy_image(pass->dev, pass->albedo_image);
-    mt_render.destroy_image(pass->dev, pass->metallic_roughness_image);
-    mt_render.destroy_image(pass->dev, pass->emissive_image);
-    mt_render.destroy_image(pass->dev, pass->occlusion_image);
-    mt_render.destroy_image(pass->dev, pass->pos_image);
-    mt_render.destroy_image(pass->dev, pass->normal_image);
-}
-
-static void gbuffers_resize(GBuffers *pass, uint32_t width, uint32_t height)
-{
-    if (pass->render_pass)
-    {
-        gbuffers_destroy(pass);
-    }
-
-    pass->depth_image = mt_render.create_image(
-        pass->dev,
-        &(MtImageCreateInfo){
-            .width  = width,
-            .height = height,
-            .format = MT_FORMAT_D24_UNORM_S8_UINT,
-            .usage  = MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            .aspect = MT_IMAGE_ASPECT_DEPTH_BIT | MT_IMAGE_ASPECT_STENCIL_BIT,
-        });
-    MtImageCreateInfo color_create_info = {
-        .width  = width,
-        .height = height,
-        .format = MT_FORMAT_RGBA8_UNORM,
-        .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        .aspect = MT_IMAGE_ASPECT_COLOR_BIT,
-    };
-
-    pass->albedo_image             = mt_render.create_image(pass->dev, &color_create_info);
-    pass->metallic_roughness_image = mt_render.create_image(pass->dev, &color_create_info);
-    pass->occlusion_image          = mt_render.create_image(pass->dev, &color_create_info);
-    pass->emissive_image           = mt_render.create_image(pass->dev, &color_create_info);
-
-    pass->pos_image = mt_render.create_image(
-        pass->dev,
-        &(MtImageCreateInfo){
-            .width  = width,
-            .height = height,
-            .format = MT_FORMAT_RGBA16_SFLOAT,
-            .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-            .aspect = MT_IMAGE_ASPECT_COLOR_BIT,
-        });
-
-    pass->normal_image = mt_render.create_image(
-        pass->dev,
-        &(MtImageCreateInfo){
-            .width  = width,
-            .height = height,
-            .format = MT_FORMAT_RGBA16_SFLOAT,
-            .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-            .aspect = MT_IMAGE_ASPECT_COLOR_BIT,
-        });
-
-    pass->render_pass = mt_render.create_render_pass(
-        pass->dev,
-        &(MtRenderPassCreateInfo){
-            .color_attachment_count = 6,
-            .color_attachments      = (MtImage *[]){pass->albedo_image,
-                                               pass->metallic_roughness_image,
-                                               pass->occlusion_image,
-                                               pass->emissive_image,
-                                               pass->pos_image,
-                                               pass->normal_image},
-            .depth_attachment       = pass->depth_image,
-        });
-}
-
+// Game {{{
 typedef struct Game
 {
     MtEngine engine;
+    MtRenderGraph *graph;
 
     MtImageAsset *image;
     MtPipelineAsset *pbr_pipeline;
-    MtPipelineAsset *pbr_deferred_pipeline;
     MtPipelineAsset *fullscreen_pipeline;
-    MtPipelineAsset *gbuffer_pipeline;
-    MtPipelineAsset *bloom_blur_pipeline;
+    MtPipelineAsset *depth_pipeline;
 
     MtPerspectiveCamera cam;
     MtEnvironment env;
+
+    uint32_t model_archetype;
+    uint32_t light_archetype;
 } Game;
 
 static void game_init(Game *g)
@@ -143,47 +45,88 @@ static void game_init(Game *g)
 
     mt_engine_init(&g->engine);
 
+    MtEntityManager *em    = &g->engine.entity_manager;
+    MtAssetManager *am     = &g->engine.asset_manager;
+    MtSwapchain *swapchain = g->engine.swapchain;
+    MtDevice *dev          = g->engine.device;
+
     MtImageAsset *skybox_asset = NULL;
     mt_asset_manager_queue_load(
-        &g->engine.asset_manager, "../assets/papermill_hdr16f_cube.ktx", (MtAsset **)&skybox_asset);
+        am, "../assets/papermill_hdr16f_cube.ktx", (MtAsset **)&skybox_asset);
+    mt_asset_manager_queue_load(am, "../assets/test.png", (MtAsset **)&g->image);
+    mt_asset_manager_queue_load(am, "../assets/shaders/pbr.glsl", (MtAsset **)&g->pbr_pipeline);
     mt_asset_manager_queue_load(
-        &g->engine.asset_manager, "../assets/test.png", (MtAsset **)&g->image);
+        am, "../assets/shaders/fullscreen.glsl", (MtAsset **)&g->fullscreen_pipeline);
     mt_asset_manager_queue_load(
-        &g->engine.asset_manager, "../assets/shaders/pbr.glsl", (MtAsset **)&g->pbr_pipeline);
-    mt_asset_manager_queue_load(
-        &g->engine.asset_manager,
-        "../assets/shaders/pbr_deferred.glsl",
-        (MtAsset **)&g->pbr_deferred_pipeline);
-    mt_asset_manager_queue_load(
-        &g->engine.asset_manager,
-        "../assets/shaders/gbuffers.glsl",
-        (MtAsset **)&g->gbuffer_pipeline);
-    mt_asset_manager_queue_load(
-        &g->engine.asset_manager,
-        "../assets/shaders/fullscreen.glsl",
-        (MtAsset **)&g->fullscreen_pipeline);
-    mt_asset_manager_queue_load(
-        &g->engine.asset_manager,
-        "../assets/shaders/bloom_blur.glsl",
-        (MtAsset **)&g->bloom_blur_pipeline);
+        am, "../assets/shaders/depth_prepass.glsl", (MtAsset **)&g->depth_pipeline);
+    mt_asset_manager_queue_load(am, "../assets/shaders/test_comp.glsl", NULL);
 
-    mt_asset_manager_queue_load(&g->engine.asset_manager, "../assets/helmet_ktx.glb", NULL);
-    mt_asset_manager_queue_load(&g->engine.asset_manager, "../assets/boombox_ktx.glb", NULL);
-    mt_asset_manager_queue_load(&g->engine.asset_manager, "../assets/sponza_ktx.glb", NULL);
+    mt_asset_manager_queue_load(am, "../assets/helmet_ktx.glb", NULL);
+    mt_asset_manager_queue_load(am, "../assets/boombox_ktx.glb", NULL);
+    mt_asset_manager_queue_load(am, "../assets/sponza_ktx.glb", NULL);
 
     // Wait for assets to load
     mt_thread_pool_wait_all(&g->engine.thread_pool);
 
     mt_perspective_camera_init(&g->cam);
-    mt_environment_init(&g->env, &g->engine.asset_manager, skybox_asset);
+    mt_environment_init(&g->env, am, skybox_asset);
+
+    // Create render graph
+    g->graph = mt_render.create_graph(dev, swapchain, g);
+
+    // Create entities
+    g->model_archetype =
+        mt_entity_manager_register_archetype(em, mt_model_archetype_init, sizeof(MtModelArchetype));
+
+    g->light_archetype = mt_entity_manager_register_archetype(
+        em, mt_point_light_archetype_init, sizeof(MtPointLightArchetype));
+
+    {
+        MtModelArchetype *block;
+        uint32_t e;
+
+        block           = mt_entity_manager_add_entity(em, g->model_archetype, &e);
+        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
+        block->pos[e]   = V3(-1.5, 1, 0);
+
+        block           = mt_entity_manager_add_entity(em, g->model_archetype, &e);
+        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
+        block->scale[e] = V3(100, 100, 100);
+        block->pos[e]   = V3(1.5, 1, 0);
+
+        block           = mt_entity_manager_add_entity(em, g->model_archetype, &e);
+        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
+        block->scale[e] = V3(3, 3, 3);
+    }
+
+    MtXorShift xs;
+    mt_xor_shift_init(&xs, (uint64_t)time(NULL));
+
+    for (uint32_t i = 0; i < MT_MAX_POINT_LIGHTS / 8; ++i)
+    {
+        MtPointLightArchetype *block;
+        uint32_t e;
+
+#define LIGHT_POS_X mt_xor_shift_float(&xs, -15.0f, 15.0f)
+#define LIGHT_POS_Z mt_xor_shift_float(&xs, -10.0f, 10.0f)
+#define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
+
+        block           = mt_entity_manager_add_entity(em, g->light_archetype, &e);
+        block->pos[e]   = V3(LIGHT_POS_X, 1, LIGHT_POS_Z);
+        block->color[e] = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
+        block->color[e] = v3_muls(v3_normalize(block->color[e]), 10.0f);
+    }
 }
 
 static void game_destroy(Game *g)
 {
+    mt_render.destroy_graph(g->graph);
     mt_environment_destroy(&g->env);
     mt_engine_destroy(&g->engine);
 }
+// }}}
 
+// Light system {{{
 static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float delta)
 {
     static float acc = 0.0f;
@@ -224,7 +167,9 @@ static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float
         }
     }
 }
+// }}}
 
+// Model system {{{
 static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
 {
     for (MtEntityBlock *block = archetype->blocks;
@@ -244,7 +189,9 @@ static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
         }
     }
 }
+// }}}
 
+// UI {{{
 static void draw_ui(Game *g)
 {
     MtSwapchain *swapchain = g->engine.swapchain;
@@ -273,6 +220,47 @@ static void draw_ui(Game *g)
         mt_log("Hello 2");
     }
 }
+// }}}
+
+static void color_pass_builder(MtCmdBuffer *cb, void *user_data)
+{
+    Game *g = user_data;
+
+    MtEntityManager *em = &g->engine.entity_manager;
+
+    // Draw skybox
+    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+    mt_environment_draw_skybox(&g->env, cb);
+
+    // Draw models
+    mt_render.cmd_bind_pipeline(cb, g->pbr_pipeline->pipeline);
+    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+    mt_environment_bind(&g->env, cb, 3);
+    model_system(cb, &em->archetypes[g->model_archetype]);
+}
+
+static void backbuffer_pass_builder(MtCmdBuffer *cb, void *user_data)
+{
+    Game *g = user_data;
+
+    MtUIRenderer *ui = g->engine.ui;
+
+    mt_render.cmd_bind_pipeline(cb, g->fullscreen_pipeline->pipeline);
+    mt_render.cmd_bind_image(
+        cb, mt_render.graph_get_attachment(g->graph, "color"), g->engine.default_sampler, 0, 0);
+    mt_render.cmd_draw(cb, 3, 1, 0, 0);
+
+    // Begin UI
+    MtViewport viewport;
+    mt_render.cmd_get_viewport(cb, &viewport);
+    mt_ui_begin(ui, &viewport);
+
+    // Submit UI commands
+    draw_ui(g);
+
+    // Draw UI
+    mt_ui_draw(ui, cb);
+}
 
 int main(int argc, char *argv[])
 {
@@ -281,67 +269,32 @@ int main(int argc, char *argv[])
 
     MtWindow *win          = game.engine.window;
     MtSwapchain *swapchain = game.engine.swapchain;
-    MtDevice *dev          = game.engine.device;
     MtEntityManager *em    = &game.engine.entity_manager;
-    MtAssetManager *am     = &game.engine.asset_manager;
     MtUIRenderer *ui       = game.engine.ui;
 
-    uint32_t model_archetype =
-        mt_entity_manager_register_archetype(em, mt_model_archetype_init, sizeof(MtModelArchetype));
+    MtAttachmentInfo color_info = {.format = MT_FORMAT_BGRA8_SRGB};
+    MtAttachmentInfo depth_info = {.format = MT_FORMAT_D32_SFLOAT};
 
-    uint32_t light_archetype = mt_entity_manager_register_archetype(
-        em, mt_point_light_archetype_init, sizeof(MtPointLightArchetype));
+    MtRenderGraphPass *color_pass =
+        mt_render.graph_add_pass(game.graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_add_color_output(color_pass, "color", &color_info);
+    mt_render.pass_set_depth_stencil_output(color_pass, "depth", &depth_info);
+    mt_render.pass_set_builder(color_pass, color_pass_builder);
 
-    {
-        MtModelArchetype *block;
-        uint32_t e;
+    MtRenderGraphPass *backbuffer_pass =
+        mt_render.graph_add_pass(game.graph, "backbuffer_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_add_attachment_input(backbuffer_pass, "color");
+    mt_render.pass_add_attachment_input(backbuffer_pass, "depth");
+    mt_render.pass_set_builder(backbuffer_pass, backbuffer_pass_builder);
+    mt_render.graph_set_backbuffer(game.graph, "backbuffer_pass");
 
-        block           = mt_entity_manager_add_entity(em, model_archetype, &e);
-        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
-        block->pos[e]   = V3(-1.5, 1, 0);
-
-        block           = mt_entity_manager_add_entity(em, model_archetype, &e);
-        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
-        block->scale[e] = V3(100, 100, 100);
-        block->pos[e]   = V3(1.5, 1, 0);
-
-        block           = mt_entity_manager_add_entity(em, model_archetype, &e);
-        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
-        block->scale[e] = V3(3, 3, 3);
-    }
-
-    MtXorShift xs;
-    mt_xor_shift_init(&xs, (uint64_t)time(NULL));
-
-    for (uint32_t i = 0; i < MT_MAX_POINT_LIGHTS / 2; ++i)
-    {
-        MtPointLightArchetype *block;
-        uint32_t e;
-
-#define LIGHT_POS_X mt_xor_shift_float(&xs, -15.0f, 15.0f)
-#define LIGHT_POS_Z mt_xor_shift_float(&xs, -10.0f, 10.0f)
-#define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
-
-        block           = mt_entity_manager_add_entity(em, light_archetype, &e);
-        block->pos[e]   = V3(LIGHT_POS_X, 1, LIGHT_POS_Z);
-        block->color[e] = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
-        block->color[e] = v3_muls(v3_normalize(block->color[e]), 10.0f);
-    }
+    mt_render.graph_bake(game.graph);
 
     uint32_t width, height;
     mt_window.get_size(win, &width, &height);
 
-    uint32_t gbuffer_index = 0;
-    GBuffers gbuffers[1];
-    for (uint32_t i = 0; i < MT_LENGTH(gbuffers); ++i)
-    {
-        gbuffers_init(&gbuffers[i], dev, width, height);
-    }
-
     while (!mt_window.should_close(win))
     {
-        gbuffer_index = (gbuffer_index + 1) % MT_LENGTH(gbuffers);
-
         mt_file_watcher_poll(game.engine.watcher, &game.engine);
         mt_window.poll_events();
 
@@ -354,10 +307,6 @@ int main(int argc, char *argv[])
             {
                 case MT_EVENT_FRAMEBUFFER_RESIZED:
                 {
-                    for (uint32_t i = 0; i < MT_LENGTH(gbuffers); ++i)
-                    {
-                        gbuffers_resize(&gbuffers[i], event.size.width, event.size.height);
-                    }
                     break;
                 }
                 case MT_EVENT_WINDOW_CLOSED:
@@ -375,84 +324,12 @@ int main(int argc, char *argv[])
         float delta_time = mt_render.swapchain_get_delta_time(swapchain);
         mt_perspective_camera_update(&game.cam, win, aspect, delta_time);
 
-        light_system(&em->archetypes[light_archetype], &game.env, delta_time);
+        light_system(&em->archetypes[game.light_archetype], &game.env, delta_time);
 
-        MtCmdBuffer *cb = mt_render.swapchain_begin_frame(swapchain);
-        mt_render.begin_cmd_buffer(cb);
-
-        {
-            mt_render.cmd_begin_render_pass(cb, gbuffers[gbuffer_index].render_pass, NULL, NULL);
-
-            /* // Draw skybox */
-            /* mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0); */
-            /* mt_environment_draw_skybox(&game.env, cb); */
-
-            // Draw model
-            mt_render.cmd_bind_pipeline(cb, game.gbuffer_pipeline->pipeline);
-            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-            model_system(cb, &em->archetypes[model_archetype]);
-
-            mt_render.cmd_end_render_pass(cb);
-        }
-
-        {
-            mt_render.cmd_begin_render_pass(
-                cb, mt_render.swapchain_get_render_pass(swapchain), NULL, NULL);
-
-            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-            mt_environment_draw_skybox(&game.env, cb);
-
-            GBuffers *gb = &gbuffers[gbuffer_index];
-            mt_render.cmd_bind_pipeline(cb, game.pbr_deferred_pipeline->pipeline);
-
-            mt_render.cmd_bind_uniform(cb, &game.cam.uniform, sizeof(game.cam.uniform), 0, 0);
-
-            mt_environment_bind(&game.env, cb, 1);
-
-            mt_render.cmd_bind_image(cb, gb->albedo_image, game.engine.default_sampler, 2, 0);
-            mt_render.cmd_bind_image(
-                cb, gb->metallic_roughness_image, game.engine.default_sampler, 2, 1);
-            mt_render.cmd_bind_image(cb, gb->occlusion_image, game.engine.default_sampler, 2, 2);
-            mt_render.cmd_bind_image(cb, gb->emissive_image, game.engine.default_sampler, 2, 3);
-            mt_render.cmd_bind_image(cb, gb->normal_image, game.engine.default_sampler, 2, 4);
-            mt_render.cmd_bind_image(cb, gb->pos_image, game.engine.default_sampler, 2, 5);
-
-            mt_render.cmd_draw(cb, 3, 1, 0, 0);
-
-            /* mt_render.cmd_bind_pipeline(cb, game.fullscreen_pipeline->pipeline); */
-            /* mt_render.cmd_bind_image(cb, gb->metallic_roughness_image,
-             * game.engine.default_sampler, 0, 0); */
-            /* mt_render.cmd_draw(cb, 3, 1, 0, 0); */
-
-            // Begin UI
-            MtViewport viewport;
-            mt_render.cmd_get_viewport(cb, &viewport);
-            mt_ui_begin(ui, &viewport);
-
-            // Submit UI commands
-            draw_ui(&game);
-
-            /* mt_ui_image(ui, gb->albedo_image, 64, 64); */
-            /* mt_ui_image(ui, gb->metallic_roughness_image, 64, 64); */
-            /* mt_ui_image(ui, gb->occlusion_image, 64, 64); */
-            /* mt_ui_image(ui, gb->emissive_image, 64, 64); */
-            /* mt_ui_image(ui, gb->normal_image, 64, 64); */
-            /* mt_ui_image(ui, gb->pos_image, 64, 64); */
-
-            // Draw UI
-            mt_ui_draw(ui, cb);
-
-            mt_render.cmd_end_render_pass(cb);
-        }
-
-        mt_render.end_cmd_buffer(cb);
-        mt_render.swapchain_end_frame(swapchain);
+        // Execute render graph
+        mt_render.graph_execute(game.graph);
     }
 
-    for (uint32_t i = 0; i < MT_LENGTH(gbuffers); ++i)
-    {
-        gbuffers_destroy(&gbuffers[i]);
-    }
     game_destroy(&game);
 
     return 0;

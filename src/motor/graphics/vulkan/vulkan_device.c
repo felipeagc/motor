@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <motor/base/util.h>
+#include <motor/base/log.h>
 #include <motor/base/allocator.h>
 #include <motor/graphics/window.h>
 
@@ -25,6 +26,8 @@ static void device_wait_idle(MtDevice *dev);
 #include "render_pass.inl"
 
 #include "swapchain.inl"
+
+#include "graph.inl"
 
 // clang-format off
 #if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) && !defined(_Thread_local)
@@ -557,6 +560,8 @@ static void allocate_cmd_buffers(
 static void
 free_cmd_buffers(MtDevice *dev, MtQueueType queue_type, uint32_t count, MtCmdBuffer **cmd_buffers)
 {
+    device_wait_idle(dev);
+
     VkCommandPool pool = VK_NULL_HANDLE;
 
     switch (queue_type)
@@ -600,13 +605,17 @@ free_cmd_buffers(MtDevice *dev, MtQueueType queue_type, uint32_t count, MtCmdBuf
     mt_free(dev->alloc, command_buffers);
 }
 
-static MtFence *create_fence(MtDevice *dev)
+static MtFence *create_fence(MtDevice *dev, bool signaled)
 {
     MtFence *fence = mt_alloc(dev->alloc, sizeof(MtFence));
 
     VkFenceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
     };
+    if (signaled)
+    {
+        create_info.flags |= VK_FENCE_CREATE_SIGNALED_BIT;
+    }
     VK_CHECK(vkCreateFence(dev->device, &create_info, NULL, &fence->fence));
     return fence;
 }
@@ -724,7 +733,7 @@ static void submit(MtDevice *dev, MtSubmitInfo *info)
 static void
 transfer_to_buffer(MtDevice *dev, MtBuffer *buffer, size_t offset, size_t size, const void *data)
 {
-    MtFence *fence = create_fence(dev);
+    MtFence *fence = create_fence(dev, false);
 
     MtBuffer *staging = create_buffer(
         dev,
@@ -762,7 +771,7 @@ transfer_to_buffer(MtDevice *dev, MtBuffer *buffer, size_t offset, size_t size, 
 static void
 transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const void *data)
 {
-    MtFence *fence = create_fence(dev);
+    MtFence *fence = create_fence(dev, false);
 
     MtBuffer *staging = create_buffer(
         dev,
@@ -907,11 +916,7 @@ static MtRenderer g_vulkan_renderer = {
     .create_swapchain  = create_swapchain,
     .destroy_swapchain = destroy_swapchain,
 
-    .swapchain_begin_frame = swapchain_begin_frame,
-    .swapchain_end_frame   = swapchain_end_frame,
-
-    .swapchain_get_delta_time  = swapchain_get_delta_time,
-    .swapchain_get_render_pass = swapchain_get_render_pass,
+    .swapchain_get_delta_time = swapchain_get_delta_time,
 
     .set_thread_id = set_thread_id,
     .get_thread_id = get_thread_id,
@@ -984,6 +989,19 @@ static MtRenderer g_vulkan_renderer = {
     .cmd_draw_indexed = cmd_draw_indexed,
 
     .cmd_dispatch = cmd_dispatch,
+
+    .create_graph         = create_graph,
+    .destroy_graph        = destroy_graph,
+    .graph_set_backbuffer = graph_set_backbuffer,
+    .graph_bake           = graph_bake,
+    .graph_execute        = graph_execute,
+    .graph_get_attachment = graph_get_attachment,
+
+    .graph_add_pass                = graph_add_pass,
+    .pass_set_builder              = pass_set_builder,
+    .pass_add_color_output         = pass_add_color_output,
+    .pass_set_depth_stencil_output = pass_set_depth_stencil_output,
+    .pass_add_attachment_input     = pass_add_attachment_input,
 };
 
 MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc)

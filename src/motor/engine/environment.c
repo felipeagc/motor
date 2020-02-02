@@ -120,7 +120,7 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
             .color_attachments = &brdf,
         });
 
-    MtFence *fence = mt_render.create_fence(engine->device);
+    MtFence *fence = mt_render.create_fence(engine->device, false);
 
     MtCmdBuffer *cb;
     mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
@@ -204,7 +204,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
         env->uniform.radiance_mip_levels = (float)mip_count;
     }
 
-    MtFence *fence = mt_render.create_fence(engine->device);
+    MtFence *fence = mt_render.create_fence(engine->device, false);
 
     MtCmdBuffer *cb;
     mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);

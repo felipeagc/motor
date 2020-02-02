@@ -24,12 +24,16 @@ static uint64_t vulkan_hash_render_pass(VkRenderPassCreateInfo *ci)
             abort();
         }
 
-        if (XXH64_update(
-                &state,
-                subpass->pColorAttachments,
-                subpass->colorAttachmentCount * sizeof(*subpass->pColorAttachments)) == XXH_ERROR)
+        if (subpass->pColorAttachments)
         {
-            abort();
+            if (XXH64_update(
+                    &state,
+                    subpass->pColorAttachments,
+                    subpass->colorAttachmentCount * sizeof(*subpass->pColorAttachments)) ==
+                XXH_ERROR)
+            {
+                abort();
+            }
         }
     }
 

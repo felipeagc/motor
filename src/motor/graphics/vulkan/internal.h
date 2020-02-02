@@ -120,12 +120,7 @@ typedef struct MtSwapchain
     VkSurfaceKHR surface;
     VkSwapchainKHR swapchain;
 
-    VkSemaphore image_available_semaphores[FRAMES_IN_FLIGHT];
-    VkSemaphore render_finished_semaphores[FRAMES_IN_FLIGHT];
-    VkFence in_flight_fences[FRAMES_IN_FLIGHT];
-
     uint32_t swapchain_image_count;
-    uint32_t current_frame;
     uint32_t current_image_index;
     bool framebuffer_resized;
 
@@ -137,16 +132,11 @@ typedef struct MtSwapchain
     VmaAllocation depth_image_allocation;
     VkImageView depth_image_view;
 
-    VkFramebuffer *swapchain_framebuffers;
-
-    MtRenderPass render_pass;
-
-    MtCmdBuffer *cmd_buffers[FRAMES_IN_FLIGHT];
-
     uint64_t last_time;
     float delta_time;
 
     VkQueue present_queue;
+    VkExtent2D swapchain_extent;
 } MtSwapchain;
 
 typedef struct SetInfo
@@ -294,3 +284,60 @@ typedef struct MtSampler
 {
     VkSampler sampler;
 } MtSampler;
+
+typedef struct GraphAttachment
+{
+    uint32_t pass_index;
+    MtAttachmentInfo info;
+    MtImage *image;
+} GraphAttachment;
+
+typedef struct ExecutionGroup
+{
+    MtQueueType queue_type;
+    MtPipelineStage stage;
+    MtCmdBuffer *cmd_buffers[FRAMES_IN_FLIGHT];
+    MtSemaphore *execution_finished_semaphores[FRAMES_IN_FLIGHT];
+    MtSemaphore *wait_semaphores[FRAMES_IN_FLIGHT];
+    MtFence *fences[FRAMES_IN_FLIGHT];
+    uint32_t *ordered_passes;
+    bool present_group;
+} ExecutionGroup;
+
+typedef struct MtRenderGraph
+{
+    MtDevice *dev;
+    MtSwapchain *swapchain;
+    void *user_data;
+
+    uint32_t current_frame;
+    uint32_t frame_count;
+
+    uintptr_t backbuffer_pass_index;
+
+    /*array*/ MtRenderGraphPass *passes;
+    /*array*/ GraphAttachment *attachments;
+
+    MtHashMap pass_indices;
+    MtHashMap attachment_indices;
+
+    uint32_t *ordered_passes;
+
+    /*array*/ ExecutionGroup *execution_groups;
+} MtRenderGraph;
+
+typedef struct MtRenderGraphPass
+{
+    const char *name;
+    uint32_t index;
+    MtPipelineStage stage;
+
+    MtRenderGraph *graph;
+    MtRenderGraphPassBuilder builder;
+    /*array*/ uint32_t *inputs;
+    /*array*/ uint32_t *color_outputs;
+    uint32_t depth_output;
+
+    MtRenderPass *render_pass;
+    /*array*/ VkFramebuffer *framebuffers;
+} MtRenderGraphPass;
