@@ -281,8 +281,8 @@ int main(int argc, char *argv[])
     mt_render.pass_set_depth_stencil_output(color_pass, "depth", &depth_info);
     mt_render.pass_set_builder(color_pass, color_pass_builder);
 
-    MtRenderGraphPass *backbuffer_pass =
-        mt_render.graph_add_pass(game.graph, "backbuffer_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    MtRenderGraphPass *backbuffer_pass = mt_render.graph_add_pass(
+        game.graph, "backbuffer_pass", MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT);
     mt_render.pass_add_attachment_input(backbuffer_pass, "color");
     mt_render.pass_add_attachment_input(backbuffer_pass, "depth");
     mt_render.pass_set_builder(backbuffer_pass, backbuffer_pass_builder);

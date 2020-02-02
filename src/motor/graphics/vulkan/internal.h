@@ -296,11 +296,15 @@ typedef struct ExecutionGroup
 {
     MtQueueType queue_type;
     MtPipelineStage stage;
-    MtCmdBuffer *cmd_buffers[FRAMES_IN_FLIGHT];
-    MtSemaphore *execution_finished_semaphores[FRAMES_IN_FLIGHT];
-    MtSemaphore *wait_semaphores[FRAMES_IN_FLIGHT];
-    MtFence *fences[FRAMES_IN_FLIGHT];
-    uint32_t *ordered_passes;
+    struct
+    {
+        MtCmdBuffer *cmd_buffer;
+        MtSemaphore *execution_finished_semaphore;
+        /*array*/ MtSemaphore **wait_semaphores;
+        /*array*/ MtPipelineStage *wait_stages;
+        MtFence *fence;
+    } frames[FRAMES_IN_FLIGHT];
+    uint32_t *pass_indices;
     bool present_group;
 } ExecutionGroup;
 
@@ -308,12 +312,13 @@ typedef struct MtRenderGraph
 {
     MtDevice *dev;
     MtSwapchain *swapchain;
+    MtSemaphore *image_available_semaphores[FRAMES_IN_FLIGHT];
     void *user_data;
 
     uint32_t current_frame;
     uint32_t frame_count;
 
-    uintptr_t backbuffer_pass_index;
+    uint32_t backbuffer_pass_index;
 
     /*array*/ MtRenderGraphPass *passes;
     /*array*/ GraphAttachment *attachments;
@@ -331,6 +336,7 @@ typedef struct MtRenderGraphPass
     const char *name;
     uint32_t index;
     MtPipelineStage stage;
+    MtQueueType queue_type;
 
     MtRenderGraph *graph;
     MtRenderGraphPassBuilder builder;

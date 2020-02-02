@@ -423,7 +423,9 @@ typedef struct MtRenderer
     void (*graph_set_backbuffer)(MtRenderGraph *, const char *name);
     void (*graph_bake)(MtRenderGraph *);
     void (*graph_execute)(MtRenderGraph *);
+    void (*graph_wait_all)(MtRenderGraph *);
     MtImage *(*graph_get_attachment)(MtRenderGraph *, const char *name);
+    MtImage *(*graph_consume_attachment)(MtRenderGraph *, const char *name);
 
     MtRenderGraphPass *(*graph_add_pass)(MtRenderGraph *, const char *name, MtPipelineStage stage);
     void (*pass_set_builder)(MtRenderGraphPass *, MtRenderGraphPassBuilder builder);

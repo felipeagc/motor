@@ -990,12 +990,14 @@ static MtRenderer g_vulkan_renderer = {
 
     .cmd_dispatch = cmd_dispatch,
 
-    .create_graph         = create_graph,
-    .destroy_graph        = destroy_graph,
-    .graph_set_backbuffer = graph_set_backbuffer,
-    .graph_bake           = graph_bake,
-    .graph_execute        = graph_execute,
-    .graph_get_attachment = graph_get_attachment,
+    .create_graph             = create_graph,
+    .destroy_graph            = destroy_graph,
+    .graph_set_backbuffer     = graph_set_backbuffer,
+    .graph_bake               = graph_bake,
+    .graph_execute            = graph_execute,
+    .graph_wait_all           = graph_wait_all,
+    .graph_get_attachment     = graph_get_attachment,
+    .graph_consume_attachment = graph_consume_attachment,
 
     .graph_add_pass                = graph_add_pass,
     .pass_set_builder              = pass_set_builder,

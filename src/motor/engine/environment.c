@@ -78,7 +78,20 @@ static const Mat4 direction_matrices[6] = {
     }},
 };
 
+typedef struct GraphData
+{
+    MtPipeline *pipeline;
+} GraphData;
+
 // BRDF LUT {{{
+static void brdf_pass_callback(MtCmdBuffer *cb, void *user_data)
+{
+    GraphData *data = user_data;
+
+    mt_render.cmd_bind_pipeline(cb, data->pipeline);
+    mt_render.cmd_draw(cb, 3, 1, 0, 0);
+}
+
 static MtImage *generate_brdf_lut(MtEngine *engine)
 {
     // Create pipeline
@@ -105,46 +118,64 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     // Create image
     const uint32_t dim = 512;
 
-    MtImage *brdf = mt_render.create_image(
-        engine->device,
-        &(MtImageCreateInfo){
-            .width  = dim,
-            .height = dim,
-            .format = MT_FORMAT_RG16_SFLOAT,
-            .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        });
+    GraphData data = {.pipeline = pipeline};
 
-    MtRenderPass *rp = mt_render.create_render_pass(
-        engine->device,
-        &(MtRenderPassCreateInfo){
-            .color_attachments = &brdf,
-        });
+    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, &data);
 
-    MtFence *fence = mt_render.create_fence(engine->device, false);
+    MtAttachmentInfo brdf_info = {.format = MT_FORMAT_RG16_SFLOAT, .width = dim, .height = dim};
 
-    MtCmdBuffer *cb;
-    mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
+    MtRenderGraphPass *pass =
+        mt_render.graph_add_pass(graph, "brdf_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_add_color_output(pass, "brdf", &brdf_info);
+    mt_render.pass_set_builder(pass, brdf_pass_callback);
+    mt_render.graph_bake(graph);
 
-    {
-        mt_render.begin_cmd_buffer(cb);
+    mt_render.graph_execute(graph);
+    mt_render.graph_wait_all(graph);
 
-        mt_render.cmd_begin_render_pass(cb, rp, NULL, NULL);
+    MtImage *brdf = mt_render.graph_consume_attachment(graph, "brdf");
+    mt_render.destroy_graph(graph);
 
-        mt_render.cmd_bind_pipeline(cb, pipeline);
-        mt_render.cmd_draw(cb, 3, 1, 0, 0);
+    /* MtImage *brdf = mt_render.create_image( */
+    /*     engine->device, */
+    /*     &(MtImageCreateInfo){ */
+    /*         .width  = dim, */
+    /*         .height = dim, */
+    /*         .format = MT_FORMAT_RG16_SFLOAT, */
+    /*         .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, */
+    /*     }); */
 
-        mt_render.cmd_end_render_pass(cb);
+    /* MtRenderPass *rp = mt_render.create_render_pass( */
+    /*     engine->device, */
+    /*     &(MtRenderPassCreateInfo){ */
+    /*         .color_attachments = &brdf, */
+    /*     }); */
 
-        mt_render.end_cmd_buffer(cb);
-    }
+    /* MtFence *fence = mt_render.create_fence(engine->device, false); */
 
-    mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
-    mt_render.wait_for_fence(engine->device, fence);
+    /* MtCmdBuffer *cb; */
+    /* mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb); */
 
-    mt_render.destroy_fence(engine->device, fence);
-    mt_render.free_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
+    /* { */
+    /*     mt_render.begin_cmd_buffer(cb); */
 
-    mt_render.destroy_render_pass(engine->device, rp);
+    /*     mt_render.cmd_begin_render_pass(cb, rp, NULL, NULL); */
+
+    /*     mt_render.cmd_bind_pipeline(cb, pipeline); */
+    /*     mt_render.cmd_draw(cb, 3, 1, 0, 0); */
+
+    /*     mt_render.cmd_end_render_pass(cb); */
+
+    /*     mt_render.end_cmd_buffer(cb); */
+    /* } */
+
+    /* mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence}); */
+    /* mt_render.wait_for_fence(engine->device, fence); */
+
+    /* mt_render.destroy_fence(engine->device, fence); */
+    /* mt_render.free_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb); */
+
+    /* mt_render.destroy_render_pass(engine->device, rp); */
     mt_render.destroy_pipeline(engine->device, pipeline);
 
     return brdf;
