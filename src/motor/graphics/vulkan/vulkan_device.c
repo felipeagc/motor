@@ -990,20 +990,23 @@ static MtRenderer g_vulkan_renderer = {
 
     .cmd_dispatch = cmd_dispatch,
 
-    .create_graph             = create_graph,
-    .destroy_graph            = destroy_graph,
-    .graph_set_backbuffer     = graph_set_backbuffer,
-    .graph_bake               = graph_bake,
-    .graph_execute            = graph_execute,
-    .graph_wait_all           = graph_wait_all,
-    .graph_get_attachment     = graph_get_attachment,
-    .graph_consume_attachment = graph_consume_attachment,
+    .create_graph        = create_graph,
+    .destroy_graph       = destroy_graph,
+    .graph_bake          = graph_bake,
+    .graph_execute       = graph_execute,
+    .graph_wait_all      = graph_wait_all,
+    .graph_get_image     = graph_get_image,
+    .graph_consume_image = graph_consume_image,
+    .graph_add_image     = graph_add_image,
 
-    .graph_add_pass                = graph_add_pass,
-    .pass_set_builder              = pass_set_builder,
-    .pass_add_color_output         = pass_add_color_output,
-    .pass_set_depth_stencil_output = pass_set_depth_stencil_output,
-    .pass_add_attachment_input     = pass_add_attachment_input,
+    .graph_add_pass   = graph_add_pass,
+    .pass_set_builder = pass_set_builder,
+
+    .pass_add_color_output          = pass_add_color_output,
+    .pass_set_depth_stencil_output  = pass_set_depth_stencil_output,
+    .pass_add_image_sampled_input   = pass_add_image_sampled_input,
+    .pass_add_image_transfer_input  = pass_add_image_transfer_input,
+    .pass_add_image_transfer_output = pass_add_image_transfer_output,
 };
 
 MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc)

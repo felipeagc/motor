@@ -290,16 +290,6 @@ typedef struct MtSubmitInfo
     MtFence *fence;
 } MtSubmitInfo;
 
-typedef struct MtAttachmentInfo
-{
-    uint32_t width;
-    uint32_t height;
-    uint32_t sample_count;
-    uint32_t mip_count;
-    uint32_t layer_count;
-    MtFormat format;
-} MtAttachmentInfo;
-
 typedef struct MtRenderer
 {
     void (*destroy_device)(MtDevice *);
@@ -420,19 +410,21 @@ typedef struct MtRenderer
 
     MtRenderGraph *(*create_graph)(MtDevice *, MtSwapchain *, void *user_data);
     void (*destroy_graph)(MtRenderGraph *);
-    void (*graph_set_backbuffer)(MtRenderGraph *, const char *name);
     void (*graph_bake)(MtRenderGraph *);
     void (*graph_execute)(MtRenderGraph *);
     void (*graph_wait_all)(MtRenderGraph *);
-    MtImage *(*graph_get_attachment)(MtRenderGraph *, const char *name);
-    MtImage *(*graph_consume_attachment)(MtRenderGraph *, const char *name);
+    MtImage *(*graph_get_image)(MtRenderGraph *, const char *name);
+    MtImage *(*graph_consume_image)(MtRenderGraph *, const char *name);
+    void (*graph_add_image)(MtRenderGraph *, const char *name, MtImageCreateInfo *info);
 
     MtRenderGraphPass *(*graph_add_pass)(MtRenderGraph *, const char *name, MtPipelineStage stage);
     void (*pass_set_builder)(MtRenderGraphPass *, MtRenderGraphPassBuilder builder);
-    void (*pass_add_color_output)(MtRenderGraphPass *, const char *name, MtAttachmentInfo *info);
-    void (*pass_set_depth_stencil_output)(
-        MtRenderGraphPass *, const char *name, MtAttachmentInfo *info);
-    void (*pass_add_attachment_input)(MtRenderGraphPass *, const char *name);
+
+    void (*pass_add_color_output)(MtRenderGraphPass *, const char *name);
+    void (*pass_set_depth_stencil_output)(MtRenderGraphPass *, const char *name);
+    void (*pass_add_image_sampled_input)(MtRenderGraphPass *, const char *name);
+    void (*pass_add_image_transfer_input)(MtRenderGraphPass *, const char *name);
+    void (*pass_add_image_transfer_output)(MtRenderGraphPass *, const char *name);
 } MtRenderer;
 
 extern MtRenderer mt_render;

@@ -285,12 +285,16 @@ typedef struct MtSampler
     VkSampler sampler;
 } MtSampler;
 
-typedef struct GraphAttachment
+typedef struct GraphResource
 {
-    uint32_t pass_index;
-    MtAttachmentInfo info;
+    uint32_t index;
+
+    uint32_t *read_in_passes;
+    uint32_t *written_in_passes;
+
+    MtImageCreateInfo info;
     MtImage *image;
-} GraphAttachment;
+} GraphResource;
 
 typedef struct ExecutionGroup
 {
@@ -305,7 +309,6 @@ typedef struct ExecutionGroup
         MtFence *fence;
     } frames[FRAMES_IN_FLIGHT];
     uint32_t *pass_indices;
-    bool present_group;
 } ExecutionGroup;
 
 typedef struct MtRenderGraph
@@ -318,15 +321,11 @@ typedef struct MtRenderGraph
     uint32_t current_frame;
     uint32_t frame_count;
 
-    uint32_t backbuffer_pass_index;
-
     /*array*/ MtRenderGraphPass *passes;
-    /*array*/ GraphAttachment *attachments;
+    /*array*/ GraphResource *resources;
 
     MtHashMap pass_indices;
-    MtHashMap attachment_indices;
-
-    uint32_t *ordered_passes;
+    MtHashMap resource_indices;
 
     /*array*/ ExecutionGroup *execution_groups;
 } MtRenderGraph;
@@ -334,15 +333,22 @@ typedef struct MtRenderGraph
 typedef struct MtRenderGraphPass
 {
     const char *name;
+    bool present;
+    struct MtRenderGraphPass *next;
+    struct MtRenderGraphPass *prev;
     uint32_t index;
     MtPipelineStage stage;
     MtQueueType queue_type;
 
     MtRenderGraph *graph;
     MtRenderGraphPassBuilder builder;
-    /*array*/ uint32_t *inputs;
-    /*array*/ uint32_t *color_outputs;
+
     uint32_t depth_output;
+    /*array*/ uint32_t *color_outputs;
+    /*array*/ uint32_t *image_transfer_outputs;
+
+    /*array*/ uint32_t *image_transfer_inputs;
+    /*array*/ uint32_t *image_sampled_inputs;
 
     MtRenderPass render_pass;
     /*array*/ VkFramebuffer *framebuffers;

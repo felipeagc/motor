@@ -247,7 +247,7 @@ static void backbuffer_pass_builder(MtCmdBuffer *cb, void *user_data)
 
     mt_render.cmd_bind_pipeline(cb, g->fullscreen_pipeline->pipeline);
     mt_render.cmd_bind_image(
-        cb, mt_render.graph_get_attachment(g->graph, "color"), g->engine.default_sampler, 0, 0);
+        cb, mt_render.graph_get_image(g->graph, "color"), g->engine.default_sampler, 0, 0);
     mt_render.cmd_draw(cb, 3, 1, 0, 0);
 
     // Begin UI
@@ -272,21 +272,23 @@ int main(int argc, char *argv[])
     MtEntityManager *em    = &game.engine.entity_manager;
     MtUIRenderer *ui       = game.engine.ui;
 
-    MtAttachmentInfo color_info = {.format = MT_FORMAT_BGRA8_SRGB};
-    MtAttachmentInfo depth_info = {.format = MT_FORMAT_D32_SFLOAT};
+    MtImageCreateInfo color_info = {.format = MT_FORMAT_BGRA8_SRGB};
+    MtImageCreateInfo depth_info = {.format = MT_FORMAT_D32_SFLOAT};
+
+    mt_render.graph_add_image(game.graph, "color", &color_info);
+    mt_render.graph_add_image(game.graph, "depth", &depth_info);
 
     MtRenderGraphPass *color_pass =
         mt_render.graph_add_pass(game.graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_add_color_output(color_pass, "color", &color_info);
-    mt_render.pass_set_depth_stencil_output(color_pass, "depth", &depth_info);
+    mt_render.pass_add_color_output(color_pass, "color");
+    mt_render.pass_set_depth_stencil_output(color_pass, "depth");
     mt_render.pass_set_builder(color_pass, color_pass_builder);
 
     MtRenderGraphPass *backbuffer_pass = mt_render.graph_add_pass(
         game.graph, "backbuffer_pass", MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT);
-    mt_render.pass_add_attachment_input(backbuffer_pass, "color");
-    mt_render.pass_add_attachment_input(backbuffer_pass, "depth");
+    mt_render.pass_add_image_sampled_input(backbuffer_pass, "color");
+    mt_render.pass_add_image_sampled_input(backbuffer_pass, "depth");
     mt_render.pass_set_builder(backbuffer_pass, backbuffer_pass_builder);
-    mt_render.graph_set_backbuffer(game.graph, "backbuffer_pass");
 
     mt_render.graph_bake(game.graph);
 

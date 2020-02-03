@@ -3,8 +3,8 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-#define MT_HASH_UNUSED UINT64_MAX
-#define MT_HASH_NOT_FOUND UINT64_MAX
+#define MT_HASH_UNUSED UINTPTR_MAX
+#define MT_HASH_NOT_FOUND UINTPTR_MAX
 
 typedef struct MtAllocator MtAllocator;
 

@@ -78,15 +78,15 @@ static const Mat4 direction_matrices[6] = {
     }},
 };
 
-typedef struct GraphData
+// BRDF LUT {{{
+typedef struct BRDFGraphData
 {
     MtPipeline *pipeline;
-} GraphData;
+} BRDFGraphData;
 
-// BRDF LUT {{{
 static void brdf_pass_callback(MtCmdBuffer *cb, void *user_data)
 {
-    GraphData *data = user_data;
+    BRDFGraphData *data = user_data;
 
     mt_render.cmd_bind_pipeline(cb, data->pipeline);
     mt_render.cmd_draw(cb, 3, 1, 0, 0);
@@ -118,64 +118,25 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     // Create image
     const uint32_t dim = 512;
 
-    GraphData data = {.pipeline = pipeline};
+    BRDFGraphData data = {.pipeline = pipeline};
 
     MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, &data);
 
-    MtAttachmentInfo brdf_info = {.format = MT_FORMAT_RG16_SFLOAT, .width = dim, .height = dim};
+    MtImageCreateInfo brdf_info = {.format = MT_FORMAT_RG16_SFLOAT, .width = dim, .height = dim};
+    mt_render.graph_add_image(graph, "brdf", &brdf_info);
 
     MtRenderGraphPass *pass =
         mt_render.graph_add_pass(graph, "brdf_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_add_color_output(pass, "brdf", &brdf_info);
+    mt_render.pass_add_color_output(pass, "brdf");
     mt_render.pass_set_builder(pass, brdf_pass_callback);
     mt_render.graph_bake(graph);
 
     mt_render.graph_execute(graph);
     mt_render.graph_wait_all(graph);
 
-    MtImage *brdf = mt_render.graph_consume_attachment(graph, "brdf");
+    MtImage *brdf = mt_render.graph_consume_image(graph, "brdf");
     mt_render.destroy_graph(graph);
 
-    /* MtImage *brdf = mt_render.create_image( */
-    /*     engine->device, */
-    /*     &(MtImageCreateInfo){ */
-    /*         .width  = dim, */
-    /*         .height = dim, */
-    /*         .format = MT_FORMAT_RG16_SFLOAT, */
-    /*         .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, */
-    /*     }); */
-
-    /* MtRenderPass *rp = mt_render.create_render_pass( */
-    /*     engine->device, */
-    /*     &(MtRenderPassCreateInfo){ */
-    /*         .color_attachments = &brdf, */
-    /*     }); */
-
-    /* MtFence *fence = mt_render.create_fence(engine->device, false); */
-
-    /* MtCmdBuffer *cb; */
-    /* mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb); */
-
-    /* { */
-    /*     mt_render.begin_cmd_buffer(cb); */
-
-    /*     mt_render.cmd_begin_render_pass(cb, rp, NULL, NULL); */
-
-    /*     mt_render.cmd_bind_pipeline(cb, pipeline); */
-    /*     mt_render.cmd_draw(cb, 3, 1, 0, 0); */
-
-    /*     mt_render.cmd_end_render_pass(cb); */
-
-    /*     mt_render.end_cmd_buffer(cb); */
-    /* } */
-
-    /* mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence}); */
-    /* mt_render.wait_for_fence(engine->device, fence); */
-
-    /* mt_render.destroy_fence(engine->device, fence); */
-    /* mt_render.free_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb); */
-
-    /* mt_render.destroy_render_pass(engine->device, rp); */
     mt_render.destroy_pipeline(engine->device, pipeline);
 
     return brdf;
@@ -183,6 +144,87 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
 // }}}
 
 // Cubemap generation {{{
+typedef struct CubemapGraphData
+{
+    MtRenderGraph *graph;
+    MtEnvironment *env;
+    MtPipeline *pipeline;
+    CubemapType type;
+    uint32_t dim;
+    uint32_t mip_count;
+    uint32_t level;
+    uint32_t layer;
+} CubemapGraphData;
+
+static void layer_pass_callback(MtCmdBuffer *cb, void *user_data)
+{
+    CubemapGraphData *data = user_data;
+
+    struct
+    {
+        Mat4 mvp;
+        float roughness;
+    } uniform;
+
+    uniform.mvp = mat4_mul(
+        direction_matrices[data->layer],
+        mat4_perspective(((float)MT_PI / 2.0f), 1.0f, 0.1f, 512.0f));
+
+    if (data->type == CUBEMAP_RADIANCE)
+    {
+        uniform.roughness = (float)data->level / (float)(data->mip_count - 1);
+    }
+
+    float mip_dim = (float)data->dim * powf(0.5f, (float)data->level);
+
+    mt_render.cmd_set_viewport(
+        cb,
+        &(MtViewport){
+            .x         = 0.0f,
+            .y         = 0.0f,
+            .width     = mip_dim,
+            .height    = mip_dim,
+            .min_depth = 0.0f,
+            .max_depth = 1.0f,
+        });
+
+    mt_render.cmd_set_scissor(cb, 0, 0, data->dim, data->dim);
+
+    mt_render.cmd_bind_pipeline(cb, data->pipeline);
+    mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), 0, 0);
+    mt_render.cmd_bind_image(cb, data->env->skybox_image, data->env->skybox_sampler, 0, 1);
+    mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
+    mt_render.cmd_draw(cb, 36, 1, 0, 0);
+}
+
+static void transfer_pass_callback(MtCmdBuffer *cb, void *user_data)
+{
+    CubemapGraphData *data = user_data;
+
+    MtImage *offscreen = mt_render.graph_get_image(data->graph, "offscreen");
+    MtImage *cubemap   = mt_render.graph_get_image(data->graph, "cubemap");
+
+    float mip_dim = (float)data->dim * powf(0.5f, (float)data->level);
+
+    mt_render.cmd_copy_image_to_image(
+        cb,
+        &(MtImageCopyView){
+            .image       = offscreen,
+            .mip_level   = 0,
+            .array_layer = 0,
+        },
+        &(MtImageCopyView){
+            .image       = cubemap,
+            .mip_level   = data->level,
+            .array_layer = data->layer,
+        },
+        (MtExtent3D){
+            .width  = (uint32_t)mip_dim,
+            .height = (uint32_t)mip_dim,
+            .depth  = 1,
+        });
+}
+
 static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 {
     MtEngine *engine = env->asset_manager->engine;
@@ -235,170 +277,58 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
         env->uniform.radiance_mip_levels = (float)mip_count;
     }
 
-    MtFence *fence = mt_render.create_fence(engine->device, false);
+    CubemapGraphData data = {
+        .env       = env,
+        .pipeline  = pipeline,
+        .type      = type,
+        .dim       = dim,
+        .mip_count = mip_count,
+    };
 
-    MtCmdBuffer *cb;
-    mt_render.allocate_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
+    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, &data);
+    data.graph           = graph;
 
-    MtImage *cubemap = mt_render.create_image(
-        engine->device,
-        &(MtImageCreateInfo){
-            .width       = dim,
-            .height      = dim,
-            .format      = format,
-            .usage       = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_TRANSFER_DST_BIT,
-            .layer_count = 6,
-            .mip_count   = mip_count,
-        });
+    MtImageCreateInfo color_info = {.width = dim, .height = dim, .format = format};
+    MtImageCreateInfo cube_info  = {
+        .width       = dim,
+        .height      = dim,
+        .format      = format,
+        .layer_count = 6,
+        .mip_count   = mip_count,
+    };
 
-    MtImage *offscreen = mt_render.create_image(
-        engine->device,
-        &(MtImageCreateInfo){
-            .width  = dim,
-            .height = dim,
-            .format = format,
-            .usage  = MT_IMAGE_USAGE_SAMPLED_BIT | MT_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                     MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        });
+    mt_render.graph_add_image(graph, "offscreen", &color_info);
+    mt_render.graph_add_image(graph, "cubemap", &cube_info);
 
-    MtRenderPass *rp = mt_render.create_render_pass(
-        engine->device,
-        &(MtRenderPassCreateInfo){
-            .color_attachments = &offscreen,
-        });
+    MtRenderGraphPass *layer_pass =
+        mt_render.graph_add_pass(graph, "layer_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_add_color_output(layer_pass, "offscreen");
+    mt_render.pass_set_builder(layer_pass, layer_pass_callback);
 
-    struct
-    {
-        Mat4 mvp;
-        float roughness;
-    } uniform;
+    MtRenderGraphPass *transfer_pass =
+        mt_render.graph_add_pass(graph, "transfer_pass", MT_PIPELINE_STAGE_TRANSFER);
+    mt_render.pass_add_image_transfer_input(transfer_pass, "offscreen");
+    mt_render.pass_add_color_output(transfer_pass, "cubemap");
+    mt_render.pass_set_builder(transfer_pass, transfer_pass_callback);
 
-    {
-        mt_render.begin_cmd_buffer(cb);
-
-        mt_render.cmd_pipeline_image_barrier(
-            cb,
-            &(MtImageBarrier){
-                .image       = cubemap,
-                .old_layout  = MT_IMAGE_LAYOUT_UNDEFINED,
-                .new_layout  = MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                .level_count = mip_count,
-                .layer_count = 6,
-            });
-
-        mt_render.end_cmd_buffer(cb);
-
-        mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
-        mt_render.wait_for_fence(engine->device, fence);
-        mt_render.reset_fence(engine->device, fence);
-    }
+    mt_render.graph_bake(graph);
 
     for (uint32_t m = 0; m < mip_count; m++)
     {
         for (uint32_t f = 0; f < 6; f++)
         {
-            uniform.mvp = mat4_mul(
-                direction_matrices[f], mat4_perspective(((float)MT_PI / 2.0f), 1.0f, 0.1f, 512.0f));
-
-            if (type == CUBEMAP_RADIANCE)
-            {
-                uniform.roughness = (float)m / (float)(mip_count - 1);
-            }
-
-            mt_render.begin_cmd_buffer(cb);
-
-            mt_render.cmd_begin_render_pass(cb, rp, NULL, NULL);
-
-            float mip_dim = (float)dim * powf(0.5f, (float)m);
-
-            mt_render.cmd_set_viewport(
-                cb,
-                &(MtViewport){
-                    .x         = 0.0f,
-                    .y         = 0.0f,
-                    .width     = mip_dim,
-                    .height    = mip_dim,
-                    .min_depth = 0.0f,
-                    .max_depth = 1.0f,
-                });
-
-            mt_render.cmd_set_scissor(cb, 0, 0, dim, dim);
-
-            mt_render.cmd_bind_pipeline(cb, pipeline);
-            mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), 0, 0);
-            mt_render.cmd_bind_image(cb, env->skybox_image, env->skybox_sampler, 0, 1);
-            mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
-            mt_render.cmd_draw(cb, 36, 1, 0, 0);
-
-            mt_render.cmd_end_render_pass(cb);
-
-            mt_render.cmd_pipeline_image_barrier(
-                cb,
-                &(MtImageBarrier){
-                    .image      = offscreen,
-                    .old_layout = MT_IMAGE_LAYOUT_UNDEFINED,
-                    .new_layout = MT_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                });
-
-            mt_render.cmd_copy_image_to_image(
-                cb,
-                &(MtImageCopyView){
-                    .image       = offscreen,
-                    .mip_level   = 0,
-                    .array_layer = 0,
-                },
-                &(MtImageCopyView){
-                    .image       = cubemap,
-                    .mip_level   = m,
-                    .array_layer = f,
-                },
-                (MtExtent3D){
-                    .width  = (uint32_t)mip_dim,
-                    .height = (uint32_t)mip_dim,
-                    .depth  = 1,
-                });
-
-            mt_render.cmd_pipeline_image_barrier(
-                cb,
-                &(MtImageBarrier){
-                    .image      = offscreen,
-                    .old_layout = MT_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                    .new_layout = MT_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                });
-
-            mt_render.end_cmd_buffer(cb);
-
-            mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
-            mt_render.wait_for_fence(engine->device, fence);
-            mt_render.reset_fence(engine->device, fence);
+            data.level = m;
+            data.layer = f;
+            mt_render.graph_execute(graph);
         }
     }
 
-    {
-        mt_render.begin_cmd_buffer(cb);
+    mt_render.graph_wait_all(graph);
 
-        mt_render.cmd_pipeline_image_barrier(
-            cb,
-            &(MtImageBarrier){
-                .image       = cubemap,
-                .old_layout  = MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                .new_layout  = MT_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                .level_count = mip_count,
-                .layer_count = 6,
-            });
+    MtImage *cubemap = mt_render.graph_consume_image(graph, "cubemap");
 
-        mt_render.end_cmd_buffer(cb);
+    mt_render.destroy_graph(graph);
 
-        mt_render.submit(engine->device, &(MtSubmitInfo){.cmd_buffer = cb, .fence = fence});
-        mt_render.wait_for_fence(engine->device, fence);
-        mt_render.reset_fence(engine->device, fence);
-    }
-
-    mt_render.destroy_fence(engine->device, fence);
-    mt_render.free_cmd_buffers(engine->device, MT_QUEUE_GRAPHICS, 1, &cb);
-
-    mt_render.destroy_render_pass(engine->device, rp);
-    mt_render.destroy_image(engine->device, offscreen);
     mt_render.destroy_pipeline(engine->device, pipeline);
 
     return cubemap;
