@@ -349,59 +349,6 @@ static void swapchain_create_swapchain_image_views(MtSwapchain *swapchain)
     }
 }
 
-static void swapchain_create_depth_images(MtSwapchain *swapchain)
-{
-    MtDevice *dev = swapchain->dev;
-
-    VkImageCreateInfo image_create_info = {
-        .sType     = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .format    = dev->preferred_depth_format,
-        .extent =
-            {
-                .width  = swapchain->swapchain_extent.width,
-                .height = swapchain->swapchain_extent.height,
-                .depth  = 1,
-            },
-        .mipLevels     = 1,
-        .arrayLayers   = 1,
-        .samples       = VK_SAMPLE_COUNT_1_BIT,
-        .tiling        = VK_IMAGE_TILING_OPTIMAL,
-        .usage         = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    };
-
-    VmaAllocationCreateInfo image_alloc_create_info = {0};
-    image_alloc_create_info.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
-
-    VK_CHECK(vmaCreateImage(
-        dev->gpu_allocator,
-        &image_create_info,
-        &image_alloc_create_info,
-        &swapchain->depth_image,
-        &swapchain->depth_image_allocation,
-        NULL));
-
-    VkImageViewCreateInfo create_info = {
-        .sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image                           = swapchain->depth_image,
-        .viewType                        = VK_IMAGE_VIEW_TYPE_2D,
-        .format                          = dev->preferred_depth_format,
-        .components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY,
-        .subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
-        .subresourceRange.baseMipLevel   = 0,
-        .subresourceRange.levelCount     = 1,
-        .subresourceRange.baseArrayLayer = 0,
-        .subresourceRange.layerCount     = 1,
-    };
-
-    VK_CHECK(vkCreateImageView(dev->device, &create_info, NULL, &swapchain->depth_image_view));
-}
-
 static void swapchain_create_resizables(MtSwapchain *swapchain)
 {
     mt_log("Creating resizables");
@@ -420,7 +367,6 @@ static void swapchain_create_resizables(MtSwapchain *swapchain)
 
     swapchain_create_swapchain(swapchain);
     swapchain_create_swapchain_image_views(swapchain);
-    swapchain_create_depth_images(swapchain);
 }
 
 static void swapchain_destroy_resizables(MtSwapchain *swapchain)
@@ -439,13 +385,6 @@ static void swapchain_destroy_resizables(MtSwapchain *swapchain)
             vkDestroyImageView(dev->device, *image_view, NULL);
             *image_view = VK_NULL_HANDLE;
         }
-    }
-
-    if (swapchain->depth_image)
-    {
-        vmaDestroyImage(
-            dev->gpu_allocator, swapchain->depth_image, swapchain->depth_image_allocation);
-        vkDestroyImageView(dev->device, swapchain->depth_image_view, NULL);
     }
 
     if (swapchain->swapchain)
