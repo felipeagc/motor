@@ -176,6 +176,7 @@ static void topological_sort(MtRenderGraph *graph, uint32_t v, bool *visited, ui
 
 static void graph_bake(MtRenderGraph *graph)
 {
+    // Attachment image creation {{{
     for (uint32_t i = 0; i < mt_array_size(graph->attachments); i++)
     {
         GraphAttachment *attachment = &graph->attachments[i];
@@ -192,7 +193,6 @@ static void graph_bake(MtRenderGraph *graph)
 
         if (height == 0 && graph->swapchain)
         {
-            // TODO: temporary
             height = graph->swapchain->swapchain_extent.height;
         }
 
@@ -265,15 +265,29 @@ static void graph_bake(MtRenderGraph *graph)
                 .usage        = usage,
             });
     }
+    // }}}
 
-    for (uint32_t i = 0; i < mt_array_size(graph->passes); i++)
+    // RenderPass & framebuffer creation {{{
+    for (MtRenderGraphPass *pass = graph->passes;
+         pass != graph->passes + mt_array_size(graph->passes);
+         ++pass)
     {
-        MtRenderGraphPass *pass = &graph->passes[i];
+        VkAttachmentDescription *rp_attachments = NULL;
 
-        if (graph->swapchain && graph->backbuffer_pass_index == i)
+        uint32_t *color_attachment_indices = NULL;
+        uint32_t depth_attachment_index    = UINT32_MAX;
+
+        mt_array_free(graph->dev->alloc, pass->framebuffers);
+        pass->framebuffers = NULL;
+
+        if (graph->swapchain && graph->backbuffer_pass_index == pass->index)
         {
-            pass->render_pass = mt_alloc(graph->dev->alloc, sizeof(MtRenderPass));
-            memset(pass->render_pass, 0, sizeof(*pass->render_pass));
+            //
+            // Add swapchain attachments
+            //
+
+            mt_array_push(
+                graph->dev->alloc, color_attachment_indices, mt_array_size(rp_attachments));
 
             VkAttachmentDescription color_attachment = {
                 .format         = graph->swapchain->swapchain_image_format,
@@ -286,110 +300,182 @@ static void graph_bake(MtRenderGraph *graph)
                 .finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
             };
 
-            VkAttachmentReference color_attachment_ref = {
-                .attachment = 0,
-                .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            };
+            mt_array_push(graph->dev->alloc, rp_attachments, color_attachment);
 
-            VkAttachmentDescription depth_attachment = {
-                .format         = graph->dev->preferred_depth_format,
-                .samples        = VK_SAMPLE_COUNT_1_BIT,
+            mt_array_add(
+                graph->dev->alloc, pass->framebuffers, graph->swapchain->swapchain_image_count);
+        }
+        else
+        {
+            mt_array_add(graph->dev->alloc, pass->framebuffers, 1);
+        }
+
+        //
+        // Add the graph attachments
+        //
+
+        VkImageView *fb_image_views = NULL;
+
+        for (uint32_t i = 0; i < mt_array_size(pass->color_outputs); ++i)
+        {
+            mt_array_push(
+                graph->dev->alloc, color_attachment_indices, mt_array_size(rp_attachments));
+
+            GraphAttachment *graph_attachment = &graph->attachments[pass->color_outputs[i]];
+
+            VkAttachmentDescription color_attachment = {
+                .format         = graph_attachment->image->format,
+                .samples        = graph_attachment->image->sample_count,
                 .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
                 .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
                 .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
                 .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
-                .finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                .finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             };
 
-            VkAttachmentReference depth_attachment_ref = {
-                .attachment = 1,
-                .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            mt_array_push(graph->dev->alloc, rp_attachments, color_attachment);
+            mt_array_push(graph->dev->alloc, fb_image_views, graph_attachment->image->image_view);
+        }
+
+        if (pass->depth_output != UINT32_MAX)
+        {
+            depth_attachment_index = mt_array_size(rp_attachments);
+
+            GraphAttachment *graph_attachment = &graph->attachments[pass->depth_output];
+
+            VkAttachmentDescription depth_attachment = {
+                .format         = graph_attachment->image->format,
+                .samples        = graph_attachment->image->sample_count,
+                .loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp        = VK_ATTACHMENT_STORE_OP_STORE,
+                .stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED,
+                .finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
             };
 
-            VkSubpassDescription subpass = {
-                .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
-                .colorAttachmentCount    = 1,
-                .pColorAttachments       = &color_attachment_ref,
-                .pDepthStencilAttachment = &depth_attachment_ref,
+            mt_array_push(graph->dev->alloc, rp_attachments, depth_attachment);
+            mt_array_push(graph->dev->alloc, fb_image_views, graph_attachment->image->image_view);
+        }
+
+        //
+        // Figure out the attachment references
+        //
+
+        VkAttachmentReference *color_attachment_refs = NULL;
+        for (uint32_t i = 0; i < mt_array_size(color_attachment_indices); ++i)
+        {
+            VkAttachmentReference ref = {
+                .attachment = color_attachment_indices[i],
+                .layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
+            mt_array_push(graph->dev->alloc, color_attachment_refs, ref);
+        }
 
-            VkSubpassDependency dependency = {
-                .srcSubpass    = VK_SUBPASS_EXTERNAL,
-                .dstSubpass    = 0,
-                .srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                .dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                .srcAccessMask = 0,
-                .dstAccessMask =
-                    VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            };
+        VkAttachmentReference depth_attachment_ref = {
+            .attachment = depth_attachment_index,
+            .layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        };
 
-            VkAttachmentDescription attachments[2] = {color_attachment, depth_attachment};
+        VkSubpassDescription subpass = {0};
+        subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-            VkRenderPassCreateInfo renderpass_create_info = {
-                .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-                .attachmentCount = MT_LENGTH(attachments),
-                .pAttachments    = attachments,
-                .subpassCount    = 1,
-                .pSubpasses      = &subpass,
-                .dependencyCount = 1,
-                .pDependencies   = &dependency,
-            };
+        if (mt_array_size(color_attachment_refs) > 0)
+        {
+            subpass.colorAttachmentCount = mt_array_size(color_attachment_refs);
+            subpass.pColorAttachments    = color_attachment_refs;
+            pass->render_pass.color_attachment_count =
+                (uint32_t)mt_array_size(color_attachment_refs);
+        }
 
-            VK_CHECK(vkCreateRenderPass(
-                graph->dev->device, &renderpass_create_info, NULL, &pass->render_pass->renderpass));
+        if (depth_attachment_index != UINT32_MAX)
+        {
+            subpass.pDepthStencilAttachment        = &depth_attachment_ref;
+            pass->render_pass.has_depth_attachment = true;
+        }
 
-            pass->render_pass->color_attachment_count = 1;
-            pass->render_pass->has_depth_attachment   = true;
-            pass->render_pass->extent                 = graph->swapchain->swapchain_extent;
-            pass->render_pass->hash = vulkan_hash_render_pass(&renderpass_create_info);
+        VkSubpassDependency dependency = {
+            .srcSubpass    = VK_SUBPASS_EXTERNAL,
+            .dstSubpass    = 0,
+            .srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = 0,
+            .dstAccessMask =
+                VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        };
 
-            pass->framebuffers = mt_realloc(
-                graph->dev->alloc,
-                pass->framebuffers,
-                sizeof(VkFramebuffer) * graph->swapchain->swapchain_image_count);
+        //
+        // Create the render pass
+        //
 
-            for (size_t i = 0; i < graph->swapchain->swapchain_image_count; i++)
-            {
-                VkImageView attachments[2] = {graph->swapchain->swapchain_image_views[i],
-                                              graph->swapchain->depth_image_view};
+        VkRenderPassCreateInfo renderpass_create_info = {
+            .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+            .attachmentCount = (uint32_t)mt_array_size(rp_attachments),
+            .pAttachments    = rp_attachments,
+            .subpassCount    = 1,
+            .pSubpasses      = &subpass,
+            .dependencyCount = 1,
+            .pDependencies   = &dependency,
+        };
 
-                VkFramebufferCreateInfo create_info = {
-                    .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-                    .renderPass      = pass->render_pass->renderpass,
-                    .attachmentCount = MT_LENGTH(attachments),
-                    .pAttachments    = attachments,
-                    .width           = pass->render_pass->extent.width,
-                    .height          = pass->render_pass->extent.height,
-                    .layers          = 1,
-                };
+        VK_CHECK(vkCreateRenderPass(
+            graph->dev->device, &renderpass_create_info, NULL, &pass->render_pass.renderpass));
 
-                VK_CHECK(vkCreateFramebuffer(
-                    graph->dev->device, &create_info, NULL, &pass->framebuffers[i]));
-            }
+        pass->render_pass.hash = vulkan_hash_render_pass(&renderpass_create_info);
+
+        //
+        // Create framebuffers
+        //
+        //
+        if (graph->swapchain && graph->backbuffer_pass_index == pass->index)
+        {
+            pass->render_pass.extent = graph->swapchain->swapchain_extent;
         }
         else
         {
-            MtRenderPassCreateInfo render_pass_ci = {0};
-            MtImage *color_attachments[16]        = {0};
-            if (mt_array_size(pass->color_outputs) > 0)
-            {
-                render_pass_ci.color_attachments      = color_attachments;
-                render_pass_ci.color_attachment_count = mt_array_size(pass->color_outputs);
-                for (uint32_t i = 0; i < mt_array_size(pass->color_outputs); ++i)
-                {
-                    color_attachments[i] = graph->attachments[pass->color_outputs[i]].image;
-                }
-            }
-
-            if (pass->depth_output != UINT32_MAX)
-            {
-                render_pass_ci.depth_attachment = graph->attachments[pass->depth_output].image;
-            }
-
-            pass->render_pass = mt_render.create_render_pass(graph->dev, &render_pass_ci);
+            pass->render_pass.extent.width =
+                graph->attachments[pass->color_outputs[0]].image->width;
+            pass->render_pass.extent.height =
+                graph->attachments[pass->color_outputs[0]].image->height;
         }
+
+        for (size_t i = 0; i < mt_array_size(pass->framebuffers); i++)
+        {
+            VkImageView *image_views = NULL;
+
+            if (graph->swapchain && graph->backbuffer_pass_index == pass->index)
+            {
+                mt_array_push(
+                    graph->dev->alloc, image_views, graph->swapchain->swapchain_image_views[i]);
+            }
+
+            for (uint32_t j = 0; j < mt_array_size(fb_image_views); ++j)
+            {
+                mt_array_push(graph->dev->alloc, image_views, fb_image_views[j]);
+            }
+
+            VkFramebufferCreateInfo create_info = {
+                .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+                .renderPass      = pass->render_pass.renderpass,
+                .attachmentCount = (uint32_t)mt_array_size(image_views),
+                .pAttachments    = image_views,
+                .width           = pass->render_pass.extent.width,
+                .height          = pass->render_pass.extent.height,
+                .layers          = 1,
+            };
+
+            VK_CHECK(vkCreateFramebuffer(
+                graph->dev->device, &create_info, NULL, &pass->framebuffers[i]));
+
+            mt_array_free(graph->dev->alloc, image_views);
+        }
+
+        mt_array_free(graph->dev->alloc, rp_attachments);
+        mt_array_free(graph->dev->alloc, fb_image_views);
+        mt_array_free(graph->dev->alloc, color_attachment_indices);
     }
+    // }}}
 
     bool *visited = NULL;
     mt_array_add(graph->dev->alloc, visited, mt_array_size(graph->passes));
@@ -449,25 +535,18 @@ static void graph_unbake(MtRenderGraph *graph)
     for (uint32_t i = 0; i < mt_array_size(graph->passes); ++i)
     {
         MtRenderGraphPass *pass = &graph->passes[i];
-        if (graph->swapchain && graph->backbuffer_pass_index == i)
-        {
-            device_wait_idle(graph->dev);
-            vkDestroyRenderPass(graph->dev->device, pass->render_pass->renderpass, NULL);
 
-            for (uint32_t i = 0; i < graph->swapchain->swapchain_image_count; i++)
-            {
-                VkFramebuffer *framebuffer = &pass->framebuffers[i];
-                if (*framebuffer)
-                {
-                    vkDestroyFramebuffer(graph->dev->device, *framebuffer, NULL);
-                    *framebuffer = VK_NULL_HANDLE;
-                }
-            }
-        }
-        else
+        device_wait_idle(graph->dev);
+        vkDestroyRenderPass(graph->dev->device, pass->render_pass.renderpass, NULL);
+        pass->render_pass.renderpass = VK_NULL_HANDLE;
+
+        for (uint32_t i = 0; i < mt_array_size(pass->framebuffers); i++)
         {
-            mt_render.destroy_render_pass(graph->dev, pass->render_pass);
+            vkDestroyFramebuffer(graph->dev->device, pass->framebuffers[i], NULL);
         }
+
+        mt_array_free(graph->dev->alloc, pass->framebuffers);
+        pass->framebuffers = NULL;
     }
 
     for (uint32_t i = 0; i < mt_array_size(graph->attachments); ++i)
@@ -570,11 +649,15 @@ static void graph_execute(MtRenderGraph *graph)
             MtRenderGraphPass *pass = &graph->passes[group->pass_indices[i]];
             if (graph->backbuffer_pass_index == pass->index && graph->swapchain)
             {
-                pass->render_pass->current_framebuffer =
+                pass->render_pass.current_framebuffer =
                     pass->framebuffers[graph->swapchain->current_image_index];
             }
+            else
+            {
+                pass->render_pass.current_framebuffer = pass->framebuffers[0];
+            }
 
-            mt_render.cmd_begin_render_pass(cb, pass->render_pass, NULL, NULL);
+            mt_render.cmd_begin_render_pass(cb, &pass->render_pass, NULL, NULL);
 
             if (pass->builder)
             {

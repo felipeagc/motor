@@ -344,6 +344,6 @@ typedef struct MtRenderGraphPass
     /*array*/ uint32_t *color_outputs;
     uint32_t depth_output;
 
-    MtRenderPass *render_pass;
+    MtRenderPass render_pass;
     /*array*/ VkFramebuffer *framebuffers;
 } MtRenderGraphPass;
