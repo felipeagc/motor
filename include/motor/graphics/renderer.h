@@ -12,8 +12,6 @@ typedef struct MtPipeline MtPipeline;
 typedef struct MtBuffer MtBuffer;
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
-typedef struct MtFence MtFence;
-typedef struct MtSemaphore MtSemaphore;
 typedef struct MtCmdBuffer MtCmdBuffer;
 typedef struct MtSwapchain MtSwapchain;
 typedef struct MtRenderGraph MtRenderGraph;
@@ -143,19 +141,19 @@ typedef struct MtBufferCreateInfo
 
 typedef enum MtImageUsage
 {
-    MT_IMAGE_USAGE_SAMPLED_BIT                  = 1,
-    MT_IMAGE_USAGE_STORAGE_BIT                  = 2,
-    MT_IMAGE_USAGE_TRANSFER_SRC_BIT             = 4,
-    MT_IMAGE_USAGE_TRANSFER_DST_BIT             = 8,
-    MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT         = 16,
-    MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT = 32,
+    MT_IMAGE_USAGE_SAMPLED_BIT                  = 1 << 0,
+    MT_IMAGE_USAGE_STORAGE_BIT                  = 1 << 1,
+    MT_IMAGE_USAGE_TRANSFER_SRC_BIT             = 1 << 2,
+    MT_IMAGE_USAGE_TRANSFER_DST_BIT             = 1 << 3,
+    MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT         = 1 << 4,
+    MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT = 1 << 5,
 } MtImageUsage;
 
 typedef enum MtImageAspect
 {
-    MT_IMAGE_ASPECT_COLOR_BIT   = 1,
-    MT_IMAGE_ASPECT_DEPTH_BIT   = 2,
-    MT_IMAGE_ASPECT_STENCIL_BIT = 4,
+    MT_IMAGE_ASPECT_COLOR_BIT   = 1 << 0,
+    MT_IMAGE_ASPECT_DEPTH_BIT   = 1 << 1,
+    MT_IMAGE_ASPECT_STENCIL_BIT = 1 << 2,
 } MtImageAspect;
 
 typedef struct MtImageCreateInfo
@@ -236,37 +234,6 @@ typedef struct MtImageCopyView
     MtOffset3D offset;
 } MtImageCopyView;
 
-typedef struct MtRenderPassCreateInfo
-{
-    MtImage **color_attachments;
-    MtImage *depth_attachment;
-    uint32_t color_attachment_count;
-} MtRenderPassCreateInfo;
-
-typedef enum MtImageLayout
-{
-    MT_IMAGE_LAYOUT_UNDEFINED,
-    MT_IMAGE_LAYOUT_GENERAL,
-    MT_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    MT_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    MT_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-    MT_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    MT_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-    MT_IMAGE_LAYOUT_PREINITIALIZED,
-} MtImageLayout;
-
-typedef struct MtImageBarrier
-{
-    MtImage *image;
-    MtImageLayout old_layout;
-    MtImageLayout new_layout;
-    uint32_t base_mip_level;
-    uint32_t level_count;
-    uint32_t base_array_layer;
-    uint32_t layer_count;
-} MtImageBarrier;
-
 typedef enum MtPipelineStage
 {
     MT_PIPELINE_STAGE_FRAGMENT_SHADER,
@@ -275,20 +242,6 @@ typedef enum MtPipelineStage
     MT_PIPELINE_STAGE_COMPUTE,
     MT_PIPELINE_STAGE_TRANSFER,
 } MtPipelineStage;
-
-typedef struct MtSubmitInfo
-{
-    MtCmdBuffer *cmd_buffer;
-
-    uint32_t wait_semaphore_count;
-    MtSemaphore **wait_semaphores;
-    const MtPipelineStage *wait_stages; // which stage to execute after waiting
-
-    uint32_t signal_semaphore_count;
-    MtSemaphore **signal_semaphores;
-
-    MtFence *fence;
-} MtSubmitInfo;
 
 typedef struct MtRenderer
 {
@@ -304,19 +257,6 @@ typedef struct MtRenderer
     void (*set_thread_id)(uint32_t thread_id);
     uint32_t (*get_thread_id)(void);
 
-    void (*allocate_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
-    void (*free_cmd_buffers)(MtDevice *, MtQueueType, uint32_t, MtCmdBuffer **);
-
-    MtFence *(*create_fence)(MtDevice *, bool signaled);
-    void (*destroy_fence)(MtDevice *, MtFence *fence);
-
-    MtSemaphore *(*create_semaphore)(MtDevice *);
-    void (*destroy_semaphore)(MtDevice *, MtSemaphore *semaphore);
-
-    void (*reset_fence)(MtDevice *, MtFence *);
-    void (*wait_for_fence)(MtDevice *, MtFence *);
-    void (*submit)(MtDevice *, MtSubmitInfo *submit_info);
-
     MtBuffer *(*create_buffer)(MtDevice *, MtBufferCreateInfo *);
     void (*destroy_buffer)(MtDevice *, MtBuffer *);
 
@@ -328,9 +268,6 @@ typedef struct MtRenderer
 
     MtSampler *(*create_sampler)(MtDevice *, MtSamplerCreateInfo *);
     void (*destroy_sampler)(MtDevice *, MtSampler *);
-
-    MtRenderPass *(*create_render_pass)(MtDevice *, MtRenderPassCreateInfo *);
-    void (*destroy_render_pass)(MtDevice *, MtRenderPass *);
 
     void (*transfer_to_buffer)(
         MtDevice *, MtBuffer *, size_t offset, size_t size, const void *data);
@@ -347,12 +284,7 @@ typedef struct MtRenderer
     MtPipeline *(*create_compute_pipeline)(MtDevice *, uint8_t *code, size_t code_size);
     void (*destroy_pipeline)(MtDevice *, MtPipeline *);
 
-    void (*begin_cmd_buffer)(MtCmdBuffer *);
-    void (*end_cmd_buffer)(MtCmdBuffer *);
-
     void (*cmd_get_viewport)(MtCmdBuffer *, MtViewport *);
-
-    void (*cmd_pipeline_image_barrier)(MtCmdBuffer *, MtImageBarrier *image_barrier);
 
     void (*cmd_copy_buffer_to_buffer)(
         MtCmdBuffer *,
@@ -367,13 +299,6 @@ typedef struct MtRenderer
         MtCmdBuffer *, const MtImageCopyView *src, const MtBufferCopyView *dst, MtExtent3D extent);
     void (*cmd_copy_image_to_image)(
         MtCmdBuffer *, const MtImageCopyView *src, const MtImageCopyView *dst, MtExtent3D extent);
-
-    void (*cmd_begin_render_pass)(
-        MtCmdBuffer *,
-        MtRenderPass *,
-        MtClearValue *color_clear_value,
-        MtClearValue *depth_clear_value);
-    void (*cmd_end_render_pass)(MtCmdBuffer *);
 
     void (*cmd_set_viewport)(MtCmdBuffer *, MtViewport *);
     void (*cmd_set_scissor)(MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);

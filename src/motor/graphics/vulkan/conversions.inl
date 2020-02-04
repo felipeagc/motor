@@ -114,25 +114,3 @@ static VkBorderColor border_color_to_vulkan(MtBorderColor value)
     }
     return 0;
 }
-
-static VkImageLayout image_layout_to_vulkan(MtImageLayout layout)
-{
-    switch (layout)
-    {
-        case MT_IMAGE_LAYOUT_UNDEFINED: return VK_IMAGE_LAYOUT_UNDEFINED;
-        case MT_IMAGE_LAYOUT_GENERAL: return VK_IMAGE_LAYOUT_GENERAL;
-        case MT_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        case MT_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        case MT_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
-            return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-        case MT_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        case MT_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        case MT_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        case MT_IMAGE_LAYOUT_PREINITIALIZED: return VK_IMAGE_LAYOUT_PREINITIALIZED;
-        default: assert(0);
-    }
-    return 0;
-}

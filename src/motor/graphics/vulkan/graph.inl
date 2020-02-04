@@ -1,5 +1,3 @@
-static void graph_image_barrier(MtCmdBuffer *cb, MtImage *image, VkImageLayout new_layout);
-
 static inline bool find_in_array(uint32_t *array, uint32_t to_find)
 {
     for (uint32_t i = 0; i < mt_array_size(array); ++i)
@@ -16,7 +14,7 @@ static inline bool find_in_array(uint32_t *array, uint32_t to_find)
 static void add_group(
     MtRenderGraph *graph,
     MtQueueType queue_type,
-    MtPipelineStage stage,
+    VkPipelineStageFlags stage,
     uint32_t *pass_indices,
     bool last)
 {
@@ -27,10 +25,23 @@ static void add_group(
 
     for (uint32_t i = 0; i < graph->frame_count; ++i)
     {
-        mt_render.allocate_cmd_buffers(
-            graph->dev, group.queue_type, 1, &group.frames[i].cmd_buffer);
-        group.frames[i].fence                        = mt_render.create_fence(graph->dev, true);
-        group.frames[i].execution_finished_semaphore = mt_render.create_semaphore(graph->dev);
+        allocate_cmd_buffers(graph->dev, group.queue_type, 1, &group.frames[i].cmd_buffer);
+
+        VkFenceCreateInfo fence_create_info = {
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+        };
+        VK_CHECK(
+            vkCreateFence(graph->dev->device, &fence_create_info, NULL, &group.frames[i].fence));
+
+        VkSemaphoreCreateInfo semaphore_create_info = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        };
+        VK_CHECK(vkCreateSemaphore(
+            graph->dev->device,
+            &semaphore_create_info,
+            NULL,
+            &group.frames[i].execution_finished_semaphore));
 
         if (last && graph->swapchain)
         {
@@ -65,9 +76,9 @@ static void destroy_group(MtRenderGraph *graph, ExecutionGroup *group)
 {
     for (uint32_t i = 0; i < graph->frame_count; ++i)
     {
-        mt_render.free_cmd_buffers(graph->dev, group->queue_type, 1, &group->frames[i].cmd_buffer);
-        mt_render.destroy_fence(graph->dev, group->frames[i].fence);
-        mt_render.destroy_semaphore(graph->dev, group->frames[i].execution_finished_semaphore);
+        free_cmd_buffers(graph->dev, group->queue_type, 1, &group->frames[i].cmd_buffer);
+        vkDestroyFence(graph->dev->device, group->frames[i].fence, NULL);
+        vkDestroySemaphore(graph->dev->device, group->frames[i].execution_finished_semaphore, NULL);
 
         mt_array_free(graph->dev->alloc, group->frames[i].wait_semaphores);
         mt_array_free(graph->dev->alloc, group->frames[i].wait_stages);
@@ -89,7 +100,11 @@ static MtRenderGraph *create_graph(MtDevice *dev, MtSwapchain *swapchain, void *
         graph->frame_count = FRAMES_IN_FLIGHT;
         for (uint32_t i = 0; i < graph->frame_count; ++i)
         {
-            graph->image_available_semaphores[i] = mt_render.create_semaphore(graph->dev);
+            VkSemaphoreCreateInfo semaphore_create_info = {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+
+            VK_CHECK(vkCreateSemaphore(
+                dev->device, &semaphore_create_info, NULL, &graph->image_available_semaphores[i]));
         }
     }
     else
@@ -134,7 +149,7 @@ static void destroy_graph(MtRenderGraph *graph)
     {
         if (graph->image_available_semaphores[i] != NULL)
         {
-            mt_render.destroy_semaphore(graph->dev, graph->image_available_semaphores[i]);
+            vkDestroySemaphore(graph->dev->device, graph->image_available_semaphores[i], NULL);
         }
     }
 
@@ -280,11 +295,7 @@ static void graph_wait_all(MtRenderGraph *graph)
          ++group)
     {
         vkWaitForFences(
-            graph->dev->device,
-            1,
-            &group->frames[graph->current_frame].fence->fence,
-            VK_TRUE,
-            UINT64_MAX);
+            graph->dev->device, 1, &group->frames[graph->current_frame].fence, VK_TRUE, UINT64_MAX);
     }
 }
 
@@ -305,11 +316,7 @@ static void graph_execute(MtRenderGraph *graph)
         ExecutionGroup *group = mt_array_last(graph->execution_groups);
 
         vkWaitForFences(
-            graph->dev->device,
-            1,
-            &group->frames[graph->current_frame].fence->fence,
-            VK_TRUE,
-            UINT64_MAX);
+            graph->dev->device, 1, &group->frames[graph->current_frame].fence, VK_TRUE, UINT64_MAX);
 
         VkResult res;
         while (1)
@@ -318,7 +325,7 @@ static void graph_execute(MtRenderGraph *graph)
                 graph->dev->device,
                 graph->swapchain->swapchain,
                 UINT64_MAX,
-                graph->image_available_semaphores[graph->current_frame]->semaphore,
+                graph->image_available_semaphores[graph->current_frame],
                 VK_NULL_HANDLE,
                 &graph->swapchain->current_image_index);
 
@@ -339,15 +346,11 @@ static void graph_execute(MtRenderGraph *graph)
          ++group)
     {
         vkWaitForFences(
-            graph->dev->device,
-            1,
-            &group->frames[graph->current_frame].fence->fence,
-            VK_TRUE,
-            UINT64_MAX);
+            graph->dev->device, 1, &group->frames[graph->current_frame].fence, VK_TRUE, UINT64_MAX);
 
         MtCmdBuffer *cb = group->frames[graph->current_frame].cmd_buffer;
 
-        mt_render.begin_cmd_buffer(cb);
+        begin_cmd_buffer(cb);
 
         for (uint32_t i = 0; i < mt_array_size(group->pass_indices); i++)
         {
@@ -365,14 +368,14 @@ static void graph_execute(MtRenderGraph *graph)
                     pass->render_pass.current_framebuffer = pass->framebuffers[0];
                 }
 
-                mt_render.cmd_begin_render_pass(cb, &pass->render_pass, NULL, NULL);
+                cmd_begin_render_pass(cb, &pass->render_pass, NULL, NULL);
             }
 
             if (pass->queue_type == MT_QUEUE_TRANSFER)
             {
                 for (uint32_t i = 0; i < mt_array_size(pass->color_outputs); ++i)
                 {
-                    graph_image_barrier(
+                    cmd_image_barrier(
                         cb,
                         graph->resources[pass->color_outputs[i]].image,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -391,7 +394,7 @@ static void graph_execute(MtRenderGraph *graph)
                     // TODO: the pass that needs this might not be the immediate next one...
                     for (uint32_t i = 0; i < mt_array_size(pass->color_outputs); ++i)
                     {
-                        graph_image_barrier(
+                        cmd_image_barrier(
                             cb,
                             graph->resources[pass->color_outputs[i]].image,
                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -401,16 +404,16 @@ static void graph_execute(MtRenderGraph *graph)
 
             if (pass->queue_type == MT_QUEUE_GRAPHICS)
             {
-                mt_render.cmd_end_render_pass(cb);
+                cmd_end_render_pass(cb);
             }
         }
 
-        mt_render.end_cmd_buffer(cb);
+        end_cmd_buffer(cb);
 
-        mt_render.reset_fence(graph->dev, group->frames[graph->current_frame].fence);
+        VK_CHECK(vkResetFences(graph->dev->device, 1, &group->frames[graph->current_frame].fence));
 
         uint32_t signal_semaphore_count = 1;
-        MtSemaphore **signal_semaphores =
+        VkSemaphore *signal_semaphores =
             &group->frames[graph->current_frame].execution_finished_semaphore;
 
         if (group == mt_array_last(graph->execution_groups) && graph->swapchain == NULL)
@@ -419,9 +422,9 @@ static void graph_execute(MtRenderGraph *graph)
             signal_semaphores      = NULL;
         }
 
-        mt_render.submit(
+        submit_cmd(
             graph->dev,
-            &(MtSubmitInfo){
+            &(SubmitInfo){
                 .cmd_buffer = cb,
                 .wait_semaphore_count =
                     mt_array_size(group->frames[graph->current_frame].wait_semaphores),
@@ -440,11 +443,10 @@ static void graph_execute(MtRenderGraph *graph)
         VkPresentInfoKHR present_info = {
             .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = 1,
-            .pWaitSemaphores =
-                &group->frames[graph->current_frame].execution_finished_semaphore->semaphore,
-            .swapchainCount = 1,
-            .pSwapchains    = &graph->swapchain->swapchain,
-            .pImageIndices  = &graph->swapchain->current_image_index,
+            .pWaitSemaphores    = &group->frames[graph->current_frame].execution_finished_semaphore,
+            .swapchainCount     = 1,
+            .pSwapchains        = &graph->swapchain->swapchain,
+            .pImageIndices      = &graph->swapchain->current_image_index,
         };
 
         VkResult res = vkQueuePresentKHR(graph->swapchain->present_queue, &present_info);
@@ -485,20 +487,34 @@ graph_add_pass(MtRenderGraph *graph, const char *name, MtPipelineStage stage)
     MtRenderGraphPass *pass = mt_array_last(graph->passes);
     memset(pass, 0, sizeof(*pass));
 
-    pass->graph        = graph;
-    pass->stage        = stage;
-    pass->index        = index;
-    pass->name         = name;
-    pass->depth_output = UINT32_MAX;
+    switch (stage)
+    {
+        case MT_PIPELINE_STAGE_FRAGMENT_SHADER:
+            pass->stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            break;
+        case MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT:
+            pass->stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            break;
+        case MT_PIPELINE_STAGE_ALL_GRAPHICS:
+            pass->stage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+            break;
+        case MT_PIPELINE_STAGE_COMPUTE: pass->stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT; break;
+        case MT_PIPELINE_STAGE_TRANSFER: pass->stage = VK_PIPELINE_STAGE_TRANSFER_BIT; break;
+    }
 
     switch (pass->stage)
     {
-        case MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT:
-        case MT_PIPELINE_STAGE_FRAGMENT_SHADER:
-        case MT_PIPELINE_STAGE_ALL_GRAPHICS: pass->queue_type = MT_QUEUE_GRAPHICS; break;
-        case MT_PIPELINE_STAGE_COMPUTE: pass->queue_type = MT_QUEUE_COMPUTE; break;
-        case MT_PIPELINE_STAGE_TRANSFER: pass->queue_type = MT_QUEUE_TRANSFER; break;
+        case VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT:
+        case VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT:
+        case VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT: pass->queue_type = MT_QUEUE_GRAPHICS; break;
+        case VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT: pass->queue_type = MT_QUEUE_COMPUTE; break;
+        case VK_PIPELINE_STAGE_TRANSFER_BIT: pass->queue_type = MT_QUEUE_TRANSFER; break;
     }
+
+    pass->graph        = graph;
+    pass->index        = index;
+    pass->name         = name;
+    pass->depth_output = UINT32_MAX;
 
     mt_hash_set_uint(&graph->pass_indices, mt_hash_str(name), index);
     return pass;
@@ -716,14 +732,9 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
 
         if (pass->next && pass->next->queue_type == MT_QUEUE_TRANSFER)
         {
-            for (uint32_t i = 0; i < mt_array_size(pass->next->image_transfer_inputs); ++i)
-            {
-                mt_log("Transfer input: %u", pass->next->image_transfer_inputs[i]);
-            }
             // TODO: the pass that needs this might not be the immediate next one...
             if (find_in_array(pass->next->image_transfer_inputs, resource->index))
             {
-                mt_log("Final layout transfer src");
                 color_attachment.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
             }
         }
@@ -864,94 +875,5 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
     mt_array_free(graph->dev->alloc, rp_attachments);
     mt_array_free(graph->dev->alloc, fb_image_views);
     mt_array_free(graph->dev->alloc, color_attachment_indices);
-}
-// }}}
-
-// Image barrier {{{
-static void graph_image_barrier(MtCmdBuffer *cb, MtImage *image, VkImageLayout new_layout)
-{
-    VkImageSubresourceRange subresource_range = {
-        .aspectMask     = image->aspect,
-        .baseMipLevel   = 0,
-        .levelCount     = image->mip_count,
-        .baseArrayLayer = 0,
-        .layerCount     = image->layer_count,
-    };
-
-    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-
-    VkImageMemoryBarrier image_memory_barrier = {
-        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout           = new_layout,
-        .image               = image->image,
-        .subresourceRange    = subresource_range,
-    };
-
-    switch (image_memory_barrier.oldLayout)
-    {
-        case VK_IMAGE_LAYOUT_UNDEFINED: image_memory_barrier.srcAccessMask = 0; break;
-        case VK_IMAGE_LAYOUT_PREINITIALIZED:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            break;
-        default: break;
-    }
-
-    switch (image_memory_barrier.newLayout)
-    {
-        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            image_memory_barrier.dstAccessMask =
-                image_memory_barrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            if (image_memory_barrier.srcAccessMask == 0)
-            {
-                image_memory_barrier.srcAccessMask =
-                    VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-            }
-            image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            break;
-        default: break;
-    }
-
-    vkCmdPipelineBarrier(
-        cb->cmd_buffer,
-        src_stage_mask,
-        dst_stage_mask,
-        0,
-        0,
-        NULL,
-        0,
-        NULL,
-        1,
-        &image_memory_barrier);
 }
 // }}}

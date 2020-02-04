@@ -71,104 +71,6 @@ static void bind_descriptor_sets(MtCmdBuffer *cb)
     }
 }
 
-static void cmd_pipeline_image_barrier(MtCmdBuffer *cb, MtImageBarrier *ib)
-{
-    if (ib->level_count == 0)
-    {
-        ib->level_count = 1;
-    }
-
-    if (ib->layer_count == 0)
-    {
-        ib->layer_count = 1;
-    }
-
-    VkImageSubresourceRange subresource_range = {
-        .aspectMask     = ib->image->aspect,
-        .baseMipLevel   = ib->base_mip_level,
-        .levelCount     = ib->level_count,
-        .baseArrayLayer = ib->base_array_layer,
-        .layerCount     = ib->layer_count,
-    };
-
-    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-
-    VkImageMemoryBarrier image_memory_barrier = {
-        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .oldLayout           = image_layout_to_vulkan(ib->old_layout),
-        .newLayout           = image_layout_to_vulkan(ib->new_layout),
-        .image               = ib->image->image,
-        .subresourceRange    = subresource_range,
-    };
-
-    switch (image_memory_barrier.oldLayout)
-    {
-        case VK_IMAGE_LAYOUT_UNDEFINED: image_memory_barrier.srcAccessMask = 0; break;
-        case VK_IMAGE_LAYOUT_PREINITIALIZED:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            image_memory_barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            break;
-        default: break;
-    }
-
-    switch (image_memory_barrier.newLayout)
-    {
-        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            break;
-
-        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-            image_memory_barrier.dstAccessMask =
-                image_memory_barrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            break;
-        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-            if (image_memory_barrier.srcAccessMask == 0)
-            {
-                image_memory_barrier.srcAccessMask =
-                    VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-            }
-            image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            break;
-        default: break;
-    }
-
-    // Put barrier inside setup command buffer
-    vkCmdPipelineBarrier(
-        cb->cmd_buffer,
-        src_stage_mask,
-        dst_stage_mask,
-        0,
-        0,
-        NULL,
-        0,
-        NULL,
-        1,
-        &image_memory_barrier);
-}
-
 static void cmd_copy_buffer_to_buffer(
     MtCmdBuffer *cb,
     MtBuffer *src,
@@ -529,4 +431,91 @@ static void cmd_dispatch(
 {
     bind_descriptor_sets(cb);
     vkCmdDispatch(cb->cmd_buffer, group_count_x, group_count_y, group_count_z);
+}
+
+static void cmd_image_barrier(MtCmdBuffer *cb, MtImage *image, VkImageLayout new_layout)
+{
+    VkImageSubresourceRange subresource_range = {
+        .aspectMask     = image->aspect,
+        .baseMipLevel   = 0,
+        .levelCount     = image->mip_count,
+        .baseArrayLayer = 0,
+        .layerCount     = image->layer_count,
+    };
+
+    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+    VkImageMemoryBarrier image_memory_barrier = {
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout           = new_layout,
+        .image               = image->image,
+        .subresourceRange    = subresource_range,
+    };
+
+    switch (image_memory_barrier.oldLayout)
+    {
+        case VK_IMAGE_LAYOUT_UNDEFINED: image_memory_barrier.srcAccessMask = 0; break;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            image_memory_barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            break;
+        default: break;
+    }
+
+    switch (image_memory_barrier.newLayout)
+    {
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            image_memory_barrier.dstAccessMask =
+                image_memory_barrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            if (image_memory_barrier.srcAccessMask == 0)
+            {
+                image_memory_barrier.srcAccessMask =
+                    VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+            }
+            image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            break;
+        default: break;
+    }
+
+    vkCmdPipelineBarrier(
+        cb->cmd_buffer,
+        src_stage_mask,
+        dst_stage_mask,
+        0,
+        0,
+        NULL,
+        0,
+        NULL,
+        1,
+        &image_memory_barrier);
 }

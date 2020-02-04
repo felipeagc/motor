@@ -139,6 +139,20 @@ typedef struct MtSwapchain
     VkExtent2D swapchain_extent;
 } MtSwapchain;
 
+typedef struct SubmitInfo
+{
+    MtCmdBuffer *cmd_buffer;
+
+    uint32_t wait_semaphore_count;
+    VkSemaphore *wait_semaphores;
+    const VkPipelineStageFlags *wait_stages; // which stage to execute after waiting
+
+    uint32_t signal_semaphore_count;
+    VkSemaphore *signal_semaphores;
+
+    VkFence fence;
+} SubmitInfo;
+
 typedef struct SetInfo
 {
     uint32_t index;
@@ -299,14 +313,14 @@ typedef struct GraphResource
 typedef struct ExecutionGroup
 {
     MtQueueType queue_type;
-    MtPipelineStage stage;
+    VkPipelineStageFlags stage;
     struct
     {
         MtCmdBuffer *cmd_buffer;
-        MtSemaphore *execution_finished_semaphore;
-        /*array*/ MtSemaphore **wait_semaphores;
-        /*array*/ MtPipelineStage *wait_stages;
-        MtFence *fence;
+        VkSemaphore execution_finished_semaphore;
+        /*array*/ VkSemaphore *wait_semaphores;
+        /*array*/ VkPipelineStageFlags *wait_stages;
+        VkFence fence;
     } frames[FRAMES_IN_FLIGHT];
     uint32_t *pass_indices;
 } ExecutionGroup;
@@ -315,7 +329,7 @@ typedef struct MtRenderGraph
 {
     MtDevice *dev;
     MtSwapchain *swapchain;
-    MtSemaphore *image_available_semaphores[FRAMES_IN_FLIGHT];
+    VkSemaphore image_available_semaphores[FRAMES_IN_FLIGHT];
     void *user_data;
 
     uint32_t current_frame;
@@ -337,7 +351,7 @@ typedef struct MtRenderGraphPass
     struct MtRenderGraphPass *next;
     struct MtRenderGraphPass *prev;
     uint32_t index;
-    MtPipelineStage stage;
+    VkPipelineStageFlags stage;
     MtQueueType queue_type;
 
     MtRenderGraph *graph;
