@@ -528,13 +528,14 @@ static void pass_set_builder(MtRenderGraphPass *pass, MtRenderGraphPassBuilder b
     pass->builder = builder;
 }
 
-static uint32_t add_graph_resource(MtRenderGraph *graph, const char *name)
+static uint32_t add_graph_resource(MtRenderGraph *graph, const char *name, GraphResourceType type)
 {
     mt_array_add(graph->dev->alloc, graph->resources, 1);
     uintptr_t index         = mt_array_last(graph->resources) - graph->resources;
     GraphResource *resource = &graph->resources[index];
     memset(resource, 0, sizeof(*resource));
 
+    resource->type  = type;
     resource->index = (uint32_t)index;
 
     mt_hash_set_uint(&graph->resource_indices, mt_hash_str(name), index);
@@ -543,9 +544,9 @@ static uint32_t add_graph_resource(MtRenderGraph *graph, const char *name)
 
 static void graph_add_image(MtRenderGraph *graph, const char *name, MtImageCreateInfo *info)
 {
-    uint32_t index          = add_graph_resource(graph, name);
+    uint32_t index          = add_graph_resource(graph, name, GRAPH_RESOURCE_IMAGE);
     GraphResource *resource = &graph->resources[index];
-    resource->info          = *info;
+    resource->image_info    = *info;
 }
 
 static void pass_add_color_output(MtRenderGraphPass *pass, const char *name)
@@ -554,12 +555,14 @@ static void pass_add_color_output(MtRenderGraphPass *pass, const char *name)
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
 
+    assert(resource->type == GRAPH_RESOURCE_IMAGE);
+
     mt_array_push(pass->graph->dev->alloc, resource->written_in_passes, pass->index);
 
-    resource->info.usage |= MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
-    resource->info.aspect |= MT_IMAGE_ASPECT_COLOR_BIT;
+    resource->image_info.usage |= MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
+    resource->image_info.aspect |= MT_IMAGE_ASPECT_COLOR_BIT;
 
-    resource->info.usage |= MT_IMAGE_USAGE_TRANSFER_SRC_BIT | MT_IMAGE_USAGE_TRANSFER_DST_BIT;
+    resource->image_info.usage |= MT_IMAGE_USAGE_TRANSFER_SRC_BIT | MT_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     mt_array_push(pass->graph->dev->alloc, pass->color_outputs, (uint32_t)index);
 }
@@ -570,16 +573,18 @@ static void pass_set_depth_stencil_output(MtRenderGraphPass *pass, const char *n
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
 
+    assert(resource->type == GRAPH_RESOURCE_IMAGE);
+
     mt_array_push(pass->graph->dev->alloc, resource->written_in_passes, pass->index);
 
-    resource->info.usage |= MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    resource->image_info.usage |= MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-    switch (resource->info.format)
+    switch (resource->image_info.format)
     {
         case MT_FORMAT_D16_UNORM:
         case MT_FORMAT_D32_SFLOAT:
         {
-            resource->info.aspect = MT_IMAGE_ASPECT_DEPTH_BIT;
+            resource->image_info.aspect = MT_IMAGE_ASPECT_DEPTH_BIT;
             break;
         }
 
@@ -587,7 +592,7 @@ static void pass_set_depth_stencil_output(MtRenderGraphPass *pass, const char *n
         case MT_FORMAT_D24_UNORM_S8_UINT:
         case MT_FORMAT_D32_SFLOAT_S8_UINT:
         {
-            resource->info.aspect = MT_IMAGE_ASPECT_DEPTH_BIT | MT_IMAGE_ASPECT_STENCIL_BIT;
+            resource->image_info.aspect = MT_IMAGE_ASPECT_DEPTH_BIT | MT_IMAGE_ASPECT_STENCIL_BIT;
             break;
         }
         default: assert(0);
@@ -602,9 +607,11 @@ static void pass_add_image_transfer_output(MtRenderGraphPass *pass, const char *
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
 
+    assert(resource->type == GRAPH_RESOURCE_IMAGE);
+
     mt_array_push(pass->graph->dev->alloc, resource->written_in_passes, pass->index);
 
-    resource->info.usage |= MT_IMAGE_USAGE_TRANSFER_DST_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
+    resource->image_info.usage |= MT_IMAGE_USAGE_TRANSFER_DST_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
 
     mt_array_push(pass->graph->dev->alloc, pass->image_transfer_outputs, (uint32_t)index);
 }
@@ -615,9 +622,11 @@ static void pass_add_image_transfer_input(MtRenderGraphPass *pass, const char *n
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
 
+    assert(resource->type == GRAPH_RESOURCE_IMAGE);
+
     mt_array_push(pass->graph->dev->alloc, resource->read_in_passes, pass->index);
 
-    resource->info.usage |= MT_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    resource->image_info.usage |= MT_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     mt_array_push(pass->graph->dev->alloc, pass->image_transfer_inputs, (uint32_t)index);
 }
@@ -628,19 +637,22 @@ static void pass_add_image_sampled_input(MtRenderGraphPass *pass, const char *na
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
 
+    assert(resource->type == GRAPH_RESOURCE_IMAGE);
+
     mt_array_push(pass->graph->dev->alloc, resource->read_in_passes, pass->index);
 
-    resource->info.usage |= MT_IMAGE_USAGE_SAMPLED_BIT;
+    resource->image_info.usage |= MT_IMAGE_USAGE_SAMPLED_BIT;
 
     mt_array_push(pass->graph->dev->alloc, pass->image_sampled_inputs, (uint32_t)index);
 }
 
 static void create_graph_image(MtRenderGraph *graph, GraphResource *resource)
 {
-    assert(resource->info.format != MT_FORMAT_UNDEFINED);
+    assert(resource->type == GRAPH_RESOURCE_IMAGE);
+    assert(resource->image_info.format != MT_FORMAT_UNDEFINED);
 
-    uint32_t width  = resource->info.width;
-    uint32_t height = resource->info.height;
+    uint32_t width  = resource->image_info.width;
+    uint32_t height = resource->image_info.height;
 
     if (width == 0 && graph->swapchain)
     {
@@ -660,13 +672,13 @@ static void create_graph_image(MtRenderGraph *graph, GraphResource *resource)
         &(MtImageCreateInfo){
             .width        = width,
             .height       = height,
-            .depth        = resource->info.depth,
-            .sample_count = resource->info.sample_count,
-            .mip_count    = resource->info.mip_count,
-            .layer_count  = resource->info.layer_count,
-            .format       = resource->info.format,
-            .aspect       = resource->info.aspect,
-            .usage        = resource->info.usage,
+            .depth        = resource->image_info.depth,
+            .sample_count = resource->image_info.sample_count,
+            .mip_count    = resource->image_info.mip_count,
+            .layer_count  = resource->image_info.layer_count,
+            .format       = resource->image_info.format,
+            .aspect       = resource->image_info.aspect,
+            .usage        = resource->image_info.usage,
         });
 }
 
@@ -721,6 +733,7 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
         mt_array_push(graph->dev->alloc, color_attachment_indices, mt_array_size(rp_attachments));
 
         GraphResource *resource = &graph->resources[pass->color_outputs[i]];
+        assert(resource->type == GRAPH_RESOURCE_IMAGE);
 
         VkAttachmentDescription color_attachment = {
             .format         = resource->image->format,
@@ -751,6 +764,7 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
         depth_attachment_index = mt_array_size(rp_attachments);
 
         GraphResource *resource = &graph->resources[pass->depth_output];
+        assert(resource->type == GRAPH_RESOURCE_IMAGE);
 
         VkAttachmentDescription depth_attachment = {
             .format         = resource->image->format,

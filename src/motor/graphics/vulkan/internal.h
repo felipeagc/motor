@@ -299,15 +299,26 @@ typedef struct MtSampler
     VkSampler sampler;
 } MtSampler;
 
+typedef enum GraphResourceType
+{
+    GRAPH_RESOURCE_IMAGE,
+} GraphResourceType;
+
 typedef struct GraphResource
 {
+    GraphResourceType type;
     uint32_t index;
 
     uint32_t *read_in_passes;
     uint32_t *written_in_passes;
 
-    MtImageCreateInfo info;
-    MtImage *image;
+    union {
+        struct
+        {
+            MtImageCreateInfo image_info;
+            MtImage *image;
+        };
+    };
 } GraphResource;
 
 typedef struct ExecutionGroup
