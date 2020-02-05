@@ -57,8 +57,8 @@ add_group(MtRenderGraph *graph, MtQueueType queue_type, uint32_t *pass_indices, 
         for (uint32_t i = 0; i < graph->frame_count; ++i)
         {
             VkPipelineStageFlags wait_stages = 0;
-            for (uint32_t *j = prev_group->pass_indices;
-                 j != prev_group->pass_indices + mt_array_size(prev_group->pass_indices);
+            for (uint32_t *j = group.pass_indices;
+                 j != group.pass_indices + mt_array_size(group.pass_indices);
                  ++j)
             {
                 wait_stages |= graph->passes[*j].stage;
@@ -840,8 +840,21 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
     }
     else
     {
-        pass->render_pass.extent.width  = graph->resources[pass->color_outputs[0]].image->width;
-        pass->render_pass.extent.height = graph->resources[pass->color_outputs[0]].image->height;
+        if (pass->color_outputs)
+        {
+            pass->render_pass.extent.width = graph->resources[pass->color_outputs[0]].image->width;
+            pass->render_pass.extent.height =
+                graph->resources[pass->color_outputs[0]].image->height;
+        }
+        else if (pass->depth_output != UINT32_MAX)
+        {
+            pass->render_pass.extent.width  = graph->resources[pass->depth_output].image->width;
+            pass->render_pass.extent.height = graph->resources[pass->depth_output].image->height;
+        }
+        else
+        {
+            assert(0);
+        }
     }
 
     for (size_t i = 0; i < mt_array_size(pass->framebuffers); i++)
