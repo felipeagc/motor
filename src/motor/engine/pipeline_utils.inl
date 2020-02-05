@@ -76,7 +76,7 @@ static MtPipeline *create_compute_pipeline(MtEngine *engine, const char *path, M
 {
     MtConfigObject *obj         = mt_config_get_root(config);
     MtConfigEntry *common_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
-    MtConfigEntry *comp_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("comp"));
+    MtConfigEntry *comp_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("compute"));
 
     shaderc_compile_options_t options        = NULL;
     char *comp_text                          = NULL;
@@ -432,7 +432,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
     MtConfigObject *obj           = mt_config_get_root(config);
     MtConfigEntry *vertex_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
     MtConfigEntry *fragment_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
-    MtConfigEntry *comp_entry     = mt_hash_get_ptr(&obj->map, mt_hash_str("comp"));
+    MtConfigEntry *comp_entry     = mt_hash_get_ptr(&obj->map, mt_hash_str("compute"));
 
     MtPipeline *pipeline = NULL;
 
