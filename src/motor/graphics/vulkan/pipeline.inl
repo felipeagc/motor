@@ -421,26 +421,6 @@ static void create_graphics_pipeline_instance(
     vertex_input_info.vertexAttributeDescriptionCount = mt_array_size(attributes);
     vertex_input_info.pVertexAttributeDescriptions    = attributes;
 
-    /* if (options->vertex_attribute_count > 0) { */
-    /*     mt_array_pushn(dev->alloc, attributes,
-     * options->vertex_attribute_count); */
-
-    /*     for (uint32_t i = 0; i < options->vertex_attribute_count; i++) { */
-    /*         attributes[i] = (VkVertexInputAttributeDescription){ */
-    /*             .location = i, */
-    /*             .binding  = 0, */
-    /*             .format = */
-    /*                 format_to_vulkan(options->vertex_attributes[i].format),
-     */
-    /*             .offset = options->vertex_attributes[i].offset, */
-    /*         }; */
-    /*     } */
-
-    /*     vertex_input_info.vertexAttributeDescriptionCount = */
-    /*         mt_array_size(attributes); */
-    /*     vertex_input_info.pVertexAttributeDescriptions = attributes; */
-    /* } */
-
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
@@ -593,6 +573,7 @@ create_compute_pipeline_instance(MtDevice *dev, PipelineInstance *instance, MtPi
     instance->pipeline   = pipeline;
 
     VkPipelineShaderStageCreateInfo shader_stage = {
+        .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage               = VK_SHADER_STAGE_COMPUTE_BIT,
         .module              = pipeline->shaders[0].mod,
         .pName               = "main",
@@ -661,6 +642,7 @@ static MtPipeline *create_graphics_pipeline(
 
     MtPipeline *pipeline = mt_alloc(dev->alloc, sizeof(MtPipeline));
     memset(pipeline, 0, sizeof(*pipeline));
+    pipeline->bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
     if (ci->line_width == 0.0f || memcmp(&(uint32_t){0}, &ci->line_width, sizeof(uint32_t)) == 0)
     {
@@ -711,6 +693,7 @@ static MtPipeline *create_compute_pipeline(MtDevice *dev, uint8_t *code, size_t 
 {
     MtPipeline *pipeline = mt_alloc(dev->alloc, sizeof(MtPipeline));
     memset(pipeline, 0, sizeof(*pipeline));
+    pipeline->bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
 
     mt_array_add(dev->alloc, pipeline->shaders, 1);
 
