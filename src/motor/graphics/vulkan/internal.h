@@ -302,6 +302,7 @@ typedef struct MtSampler
 typedef enum GraphResourceType
 {
     GRAPH_RESOURCE_IMAGE,
+    GRAPH_RESOURCE_BUFFER,
 } GraphResourceType;
 
 typedef struct GraphResource
@@ -317,6 +318,11 @@ typedef struct GraphResource
         {
             MtImageCreateInfo image_info;
             MtImage *image;
+        };
+        struct
+        {
+            MtBufferCreateInfo buffer_info;
+            MtBuffer *buffer;
         };
     };
 } GraphResource;
@@ -341,6 +347,8 @@ typedef struct MtRenderGraph
     MtSwapchain *swapchain;
     VkSemaphore image_available_semaphores[FRAMES_IN_FLIGHT];
     void *user_data;
+
+    MtRenderGraphBuilder graph_builder;
 
     uint32_t current_frame;
     uint32_t frame_count;
@@ -370,9 +378,11 @@ typedef struct MtRenderGraphPass
     uint32_t depth_output;
     /*array*/ uint32_t *color_outputs;
     /*array*/ uint32_t *image_transfer_outputs;
+    /*array*/ uint32_t *storage_outputs;
 
     /*array*/ uint32_t *image_transfer_inputs;
     /*array*/ uint32_t *image_sampled_inputs;
+    /*array*/ uint32_t *storage_inputs;
 
     MtRenderPass render_pass;
     /*array*/ VkFramebuffer *framebuffers;

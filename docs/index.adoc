@@ -10,13 +10,15 @@
 
 * Graphics
 ** Render graph
-** Deferred shading
-*** Render light volumes
+** Forward+
+*** https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf
+*** https://www.dice.se/wp-content/uploads/2014/12/GDC11_DX11inBF3_Public.pdf
 ** Shadow mapping
 ** Bloom
 ** Gizmos
 ** Procedural sky
 *** http://codeflow.org/entries/2011/apr/13/advanced-webgl-part-2-sky-rendering/
+** Voxel cone tracing GI
 ** Revert swapchain format to UNORM instead of SRGB (maybe)
 
 * Engine
@@ -29,6 +31,9 @@
 
 === Restructuring
 * Statically link shaderc on windows
+
+=== Performance
+* Batch memory barriers in render graph
 
 === Bug fixes
 * UI font atlas size needs to be correct

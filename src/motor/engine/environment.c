@@ -82,14 +82,29 @@ static const Mat4 direction_matrices[6] = {
 typedef struct BRDFGraphData
 {
     MtPipeline *pipeline;
+    uint32_t dim;
 } BRDFGraphData;
 
-static void brdf_pass_callback(MtCmdBuffer *cb, void *user_data)
+static void brdf_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
 {
     BRDFGraphData *data = user_data;
 
     mt_render.cmd_bind_pipeline(cb, data->pipeline);
     mt_render.cmd_draw(cb, 3, 1, 0, 0);
+}
+
+static void brdf_graph_builder(MtRenderGraph *graph, void *user_data)
+{
+    BRDFGraphData *data = user_data;
+
+    MtImageCreateInfo brdf_info = {
+        .format = MT_FORMAT_RG16_SFLOAT, .width = data->dim, .height = data->dim};
+    mt_render.graph_add_image(graph, "brdf", &brdf_info);
+
+    MtRenderGraphPass *pass =
+        mt_render.graph_add_pass(graph, "brdf_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_add_color_output(pass, "brdf");
+    mt_render.pass_set_builder(pass, brdf_pass_builder);
 }
 
 static MtImage *generate_brdf_lut(MtEngine *engine)
@@ -118,17 +133,10 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     // Create image
     const uint32_t dim = 512;
 
-    BRDFGraphData data = {.pipeline = pipeline};
+    BRDFGraphData data = {.pipeline = pipeline, .dim = dim};
 
     MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, &data);
-
-    MtImageCreateInfo brdf_info = {.format = MT_FORMAT_RG16_SFLOAT, .width = dim, .height = dim};
-    mt_render.graph_add_image(graph, "brdf", &brdf_info);
-
-    MtRenderGraphPass *pass =
-        mt_render.graph_add_pass(graph, "brdf_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_add_color_output(pass, "brdf");
-    mt_render.pass_set_builder(pass, brdf_pass_callback);
+    mt_render.graph_set_builder(graph, brdf_graph_builder);
     mt_render.graph_bake(graph);
 
     mt_render.graph_execute(graph);
@@ -146,7 +154,6 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
 // Cubemap generation {{{
 typedef struct CubemapGraphData
 {
-    MtRenderGraph *graph;
     MtEnvironment *env;
     MtPipeline *pipeline;
     CubemapType type;
@@ -154,9 +161,10 @@ typedef struct CubemapGraphData
     uint32_t mip_count;
     uint32_t level;
     uint32_t layer;
+    MtFormat format;
 } CubemapGraphData;
 
-static void layer_pass_callback(MtCmdBuffer *cb, void *user_data)
+static void layer_pass_callback(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
 {
     CubemapGraphData *data = user_data;
 
@@ -197,12 +205,12 @@ static void layer_pass_callback(MtCmdBuffer *cb, void *user_data)
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
 }
 
-static void transfer_pass_callback(MtCmdBuffer *cb, void *user_data)
+static void transfer_pass_callback(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
 {
     CubemapGraphData *data = user_data;
 
-    MtImage *offscreen = mt_render.graph_get_image(data->graph, "offscreen");
-    MtImage *cubemap   = mt_render.graph_get_image(data->graph, "cubemap");
+    MtImage *offscreen = mt_render.graph_get_image(graph, "offscreen");
+    MtImage *cubemap   = mt_render.graph_get_image(graph, "cubemap");
 
     float mip_dim = (float)data->dim * powf(0.5f, (float)data->level);
 
@@ -223,6 +231,35 @@ static void transfer_pass_callback(MtCmdBuffer *cb, void *user_data)
             .height = (uint32_t)mip_dim,
             .depth  = 1,
         });
+}
+
+static void cubemap_graph_builder(MtRenderGraph *graph, void *user_data)
+{
+    CubemapGraphData *data = user_data;
+
+    MtImageCreateInfo color_info = {
+        .width = data->dim, .height = data->dim, .format = data->format};
+    MtImageCreateInfo cube_info = {
+        .width       = data->dim,
+        .height      = data->dim,
+        .format      = data->format,
+        .layer_count = 6,
+        .mip_count   = data->mip_count,
+    };
+
+    mt_render.graph_add_image(graph, "offscreen", &color_info);
+    mt_render.graph_add_image(graph, "cubemap", &cube_info);
+
+    MtRenderGraphPass *layer_pass =
+        mt_render.graph_add_pass(graph, "layer_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_add_color_output(layer_pass, "offscreen");
+    mt_render.pass_set_builder(layer_pass, layer_pass_callback);
+
+    MtRenderGraphPass *transfer_pass =
+        mt_render.graph_add_pass(graph, "transfer_pass", MT_PIPELINE_STAGE_TRANSFER);
+    mt_render.pass_add_image_transfer_input(transfer_pass, "offscreen");
+    mt_render.pass_add_color_output(transfer_pass, "cubemap");
+    mt_render.pass_set_builder(transfer_pass, transfer_pass_callback);
 }
 
 static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
@@ -283,34 +320,11 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
         .type      = type,
         .dim       = dim,
         .mip_count = mip_count,
+        .format    = format,
     };
 
     MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, &data);
-    data.graph           = graph;
-
-    MtImageCreateInfo color_info = {.width = dim, .height = dim, .format = format};
-    MtImageCreateInfo cube_info  = {
-        .width       = dim,
-        .height      = dim,
-        .format      = format,
-        .layer_count = 6,
-        .mip_count   = mip_count,
-    };
-
-    mt_render.graph_add_image(graph, "offscreen", &color_info);
-    mt_render.graph_add_image(graph, "cubemap", &cube_info);
-
-    MtRenderGraphPass *layer_pass =
-        mt_render.graph_add_pass(graph, "layer_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_add_color_output(layer_pass, "offscreen");
-    mt_render.pass_set_builder(layer_pass, layer_pass_callback);
-
-    MtRenderGraphPass *transfer_pass =
-        mt_render.graph_add_pass(graph, "transfer_pass", MT_PIPELINE_STAGE_TRANSFER);
-    mt_render.pass_add_image_transfer_input(transfer_pass, "offscreen");
-    mt_render.pass_add_color_output(transfer_pass, "cubemap");
-    mt_render.pass_set_builder(transfer_pass, transfer_pass_callback);
-
+    mt_render.graph_set_builder(graph, cubemap_graph_builder);
     mt_render.graph_bake(graph);
 
     for (uint32_t m = 0; m < mip_count; m++)

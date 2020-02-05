@@ -30,7 +30,8 @@ typedef struct Game
     MtImageAsset *image;
     MtPipelineAsset *pbr_pipeline;
     MtPipelineAsset *fullscreen_pipeline;
-    MtPipelineAsset *depth_pipeline;
+    MtPipelineAsset *depth_prepass_pipeline;
+    MtPipelineAsset *light_cull_pipeline;
 
     MtPerspectiveCamera cam;
     MtEnvironment env;
@@ -58,8 +59,9 @@ static void game_init(Game *g)
     mt_asset_manager_queue_load(
         am, "../assets/shaders/fullscreen.glsl", (MtAsset **)&g->fullscreen_pipeline);
     mt_asset_manager_queue_load(
-        am, "../assets/shaders/depth_prepass.glsl", (MtAsset **)&g->depth_pipeline);
-    mt_asset_manager_queue_load(am, "../assets/shaders/test_comp.glsl", NULL);
+        am, "../assets/shaders/depth_prepass.glsl", (MtAsset **)&g->depth_prepass_pipeline);
+    mt_asset_manager_queue_load(
+        am, "../assets/shaders/light_cull.glsl", (MtAsset **)&g->light_cull_pipeline);
 
     mt_asset_manager_queue_load(am, "../assets/helmet_ktx.glb", NULL);
     mt_asset_manager_queue_load(am, "../assets/boombox_ktx.glb", NULL);
@@ -189,6 +191,26 @@ static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
         }
     }
 }
+
+static void model_system_no_material(MtCmdBuffer *cb, MtEntityArchetype *archetype)
+{
+    for (MtEntityBlock *block = archetype->blocks;
+         block != (archetype->blocks + mt_array_size(archetype->blocks));
+         ++block)
+    {
+        for (uint32_t i = 0; i < block->entity_count; ++i)
+        {
+            MtModelArchetype *b = block->data;
+
+            Mat4 transform = mat4_identity();
+            transform      = mat4_scale(transform, b->scale[i]);
+            transform      = mat4_mul(quat_to_mat4(b->rot[i]), transform);
+            transform      = mat4_translate(transform, b->pos[i]);
+
+            mt_gltf_asset_draw(b->model[i], cb, &transform, 1, UINT32_MAX);
+        }
+    }
+}
 // }}}
 
 // UI {{{
@@ -222,10 +244,45 @@ static void draw_ui(Game *g)
 }
 // }}}
 
-static void color_pass_builder(MtCmdBuffer *cb, void *user_data)
+enum
+{
+    TILE_SIZE = 16
+};
+
+static void depth_pre_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
+{
+    Game *g             = user_data;
+    MtEntityManager *em = &g->engine.entity_manager;
+
+    // Draw models
+    mt_render.cmd_bind_pipeline(cb, g->depth_prepass_pipeline->pipeline);
+    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+    model_system_no_material(cb, &em->archetypes[g->model_archetype]);
+}
+
+static void light_cull_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
 {
     Game *g = user_data;
 
+    MtImage *depth_image = mt_render.graph_get_image(graph, "depth");
+
+    uint32_t width, height;
+    mt_window.get_size(g->engine.window, &width, &height);
+    uint32_t groups_x = (width / TILE_SIZE);
+    uint32_t groups_y = (height / TILE_SIZE);
+
+    MtBuffer *light_indices_buffer = mt_render.graph_get_buffer(graph, "visible_lights_buffer");
+
+    mt_render.cmd_bind_pipeline(cb, g->light_cull_pipeline->pipeline);
+    mt_render.cmd_bind_image(cb, depth_image, g->engine.default_sampler, 0, 0);
+    mt_render.cmd_bind_uniform(cb, &g->env.uniform, sizeof(g->env.uniform), 0, 1);
+    mt_render.cmd_bind_storage_buffer(cb, light_indices_buffer, 0, 2);
+    mt_render.cmd_dispatch(cb, groups_x, groups_y, 1);
+}
+
+static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
+{
+    Game *g             = user_data;
     MtEntityManager *em = &g->engine.entity_manager;
 
     // Draw skybox
@@ -237,20 +294,10 @@ static void color_pass_builder(MtCmdBuffer *cb, void *user_data)
     mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
     mt_environment_bind(&g->env, cb, 3);
     model_system(cb, &em->archetypes[g->model_archetype]);
-}
-
-static void backbuffer_pass_builder(MtCmdBuffer *cb, void *user_data)
-{
-    Game *g = user_data;
-
-    MtUIRenderer *ui = g->engine.ui;
-
-    mt_render.cmd_bind_pipeline(cb, g->fullscreen_pipeline->pipeline);
-    mt_render.cmd_bind_image(
-        cb, mt_render.graph_get_image(g->graph, "color"), g->engine.default_sampler, 0, 0);
-    mt_render.cmd_draw(cb, 3, 1, 0, 0);
 
     // Begin UI
+    MtUIRenderer *ui = g->engine.ui;
+
     MtViewport viewport;
     mt_render.cmd_get_viewport(cb, &viewport);
     mt_ui_begin(ui, &viewport);
@@ -260,6 +307,48 @@ static void backbuffer_pass_builder(MtCmdBuffer *cb, void *user_data)
 
     // Draw UI
     mt_ui_draw(ui, cb);
+}
+
+static void graph_builder(MtRenderGraph *graph, void *user_data)
+{
+    Game *g = user_data;
+
+    uint32_t width, height;
+    mt_window.get_size(g->engine.window, &width, &height);
+    uint32_t groups_x = (width / TILE_SIZE);
+    uint32_t groups_y = (height / TILE_SIZE);
+
+    MtImageCreateInfo depth_info = {
+        .width  = width,
+        .height = height,
+        .format = MT_FORMAT_D32_SFLOAT,
+    };
+
+    MtBufferCreateInfo visible_lights_info = {
+        .usage  = MT_BUFFER_USAGE_STORAGE,
+        .memory = MT_BUFFER_MEMORY_DEVICE,
+        .size   = sizeof(uint32_t) * 1024 * groups_x * groups_y,
+    };
+
+    mt_render.graph_add_image(graph, "depth", &depth_info);
+    mt_render.graph_add_buffer(graph, "visible_lights_buffer", &visible_lights_info);
+
+    MtRenderGraphPass *depth_pre_pass =
+        mt_render.graph_add_pass(graph, "depth_pre_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_set_depth_stencil_output(depth_pre_pass, "depth");
+    mt_render.pass_set_builder(depth_pre_pass, depth_pre_pass_builder);
+
+    MtRenderGraphPass *light_cull_pass =
+        mt_render.graph_add_pass(graph, "light_cull_pass", MT_PIPELINE_STAGE_COMPUTE);
+    mt_render.pass_add_image_sampled_input(light_cull_pass, "depth");
+    mt_render.pass_add_storage_output(light_cull_pass, "visible_lights_buffer");
+    mt_render.pass_set_builder(light_cull_pass, light_cull_pass_builder);
+
+    MtRenderGraphPass *color_pass =
+        mt_render.graph_add_pass(graph, "color_pass", MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT);
+    mt_render.pass_add_storage_input(color_pass, "visible_lights_buffer");
+    mt_render.pass_set_depth_stencil_output(color_pass, "depth");
+    mt_render.pass_set_builder(color_pass, color_pass_builder);
 }
 
 int main(int argc, char *argv[])
@@ -272,24 +361,7 @@ int main(int argc, char *argv[])
     MtEntityManager *em    = &game.engine.entity_manager;
     MtUIRenderer *ui       = game.engine.ui;
 
-    MtImageCreateInfo color_info = {.format = MT_FORMAT_BGRA8_SRGB};
-    MtImageCreateInfo depth_info = {.format = MT_FORMAT_D32_SFLOAT};
-
-    mt_render.graph_add_image(game.graph, "color", &color_info);
-    mt_render.graph_add_image(game.graph, "depth", &depth_info);
-
-    MtRenderGraphPass *color_pass =
-        mt_render.graph_add_pass(game.graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_add_color_output(color_pass, "color");
-    mt_render.pass_set_depth_stencil_output(color_pass, "depth");
-    mt_render.pass_set_builder(color_pass, color_pass_builder);
-
-    MtRenderGraphPass *backbuffer_pass = mt_render.graph_add_pass(
-        game.graph, "backbuffer_pass", MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT);
-    mt_render.pass_add_image_sampled_input(backbuffer_pass, "color");
-    mt_render.pass_add_image_sampled_input(backbuffer_pass, "depth");
-    mt_render.pass_set_builder(backbuffer_pass, backbuffer_pass_builder);
-
+    mt_render.graph_set_builder(game.graph, graph_builder);
     mt_render.graph_bake(game.graph);
 
     uint32_t width, height;

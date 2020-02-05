@@ -198,6 +198,12 @@ static void cmd_copy_image_to_image(
         &region);
 }
 
+static void
+cmd_fill_buffer(MtCmdBuffer *cb, MtBuffer *buffer, size_t offset, size_t range, uint32_t data)
+{
+    vkCmdFillBuffer(cb->cmd_buffer, buffer->buffer, offset, range, data);
+}
+
 static void cmd_set_viewport(MtCmdBuffer *cb, MtViewport *viewport)
 {
     cb->current_viewport = *viewport;
@@ -345,6 +351,17 @@ cmd_bind_uniform(MtCmdBuffer *cb, const void *data, size_t size, uint32_t set, u
 }
 
 static void
+cmd_bind_storage_buffer(MtCmdBuffer *cb, MtBuffer *buffer, uint32_t set, uint32_t binding)
+{
+    assert(MT_LENGTH(cb->bound_descriptors) > set);
+    assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
+
+    cb->bound_descriptors[set][binding].buffer.buffer = buffer->buffer;
+    cb->bound_descriptors[set][binding].buffer.offset = 0;
+    cb->bound_descriptors[set][binding].buffer.range  = VK_WHOLE_SIZE;
+}
+
+static void
 cmd_bind_image(MtCmdBuffer *cb, MtImage *image, MtSampler *sampler, uint32_t set, uint32_t binding)
 {
     assert(MT_LENGTH(cb->bound_descriptors) > set);
@@ -436,6 +453,36 @@ static void cmd_dispatch(
 {
     bind_descriptor_sets(cb);
     vkCmdDispatch(cb->cmd_buffer, group_count_x, group_count_y, group_count_z);
+}
+
+static void cmd_buffer_barrier(
+    MtCmdBuffer *cb, MtBuffer *buffer, VkAccessFlags src_access, VkAccessFlags dst_access)
+{
+    VkBufferMemoryBarrier buffer_memory_barrier = {
+        .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .srcAccessMask       = src_access,
+        .dstAccessMask       = dst_access,
+        .buffer              = buffer->buffer,
+        .offset              = 0,
+        .size                = VK_WHOLE_SIZE,
+    };
+
+    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+    vkCmdPipelineBarrier(
+        cb->cmd_buffer,
+        src_stage_mask,
+        dst_stage_mask,
+        0,
+        0,
+        NULL,
+        1,
+        &buffer_memory_barrier,
+        0,
+        NULL);
 }
 
 static void cmd_image_barrier(MtCmdBuffer *cb, MtImage *image, VkImageLayout new_layout)

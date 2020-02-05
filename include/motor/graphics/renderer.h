@@ -17,7 +17,8 @@ typedef struct MtSwapchain MtSwapchain;
 typedef struct MtRenderGraph MtRenderGraph;
 typedef struct MtRenderGraphPass MtRenderGraphPass;
 
-typedef void (*MtRenderGraphPassBuilder)(MtCmdBuffer *cb, void *user_data);
+typedef void (*MtRenderGraphBuilder)(MtRenderGraph *, void *user_data);
+typedef void (*MtRenderGraphPassBuilder)(MtRenderGraph *, MtCmdBuffer *, void *user_data);
 
 typedef union MtClearColorValue {
     float float32[4];
@@ -299,12 +300,15 @@ typedef struct MtRenderer
     void (*cmd_copy_image_to_image)(
         MtCmdBuffer *, const MtImageCopyView *src, const MtImageCopyView *dst, MtExtent3D extent);
 
+    void (*cmd_fill_buffer)(MtCmdBuffer *, MtBuffer *, size_t offset, size_t range, uint32_t data);
+
     void (*cmd_set_viewport)(MtCmdBuffer *, MtViewport *);
     void (*cmd_set_scissor)(MtCmdBuffer *, int32_t x, int32_t y, uint32_t w, uint32_t h);
 
     void (*cmd_bind_uniform)(
         MtCmdBuffer *, const void *data, size_t size, uint32_t set, uint32_t binding);
     void (*cmd_bind_image)(MtCmdBuffer *, MtImage *, MtSampler *, uint32_t set, uint32_t binding);
+    void (*cmd_bind_storage_buffer)(MtCmdBuffer *, MtBuffer *, uint32_t set, uint32_t binding);
 
     void (*cmd_bind_pipeline)(MtCmdBuffer *, MtPipeline *pipeline);
 
@@ -334,12 +338,18 @@ typedef struct MtRenderer
 
     MtRenderGraph *(*create_graph)(MtDevice *, MtSwapchain *, void *user_data);
     void (*destroy_graph)(MtRenderGraph *);
+
+    void (*graph_set_builder)(MtRenderGraph *, MtRenderGraphBuilder);
+    void (*graph_add_image)(MtRenderGraph *, const char *name, MtImageCreateInfo *info);
+    void (*graph_add_buffer)(MtRenderGraph *, const char *name, MtBufferCreateInfo *info);
+
     void (*graph_bake)(MtRenderGraph *);
     void (*graph_execute)(MtRenderGraph *);
     void (*graph_wait_all)(MtRenderGraph *);
+
     MtImage *(*graph_get_image)(MtRenderGraph *, const char *name);
     MtImage *(*graph_consume_image)(MtRenderGraph *, const char *name);
-    void (*graph_add_image)(MtRenderGraph *, const char *name, MtImageCreateInfo *info);
+    MtBuffer *(*graph_get_buffer)(MtRenderGraph *, const char *name);
 
     MtRenderGraphPass *(*graph_add_pass)(MtRenderGraph *, const char *name, MtPipelineStage stage);
     void (*pass_set_builder)(MtRenderGraphPass *, MtRenderGraphPassBuilder builder);
@@ -349,6 +359,8 @@ typedef struct MtRenderer
     void (*pass_add_image_sampled_input)(MtRenderGraphPass *, const char *name);
     void (*pass_add_image_transfer_input)(MtRenderGraphPass *, const char *name);
     void (*pass_add_image_transfer_output)(MtRenderGraphPass *, const char *name);
+    void (*pass_add_storage_input)(MtRenderGraphPass *, const char *name);
+    void (*pass_add_storage_output)(MtRenderGraphPass *, const char *name);
 } MtRenderer;
 
 extern MtRenderer mt_render;

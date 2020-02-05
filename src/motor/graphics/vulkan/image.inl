@@ -39,6 +39,8 @@ static MtImage *create_image(MtDevice *dev, MtImageCreateInfo *ci)
     image->layer_count = ci->layer_count;
     image->format      = format_to_vulkan(ci->format);
 
+    assert(image->width > 0);
+    assert(image->height > 0);
     assert(image->format != VK_FORMAT_UNDEFINED);
 
     switch (ci->sample_count)

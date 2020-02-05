@@ -858,13 +858,16 @@ static MtRenderer g_vulkan_renderer = {
     .cmd_copy_image_to_buffer  = cmd_copy_image_to_buffer,
     .cmd_copy_image_to_image   = cmd_copy_image_to_image,
 
+    .cmd_fill_buffer = cmd_fill_buffer,
+
     .cmd_set_viewport = cmd_set_viewport,
     .cmd_set_scissor  = cmd_set_scissor,
 
     .cmd_bind_pipeline = cmd_bind_pipeline,
 
-    .cmd_bind_uniform = cmd_bind_uniform,
-    .cmd_bind_image   = cmd_bind_image,
+    .cmd_bind_uniform        = cmd_bind_uniform,
+    .cmd_bind_image          = cmd_bind_image,
+    .cmd_bind_storage_buffer = cmd_bind_storage_buffer,
 
     .cmd_bind_vertex_buffer = cmd_bind_vertex_buffer,
     .cmd_bind_index_buffer  = cmd_bind_index_buffer,
@@ -877,14 +880,20 @@ static MtRenderer g_vulkan_renderer = {
 
     .cmd_dispatch = cmd_dispatch,
 
-    .create_graph        = create_graph,
-    .destroy_graph       = destroy_graph,
-    .graph_bake          = graph_bake,
-    .graph_execute       = graph_execute,
-    .graph_wait_all      = graph_wait_all,
+    .create_graph  = create_graph,
+    .destroy_graph = destroy_graph,
+
+    .graph_bake     = graph_bake,
+    .graph_execute  = graph_execute,
+    .graph_wait_all = graph_wait_all,
+
+    .graph_set_builder = graph_set_builder,
+    .graph_add_image   = graph_add_image,
+    .graph_add_buffer  = graph_add_buffer,
+
     .graph_get_image     = graph_get_image,
     .graph_consume_image = graph_consume_image,
-    .graph_add_image     = graph_add_image,
+    .graph_get_buffer    = graph_get_buffer,
 
     .graph_add_pass   = graph_add_pass,
     .pass_set_builder = pass_set_builder,
@@ -894,6 +903,8 @@ static MtRenderer g_vulkan_renderer = {
     .pass_add_image_sampled_input   = pass_add_image_sampled_input,
     .pass_add_image_transfer_input  = pass_add_image_transfer_input,
     .pass_add_image_transfer_output = pass_add_image_transfer_output,
+    .pass_add_storage_input         = pass_add_storage_input,
+    .pass_add_storage_output        = pass_add_storage_output,
 };
 
 MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc)
