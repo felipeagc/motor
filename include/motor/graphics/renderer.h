@@ -252,7 +252,6 @@ typedef struct MtRenderer
     void (*destroy_swapchain)(MtSwapchain *);
 
     float (*swapchain_get_delta_time)(MtSwapchain *);
-    MtRenderPass *(*swapchain_get_render_pass)(MtSwapchain *);
 
     void (*set_thread_id)(uint32_t thread_id);
     uint32_t (*get_thread_id)(void);

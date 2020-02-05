@@ -11,17 +11,12 @@ static inline bool find_in_array(uint32_t *array, uint32_t to_find)
     return false;
 }
 
-static void add_group(
-    MtRenderGraph *graph,
-    MtQueueType queue_type,
-    VkPipelineStageFlags stage,
-    uint32_t *pass_indices,
-    bool last)
+static void
+add_group(MtRenderGraph *graph, MtQueueType queue_type, uint32_t *pass_indices, bool last)
 {
     ExecutionGroup group = {0};
     group.pass_indices   = pass_indices;
     group.queue_type     = queue_type;
-    group.stage          = stage;
 
     for (uint32_t i = 0; i < graph->frame_count; ++i)
     {
@@ -61,11 +56,18 @@ static void add_group(
         ExecutionGroup *prev_group = mt_array_last(graph->execution_groups);
         for (uint32_t i = 0; i < graph->frame_count; ++i)
         {
+            VkPipelineStageFlags wait_stages = 0;
+            for (uint32_t *j = prev_group->pass_indices;
+                 j != prev_group->pass_indices + mt_array_size(prev_group->pass_indices);
+                 ++j)
+            {
+                wait_stages |= graph->passes[*j].stage;
+            }
             mt_array_push(
                 graph->dev->alloc,
                 group.frames[i].wait_semaphores,
                 prev_group->frames[i].execution_finished_semaphore);
-            mt_array_push(graph->dev->alloc, group.frames[i].wait_stages, prev_group->stage);
+            mt_array_push(graph->dev->alloc, group.frames[i].wait_stages, wait_stages);
         }
     }
 
@@ -199,7 +201,7 @@ static void graph_bake(MtRenderGraph *graph)
         if (prev_pass->stage != pass->stage)
         {
             // Consolidate group
-            add_group(graph, prev_pass->queue_type, prev_pass->stage, pass_indices, false);
+            add_group(graph, prev_pass->queue_type, pass_indices, false);
 
             pass_indices = NULL;
         }
@@ -217,7 +219,7 @@ static void graph_bake(MtRenderGraph *graph)
         last_pass->present = true;
     }
 
-    add_group(graph, last_pass->queue_type, last_pass->stage, pass_indices, true);
+    add_group(graph, last_pass->queue_type, pass_indices, true);
 
     //
     // Create attachments
@@ -244,7 +246,8 @@ static void graph_bake(MtRenderGraph *graph)
         }
     }
 
-    mt_log("Baked render graph with %lu execution groups", mt_array_size(graph->execution_groups));
+    mt_log_debug(
+        "Baked render graph with %lu execution groups", mt_array_size(graph->execution_groups));
 }
 
 static void graph_unbake(MtRenderGraph *graph)

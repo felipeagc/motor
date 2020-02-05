@@ -313,7 +313,6 @@ typedef struct GraphResource
 typedef struct ExecutionGroup
 {
     MtQueueType queue_type;
-    VkPipelineStageFlags stage;
     struct
     {
         MtCmdBuffer *cmd_buffer;
