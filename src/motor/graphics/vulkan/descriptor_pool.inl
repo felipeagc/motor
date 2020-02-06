@@ -53,7 +53,7 @@ descriptor_pool_init(MtDevice *dev, DescriptorPool *p, PipelineLayout *layout, u
     {
         VkDescriptorSetLayoutCreateInfo set_layout_create_info = {
             .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .bindingCount = mt_array_size(layout->sets[set_index].bindings),
+            .bindingCount = layout->sets[set_index].binding_count,
             .pBindings    = layout->sets[set_index].bindings,
         };
 
@@ -65,9 +65,10 @@ descriptor_pool_init(MtDevice *dev, DescriptorPool *p, PipelineLayout *layout, u
     {
         SetInfo *set                             = &layout->sets[set_index];
         VkDescriptorUpdateTemplateEntry *entries = NULL;
-        for (uint32_t b = 0; b < mt_array_size(set->bindings); b++)
+        for (uint32_t b = 0; b < set->binding_count; b++)
         {
             VkDescriptorSetLayoutBinding *binding = &set->bindings[b];
+            assert(b == binding->binding);
 
             VkDescriptorUpdateTemplateEntry entry = {
                 .dstBinding      = binding->binding,
@@ -98,13 +99,15 @@ descriptor_pool_init(MtDevice *dev, DescriptorPool *p, PipelineLayout *layout, u
 
     // Setup up pool sizes
     {
-        VkDescriptorSetLayoutBinding *binding;
-        mt_array_foreach(binding, layout->sets[set_index].bindings)
+        for (VkDescriptorSetLayoutBinding *binding = layout->sets[set_index].bindings;
+             binding != layout->sets[set_index].bindings + layout->sets[set_index].binding_count;
+             ++binding)
         {
             VkDescriptorPoolSize *found_pool_size = NULL;
 
-            VkDescriptorPoolSize *pool_size = NULL;
-            mt_array_foreach(pool_size, p->pool_sizes)
+            for (VkDescriptorPoolSize *pool_size = p->pool_sizes;
+                 pool_size != p->pool_sizes + mt_array_size(p->pool_sizes);
+                 ++pool_size)
             {
                 if (pool_size->type == binding->descriptorType)
                 {

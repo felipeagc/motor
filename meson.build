@@ -50,11 +50,10 @@ motor_graphics_sources = [
   'src/motor/graphics/vulkan/vulkan_device.c',
 
   'src/motor/graphics/vulkan/volk.c',
-  'src/motor/graphics/vulkan/spirv_reflect.c',
   'src/motor/graphics/vulkan/vk_mem_alloc.cpp',
 ]
 
-motor_graphics_deps = [motor_base_dep, glfw_dep]
+motor_graphics_deps = [motor_base_dep, glfw_dep, spirv_cross_dep]
 
 motor_graphics_lib = library(
   'motor_graphics',

@@ -85,14 +85,16 @@ static MtPipeline *create_compute_pipeline(MtEngine *engine, const char *path, M
     options = shaderc_compile_options_initialize();
     shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
     shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
+
     shaderc_compile_options_set_target_env(
         options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
+
     shaderc_compile_options_set_include_callbacks(
         options, include_resolver, include_result_releaser, engine);
 
     if (comp_entry->value.type != MT_CONFIG_VALUE_STRING)
     {
-        mt_log_error("Pipeline asset requires \"comp\"  to be a string");
+        mt_log_error("Pipeline asset requires \"compute\"  to be a string");
         goto failed;
     }
 

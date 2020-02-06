@@ -1,11 +1,11 @@
 #include "spirv.h"
-#include "spirv_reflect.h"
+#include <spirv_cross_c.h>
 
 typedef struct CombinedSetLayouts
 {
-    SetInfo *sets;
+    SetInfo sets[MAX_DESCRIPTOR_SETS];
+    uint32_t set_count;
     uint64_t hash;
-    VkPushConstantRange *push_constants;
 } CombinedSetLayouts;
 
 static void
@@ -13,115 +13,42 @@ combined_set_layouts_init(CombinedSetLayouts *c, MtPipeline *pipeline, MtAllocat
 {
     memset(c, 0, sizeof(*c));
 
-    uint32_t pc_count = 0;
-
-    Shader *shader;
-    mt_array_foreach(shader, pipeline->shaders)
+    for (Shader *shader = pipeline->shaders;
+         shader != pipeline->shaders + mt_array_size(pipeline->shaders);
+         ++shader)
     {
-        pc_count += mt_array_size(shader->push_constants);
-    }
-
-    if (pc_count > 0)
-    {
-        mt_array_add_zeroed(alloc, c->push_constants, pc_count);
-
-        uint32_t pc_index = 0;
-        Shader *shader;
-        mt_array_foreach(shader, pipeline->shaders)
+        c->set_count = MT_MAX(c->set_count, shader->set_count);
+        for (uint32_t i = 0; i < shader->set_count; ++i)
         {
-            VkPushConstantRange *pc;
-            mt_array_foreach(pc, shader->push_constants)
+            SetInfo *shader_set = &shader->sets[i];
+
+            SetInfo *set       = &c->sets[i];
+            set->binding_count = MT_MAX(set->binding_count, shader_set->binding_count);
+            for (uint32_t b = 0; b < shader_set->binding_count; ++b)
             {
-                c->push_constants[pc_index++] = *pc;
-            }
-        }
-
-        assert(pc_index == mt_array_size(c->push_constants));
-    }
-
-    uint32_t set_count = 0;
-    mt_array_foreach(shader, pipeline->shaders)
-    {
-        SetInfo *set_info;
-        mt_array_foreach(set_info, shader->sets)
-        {
-            set_count = (set_count > set_info->index + 1) ? set_count : set_info->index + 1;
-        }
-    }
-
-    if (set_count > 0)
-    {
-        mt_array_add_zeroed(alloc, c->sets, set_count);
-
-        Shader *shader;
-        mt_array_foreach(shader, pipeline->shaders)
-        {
-            SetInfo *shader_set;
-            mt_array_foreach(shader_set, shader->sets)
-            {
-                uint32_t i = shader_set->index;
-
-                VkDescriptorSetLayoutBinding *sbinding;
-                mt_array_foreach(sbinding, shader_set->bindings)
+                if (shader_set->bindings[b].descriptorCount == 0)
                 {
-                    SetInfo *set = &c->sets[i];
-
-                    VkDescriptorSetLayoutBinding *binding = NULL;
-
-                    VkDescriptorSetLayoutBinding *b;
-                    mt_array_foreach(b, c->sets[i].bindings)
-                    {
-                        if (b->binding == sbinding->binding)
-                        {
-                            binding = b;
-                            break;
-                        }
-                    }
-
-                    if (!binding)
-                    {
-                        mt_array_push(alloc, set->bindings, (VkDescriptorSetLayoutBinding){0});
-                        binding          = mt_array_last(set->bindings);
-                        binding->binding = sbinding->binding;
-                    }
-
-                    binding->stageFlags |= sbinding->stageFlags;
-                    binding->descriptorType  = sbinding->descriptorType;
-                    binding->descriptorCount = sbinding->descriptorCount;
+                    continue;
                 }
+                assert(shader_set->bindings[b].descriptorCount == 1);
+
+                set->bindings[b].binding = shader_set->bindings[b].binding;
+                set->bindings[b].stageFlags |= shader_set->bindings[b].stageFlags;
+                set->bindings[b].descriptorType  = shader_set->bindings[b].descriptorType;
+                set->bindings[b].descriptorCount = shader_set->bindings[b].descriptorCount;
             }
         }
     }
 
     XXH64_state_t state = {0};
 
-    SetInfo *set_info;
-    mt_array_foreach(set_info, c->sets)
+    for (SetInfo *set_info = c->sets; set_info != c->sets + c->set_count; ++set_info)
     {
-        VkDescriptorSetLayoutBinding *binding;
-        mt_array_foreach(binding, set_info->bindings)
-        {
-            XXH64_update(&state, binding, sizeof(*binding));
-        }
-    }
-
-    VkPushConstantRange *pc;
-    mt_array_foreach(pc, c->push_constants)
-    {
-        XXH64_update(&state, pc, sizeof(*pc));
+        XXH64_update(
+            &state, set_info->bindings, set_info->binding_count * sizeof(*set_info->bindings));
     }
 
     c->hash = (uint64_t)XXH64_digest(&state);
-}
-
-static void combined_set_layouts_destroy(CombinedSetLayouts *c, MtAllocator *alloc)
-{
-    for (SetInfo *info = c->sets; info != c->sets + mt_array_size(c->sets); info++)
-    {
-        mt_array_free(alloc, info->bindings);
-    }
-    mt_array_free(alloc, c->sets);
-    mt_array_free(alloc, c->push_constants);
 }
 
 static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t code_size)
@@ -135,130 +62,145 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
     };
     VK_CHECK(vkCreateShaderModule(dev->device, &create_info, NULL, &shader->mod));
 
-    SpvReflectShaderModule reflect_mod;
-    SpvReflectResult result =
-        spvReflectCreateShaderModule(code_size, (uint32_t *)code, &reflect_mod);
-    assert(result == SPV_REFLECT_RESULT_SUCCESS);
+    spvc_context context     = NULL;
+    spvc_parsed_ir ir        = NULL;
+    spvc_compiler compiler   = NULL;
+    spvc_resources resources = NULL;
 
-    shader->stage = (VkShaderStageFlagBits)reflect_mod.shader_stage;
+    spvc_result result;
 
-    assert(reflect_mod.entry_point_count == 1);
+    result = spvc_context_create(&context);
+    assert(result == SPVC_SUCCESS);
+
+    result = spvc_context_parse_spirv(context, (uint32_t *)code, code_size / sizeof(uint32_t), &ir);
+    assert(result == SPVC_SUCCESS);
+
+    result = spvc_context_create_compiler(
+        context, SPVC_BACKEND_NONE, ir, SPVC_CAPTURE_MODE_COPY, &compiler);
+    assert(result == SPVC_SUCCESS);
+
+    result = spvc_compiler_create_shader_resources(compiler, &resources);
+    assert(result == SPVC_SUCCESS);
+
+    const spvc_reflected_resource *input_list = NULL;
+    size_t input_count                        = 0;
+    result                                    = spvc_resources_get_resource_list_for_type(
+        resources, SPVC_RESOURCE_TYPE_STAGE_INPUT, &input_list, &input_count);
+    assert(result == SPVC_SUCCESS);
+
+    SpvExecutionModel execution_model = spvc_compiler_get_execution_model(compiler);
+    switch (execution_model)
+    {
+        case SpvExecutionModelVertex: shader->stage = VK_SHADER_STAGE_VERTEX_BIT; break;
+        case SpvExecutionModelFragment: shader->stage = VK_SHADER_STAGE_FRAGMENT_BIT; break;
+        case SpvExecutionModelGLCompute: shader->stage = VK_SHADER_STAGE_COMPUTE_BIT; break;
+        default: assert(0);
+    }
 
     if (shader->stage == VK_SHADER_STAGE_VERTEX_BIT)
     {
-        uint32_t location_count = 0;
-        for (uint32_t i = 0; i < reflect_mod.input_variable_count; i++)
+        for (uint32_t i = 0; i < input_count; i++)
         {
-            SpvReflectInterfaceVariable *var = &reflect_mod.input_variables[i];
-            if (var->location != UINT32_MAX)
+            uint32_t location =
+                spvc_compiler_get_decoration(compiler, input_list[i].id, SpvDecorationLocation);
+
+            if (location != UINT32_MAX)
             {
-                location_count = MT_MAX(var->location + 1, location_count);
+                shader->vertex_attribute_count =
+                    MT_MAX(location + 1, shader->vertex_attribute_count);
             }
         }
 
-        mt_array_add(dev->alloc, shader->vertex_attributes, location_count);
-        for (uint32_t i = 0; i < reflect_mod.input_variable_count; i++)
+        for (uint32_t i = 0; i < input_count; i++)
         {
-            SpvReflectInterfaceVariable *var = &reflect_mod.input_variables[i];
-            if (var->location == UINT32_MAX)
+            uint32_t location =
+                spvc_compiler_get_decoration(compiler, input_list[i].id, SpvDecorationLocation);
+            if (location == UINT32_MAX)
                 continue;
 
-            VertexAttribute *attrib = &shader->vertex_attributes[var->location];
-            attrib->format          = (VkFormat)var->format;
+            spvc_type type       = spvc_compiler_get_type_handle(compiler, input_list[i].type_id);
+            uint32_t type_width  = spvc_type_get_bit_width(type);
+            uint32_t vector_size = spvc_type_get_vector_size(type);
 
-            switch (attrib->format)
+            VertexAttribute *attrib = &shader->vertex_attributes[location];
+            attrib->size            = (type_width * vector_size) / 8;
+
+            switch (attrib->size)
             {
-                case VK_FORMAT_R32_UINT:
-                case VK_FORMAT_R32_SINT:
-                case VK_FORMAT_R32_SFLOAT:
-                {
-                    attrib->size = sizeof(float);
-                    break;
-                }
-                case VK_FORMAT_R32G32_UINT:
-                case VK_FORMAT_R32G32_SINT:
-                case VK_FORMAT_R32G32_SFLOAT:
-                {
-                    attrib->size = sizeof(float) * 2;
-                    break;
-                }
-                case VK_FORMAT_R32G32B32_UINT:
-                case VK_FORMAT_R32G32B32_SINT:
-                case VK_FORMAT_R32G32B32_SFLOAT:
-                {
-                    attrib->size = sizeof(float) * 3;
-                    break;
-                }
-                case VK_FORMAT_R32G32B32A32_UINT:
-                case VK_FORMAT_R32G32B32A32_SINT:
-                case VK_FORMAT_R32G32B32A32_SFLOAT:
-                {
-                    attrib->size = sizeof(float) * 4;
-                    break;
-                }
+                case sizeof(float): attrib->format = VK_FORMAT_R32_SFLOAT; break;
+                case sizeof(float) * 2: attrib->format = VK_FORMAT_R32G32_SFLOAT; break;
+                case sizeof(float) * 3: attrib->format = VK_FORMAT_R32G32B32_SFLOAT; break;
+                case sizeof(float) * 4: attrib->format = VK_FORMAT_R32G32B32A32_SFLOAT; break;
                 default: assert(0);
             }
         }
     }
 
-    if (reflect_mod.descriptor_set_count > 0)
+    spvc_resource_type resource_types[3] = {
+        SPVC_RESOURCE_TYPE_SAMPLED_IMAGE,
+        SPVC_RESOURCE_TYPE_UNIFORM_BUFFER,
+        SPVC_RESOURCE_TYPE_STORAGE_BUFFER,
+    };
+
+    for (uint32_t r = 0; r < MT_LENGTH(resource_types); ++r)
     {
-        mt_array_add_zeroed(dev->alloc, shader->sets, reflect_mod.descriptor_set_count);
+        const spvc_reflected_resource *resource_list = NULL;
+        size_t resource_count                        = 0;
+        spvc_resources_get_resource_list_for_type(
+            resources, resource_types[r], &resource_list, &resource_count);
 
-        for (uint32_t i = 0; i < reflect_mod.descriptor_set_count; i++)
+        for (uint32_t i = 0; i < resource_count; ++i)
         {
-            SpvReflectDescriptorSet *rset = &reflect_mod.descriptor_sets[i];
-
-            SetInfo *set = &shader->sets[i];
-            set->index   = rset->set;
-            mt_array_add_zeroed(dev->alloc, set->bindings, rset->binding_count);
-
-            for (uint32_t b = 0; b < mt_array_size(set->bindings); b++)
+            VkDescriptorType descriptor_type = 0;
+            switch (resource_types[r])
             {
-                VkDescriptorSetLayoutBinding *binding = &set->bindings[b];
-                binding->binding                      = rset->bindings[b]->binding;
-                binding->descriptorType     = (VkDescriptorType)rset->bindings[b]->descriptor_type;
-                binding->descriptorCount    = 1;
-                binding->stageFlags         = shader->stage;
-                binding->pImmutableSamplers = NULL;
+                case SPVC_RESOURCE_TYPE_SAMPLED_IMAGE:
+                    descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    break;
+                case SPVC_RESOURCE_TYPE_UNIFORM_BUFFER:
+                    descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                    break;
+                case SPVC_RESOURCE_TYPE_STORAGE_BUFFER:
+                    descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                    break;
+                default: assert(0);
             }
+
+            if (!spvc_compiler_has_decoration(
+                    compiler, resource_list[i].id, SpvDecorationDescriptorSet))
+            {
+                continue;
+            }
+
+            if (!spvc_compiler_has_decoration(compiler, resource_list[i].id, SpvDecorationBinding))
+            {
+                continue;
+            }
+
+            uint32_t set = spvc_compiler_get_decoration(
+                compiler, resource_list[i].id, SpvDecorationDescriptorSet);
+            uint32_t binding =
+                spvc_compiler_get_decoration(compiler, resource_list[i].id, SpvDecorationBinding);
+
+            shader->set_count               = MT_MAX(set + 1, shader->set_count);
+            shader->sets[set].binding_count = MT_MAX(binding + 1, shader->sets[set].binding_count);
+
+            shader->sets[set].bindings[binding] = (VkDescriptorSetLayoutBinding){
+                .binding         = binding,
+                .descriptorType  = descriptor_type,
+                .descriptorCount = 1,
+                .stageFlags      = shader->stage,
+            };
         }
     }
 
-    if (reflect_mod.push_constant_block_count > 0)
-    {
-        // Push constants
-        mt_array_add_zeroed(
-            dev->alloc, shader->push_constants, reflect_mod.push_constant_block_count);
-
-        for (uint32_t i = 0; i < reflect_mod.push_constant_block_count; i++)
-        {
-            SpvReflectBlockVariable *pc = &reflect_mod.push_constant_blocks[i];
-
-            shader->push_constants[i].stageFlags = (VkShaderStageFlagBits)reflect_mod.shader_stage;
-            shader->push_constants[i].offset     = pc->absolute_offset;
-            shader->push_constants[i].size       = pc->size;
-        }
-    }
-
-    spvReflectDestroyShaderModule(&reflect_mod);
+    spvc_context_destroy(context);
 }
 
 static void shader_destroy(MtDevice *dev, Shader *shader)
 {
     device_wait_idle(dev);
-
     vkDestroyShaderModule(dev->device, shader->mod, NULL);
-
-    SetInfo *set_info;
-    mt_array_foreach(set_info, shader->sets)
-    {
-        mt_array_free(dev->alloc, set_info->bindings);
-    }
-
-    mt_array_free(dev->alloc, shader->sets);
-    mt_array_free(dev->alloc, shader->push_constants);
-    mt_array_free(dev->alloc, shader->vertex_attributes);
 }
 
 static PipelineLayout *
@@ -269,26 +211,11 @@ create_pipeline_layout(MtDevice *dev, CombinedSetLayouts *combined, VkPipelineBi
 
     l->bind_point = bind_point;
 
-    mt_array_add(dev->alloc, l->push_constants, mt_array_size(combined->push_constants));
-    memcpy(
-        l->push_constants,
-        combined->push_constants,
-        mt_array_size(combined->push_constants) * sizeof(*combined->push_constants));
-
-    mt_array_add_zeroed(dev->alloc, l->sets, mt_array_size(combined->sets));
-
-    for (uint32_t i = 0; i < mt_array_size(l->sets); i++)
-    {
-        SetInfo *cset = &combined->sets[i];
-        mt_array_add(dev->alloc, l->sets[i].bindings, mt_array_size(cset->bindings));
-        memcpy(
-            l->sets[i].bindings,
-            cset->bindings,
-            sizeof(*cset->bindings) * mt_array_size(cset->bindings));
-    }
+    l->set_count = combined->set_count;
+    memcpy(l->sets, combined->sets, sizeof(l->sets));
 
     VkDescriptorSetLayout *set_layouts = NULL;
-    mt_array_add_zeroed(dev->alloc, l->pools, mt_array_size(l->sets));
+    mt_array_add_zeroed(dev->alloc, l->pools, l->set_count);
     for (uint32_t i = 0; i < mt_array_size(l->pools); i++)
     {
         descriptor_pool_init(dev, &l->pools[i], l, i);
@@ -299,8 +226,8 @@ create_pipeline_layout(MtDevice *dev, CombinedSetLayouts *combined, VkPipelineBi
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount         = mt_array_size(set_layouts),
         .pSetLayouts            = set_layouts,
-        .pushConstantRangeCount = mt_array_size(l->push_constants),
-        .pPushConstantRanges    = l->push_constants,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges    = NULL,
     };
 
     VK_CHECK(vkCreatePipelineLayout(dev->device, &pipeline_layout_info, NULL, &l->layout));
@@ -322,13 +249,6 @@ static void destroy_pipeline_layout(MtDevice *dev, PipelineLayout *l)
 
     vkDestroyPipelineLayout(dev->device, l->layout, NULL);
 
-    SetInfo *set;
-    mt_array_foreach(set, l->sets)
-    {
-        mt_array_free(dev->alloc, set->bindings);
-    }
-    mt_array_free(dev->alloc, l->sets);
-
     mt_free(dev->alloc, l);
 }
 
@@ -341,14 +261,11 @@ static PipelineLayout *request_pipeline_layout(MtDevice *dev, MtPipeline *pipeli
     PipelineLayout *layout = mt_hash_get_ptr(&dev->pipeline_layout_map, hash);
     if (layout)
     {
-        combined_set_layouts_destroy(&combined, dev->alloc);
         return layout;
     }
 
     layout       = create_pipeline_layout(dev, &combined, pipeline->bind_point);
     layout->hash = hash;
-
-    combined_set_layouts_destroy(&combined, dev->alloc);
 
     return mt_hash_set_ptr(&dev->pipeline_layout_map, hash, layout);
 }
@@ -362,6 +279,7 @@ static void create_graphics_pipeline_instance(
     MtGraphicsPipelineCreateInfo *options = &pipeline->create_info;
 
     VertexAttribute *attribs = NULL;
+    uint32_t attrib_count    = 0;
 
     VkPipelineShaderStageCreateInfo *stages = NULL;
     mt_array_add(dev->alloc, stages, mt_array_size(pipeline->shaders));
@@ -375,7 +293,8 @@ static void create_graphics_pipeline_instance(
         };
         if (stages[i].stage == VK_SHADER_STAGE_VERTEX_BIT)
         {
-            attribs = pipeline->shaders[i].vertex_attributes;
+            attribs      = pipeline->shaders[i].vertex_attributes;
+            attrib_count = pipeline->shaders[i].vertex_attribute_count;
         }
     }
 
@@ -385,7 +304,7 @@ static void create_graphics_pipeline_instance(
     };
 
     uint32_t vertex_stride = 0;
-    for (uint32_t i = 0; i < mt_array_size(attribs); i++)
+    for (uint32_t i = 0; i < attrib_count; i++)
     {
         vertex_stride += attribs[i].size;
     }
@@ -397,16 +316,16 @@ static void create_graphics_pipeline_instance(
     };
 
     VkVertexInputAttributeDescription *attributes = NULL;
-    if (mt_array_size(attribs) > 0)
+    if (attrib_count > 0)
     {
         vertex_input_info.vertexBindingDescriptionCount = 1;
         vertex_input_info.pVertexBindingDescriptions    = &binding_description;
 
-        mt_array_add(dev->alloc, attributes, mt_array_size(attribs));
+        mt_array_add(dev->alloc, attributes, attrib_count);
 
         uint32_t attrib_offset = 0;
 
-        for (uint32_t i = 0; i < mt_array_size(attribs); i++)
+        for (uint32_t i = 0; i < attrib_count; i++)
         {
             attributes[i] = (VkVertexInputAttributeDescription){
                 .location = i,
@@ -418,7 +337,7 @@ static void create_graphics_pipeline_instance(
         }
     }
 
-    vertex_input_info.vertexAttributeDescriptionCount = mt_array_size(attributes);
+    vertex_input_info.vertexAttributeDescriptionCount = attrib_count;
     vertex_input_info.pVertexAttributeDescriptions    = attributes;
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {

@@ -153,10 +153,17 @@ typedef struct SubmitInfo
     VkFence fence;
 } SubmitInfo;
 
+enum
+{
+    MAX_DESCRIPTOR_BINDINGS = 8,
+    MAX_DESCRIPTOR_SETS     = 8,
+    MAX_VERTEX_ATTRIBUTES   = 8,
+};
+
 typedef struct SetInfo
 {
-    uint32_t index;
-    /*array*/ VkDescriptorSetLayoutBinding *bindings;
+    uint32_t binding_count;
+    VkDescriptorSetLayoutBinding bindings[MAX_DESCRIPTOR_BINDINGS];
 } SetInfo;
 
 typedef struct VertexAttribute
@@ -170,10 +177,11 @@ typedef struct Shader
     VkShaderModule mod;
     VkShaderStageFlagBits stage;
 
-    /*array*/ VkPushConstantRange *push_constants;
-    /*array*/ SetInfo *sets;
+    uint32_t set_count;
+    uint32_t vertex_attribute_count;
 
-    /*array*/ VertexAttribute *vertex_attributes;
+    SetInfo sets[MAX_DESCRIPTOR_SETS];
+    VertexAttribute vertex_attributes[MAX_VERTEX_ATTRIBUTES];
 } Shader;
 
 typedef union Descriptor {
@@ -205,8 +213,8 @@ typedef struct PipelineLayout
 
     /*array*/ DescriptorPool *pools;
 
-    /*array*/ SetInfo *sets;
-    /*array*/ VkPushConstantRange *push_constants;
+    SetInfo sets[MAX_DESCRIPTOR_SETS];
+    uint32_t set_count;
 
     uint64_t hash;
     uint32_t ref_count;
@@ -239,15 +247,6 @@ typedef struct MtSemaphore
 {
     VkSemaphore semaphore;
 } MtSemaphore;
-
-enum
-{
-    MAX_DESCRIPTOR_BINDINGS = 8
-};
-enum
-{
-    MAX_DESCRIPTOR_SETS = 8
-};
 
 typedef struct MtCmdBuffer
 {

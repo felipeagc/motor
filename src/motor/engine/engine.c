@@ -38,7 +38,8 @@ void mt_engine_init(MtEngine *engine)
 
     mt_log_init();
 
-    uint32_t num_threads = mt_cpu_count() / 2;
+    /* uint32_t num_threads = mt_cpu_count() / 2; */
+    uint32_t num_threads = 1;
 
     mt_log_debug("Using %u threads", num_threads);
 

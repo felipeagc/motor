@@ -37,15 +37,14 @@ static void bind_descriptor_sets(MtCmdBuffer *cb)
 {
     assert(cb->bound_pipeline_instance);
 
-    for (uint32_t i = 0; i < mt_array_size(cb->bound_pipeline_instance->pipeline->layout->sets);
-         i++)
+    for (uint32_t i = 0; i < cb->bound_pipeline_instance->pipeline->layout->set_count; i++)
     {
         uint32_t binding_count =
-            mt_array_size(cb->bound_pipeline_instance->pipeline->layout->sets[i].bindings);
+            cb->bound_pipeline_instance->pipeline->layout->sets[i].binding_count;
+        assert(binding_count > 0);
 
         XXH64_state_t state = {0};
-        XXH64_update(
-            &state, cb->bound_descriptors[i], binding_count * sizeof(*cb->bound_descriptors[i]));
+        XXH64_update(&state, &cb->bound_descriptors[i][0], sizeof(Descriptor) * binding_count);
         uint64_t descriptors_hash = (uint64_t)XXH64_digest(&state);
 
         if (cb->bound_descriptor_set_hashes[i] != descriptors_hash)
