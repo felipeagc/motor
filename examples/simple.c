@@ -32,12 +32,15 @@ typedef struct Game
     MtPipelineAsset *fullscreen_pipeline;
     MtPipelineAsset *depth_prepass_pipeline;
     MtPipelineAsset *light_cull_pipeline;
+    MtPipelineAsset *tile_debug_pipeline;
 
     MtPerspectiveCamera cam;
     MtEnvironment env;
 
     uint32_t model_archetype;
     uint32_t light_archetype;
+
+    bool debug;
 } Game;
 
 static void game_init(Game *g)
@@ -62,6 +65,8 @@ static void game_init(Game *g)
         am, "../assets/shaders/depth_prepass.glsl", (MtAsset **)&g->depth_prepass_pipeline);
     mt_asset_manager_queue_load(
         am, "../assets/shaders/light_cull.glsl", (MtAsset **)&g->light_cull_pipeline);
+    mt_asset_manager_queue_load(
+        am, "../assets/shaders/tile_debug.glsl", (MtAsset **)&g->tile_debug_pipeline);
 
     mt_asset_manager_queue_load(am, "../assets/helmet_ktx.glb", NULL);
     mt_asset_manager_queue_load(am, "../assets/boombox_ktx.glb", NULL);
@@ -104,17 +109,18 @@ static void game_init(Game *g)
     MtXorShift xs;
     mt_xor_shift_init(&xs, (uint64_t)time(NULL));
 
-    for (uint32_t i = 0; i < MT_MAX_POINT_LIGHTS / 8; ++i)
+    for (uint32_t i = 0; i < 64; ++i)
     {
         MtPointLightArchetype *block;
         uint32_t e;
 
-#define LIGHT_POS_X mt_xor_shift_float(&xs, -15.0f, 15.0f)
-#define LIGHT_POS_Z mt_xor_shift_float(&xs, -10.0f, 10.0f)
+#define LIGHT_POS_X mt_xor_shift_float(&xs, -30.0f, 30.0f)
+#define LIGHT_POS_Y mt_xor_shift_float(&xs, 0.0f, 2.0f)
+#define LIGHT_POS_Z mt_xor_shift_float(&xs, -20.0f, 20.0f)
 #define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
 
         block           = mt_entity_manager_add_entity(em, g->light_archetype, &e);
-        block->pos[e]   = V3(LIGHT_POS_X, 1, LIGHT_POS_Z);
+        block->pos[e]   = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
         block->color[e] = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
         block->color[e] = v3_muls(v3_normalize(block->color[e]), 10.0f);
     }
@@ -137,6 +143,15 @@ static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float
     float x = sin(acc * 2.0f) * 2.0f;
     float z = cos(acc * 2.0f) * 2.0f;
 
+    const float constant  = 1.0;
+    const float linear    = 0.7;
+    const float quadratic = 1.8;
+    float light_max       = 10.0f;
+    float radius =
+        (-linear +
+         sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 5.0) * light_max))) /
+        (2 * quadratic);
+
     env->uniform.point_light_count = 0;
     for (MtEntityBlock *block = archetype->blocks;
          block != (archetype->blocks + mt_array_size(archetype->blocks));
@@ -154,16 +169,7 @@ static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float
 
             env->uniform.point_lights[l].color = b->color[i];
 
-            float constant  = 1.0;
-            float linear    = 0.7;
-            float quadratic = 1.8;
-            float light_max = fmaxf(fmaxf(b->color[i].r, b->color[i].g), b->color[i].b);
-            float radius =
-                (-linear +
-                 sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 5.0) * light_max))) /
-                (2 * quadratic);
-
-            env->uniform.point_lights[l].radius = radius / 2.0f;
+            env->uniform.point_lights[l].radius = radius;
 
             env->uniform.point_light_count++;
         }
@@ -232,14 +238,9 @@ static void draw_ui(Game *g)
 
     mt_ui_image(ui, g->image->image, 64, 64);
 
-    if (mt_ui_button(ui, "Hello"))
+    if (mt_ui_button(ui, "Toggle debug"))
     {
-        mt_log("Hello");
-    }
-
-    if (mt_ui_button(ui, "Hello 2"))
-    {
-        mt_log("Hello 2");
+        g->debug = !g->debug;
     }
 }
 // }}}
@@ -268,16 +269,28 @@ static void light_cull_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void 
 
     uint32_t width, height;
     mt_window.get_size(g->engine.window, &width, &height);
-    uint32_t groups_x = (width / TILE_SIZE);
-    uint32_t groups_y = (height / TILE_SIZE);
+    uint32_t groups_x = (width + (width % TILE_SIZE)) / TILE_SIZE;
+    uint32_t groups_y = (height + (height % TILE_SIZE)) / TILE_SIZE;
 
     MtBuffer *light_indices_buffer = mt_render.graph_get_buffer(graph, "visible_lights_buffer");
 
     mt_render.cmd_bind_pipeline(cb, g->light_cull_pipeline->pipeline);
     mt_render.cmd_bind_image(cb, depth_image, g->engine.default_sampler, 0, 0);
-    mt_render.cmd_bind_uniform(cb, &g->env.uniform, sizeof(g->env.uniform), 0, 1);
-    mt_render.cmd_bind_storage_buffer(cb, light_indices_buffer, 0, 2);
+    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 1);
+    mt_render.cmd_bind_uniform(cb, &g->env.uniform, sizeof(g->env.uniform), 0, 2);
+    mt_render.cmd_bind_storage_buffer(cb, light_indices_buffer, 0, 3);
     mt_render.cmd_dispatch(cb, groups_x, groups_y, 1);
+}
+
+static void tile_debug_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
+{
+    Game *g = user_data;
+
+    MtBuffer *light_indices_buffer = mt_render.graph_get_buffer(graph, "visible_lights_buffer");
+
+    mt_render.cmd_bind_pipeline(cb, g->tile_debug_pipeline->pipeline);
+    mt_render.cmd_bind_storage_buffer(cb, light_indices_buffer, 0, 0);
+    mt_render.cmd_draw(cb, 3, 1, 0, 0);
 }
 
 static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
@@ -285,15 +298,29 @@ static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user
     Game *g             = user_data;
     MtEntityManager *em = &g->engine.entity_manager;
 
-    // Draw skybox
-    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
-    mt_environment_draw_skybox(&g->env, cb);
+    MtBuffer *light_indices_buffer = mt_render.graph_get_buffer(graph, "visible_lights_buffer");
 
-    // Draw models
-    mt_render.cmd_bind_pipeline(cb, g->pbr_pipeline->pipeline);
-    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
-    mt_environment_bind(&g->env, cb, 3);
-    model_system(cb, &em->archetypes[g->model_archetype]);
+    if (!g->debug)
+    {
+        // Draw skybox
+        mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+        mt_environment_draw_skybox(&g->env, cb);
+
+        // Draw models
+        mt_render.cmd_bind_pipeline(cb, g->pbr_pipeline->pipeline);
+        mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+        mt_environment_bind(&g->env, cb, 3);
+        mt_render.cmd_bind_storage_buffer(cb, light_indices_buffer, 3, 4);
+        model_system(cb, &em->archetypes[g->model_archetype]);
+    }
+    else
+    {
+        // Draw debug image
+        MtImage *tile_debug_image = mt_render.graph_get_image(graph, "tile_debug_image");
+        mt_render.cmd_bind_pipeline(cb, g->fullscreen_pipeline->pipeline);
+        mt_render.cmd_bind_image(cb, tile_debug_image, g->engine.default_sampler, 0, 0);
+        mt_render.cmd_draw(cb, 3, 1, 0, 0);
+    }
 
     // Begin UI
     MtUIRenderer *ui = g->engine.ui;
@@ -315,8 +342,8 @@ static void graph_builder(MtRenderGraph *graph, void *user_data)
 
     uint32_t width, height;
     mt_window.get_size(g->engine.window, &width, &height);
-    uint32_t groups_x = (width / TILE_SIZE);
-    uint32_t groups_y = (height / TILE_SIZE);
+    uint32_t groups_x = (width + (width % TILE_SIZE)) / TILE_SIZE;
+    uint32_t groups_y = (height + (height % TILE_SIZE)) / TILE_SIZE;
 
     MtImageCreateInfo depth_info = {
         .width  = width,
@@ -324,30 +351,44 @@ static void graph_builder(MtRenderGraph *graph, void *user_data)
         .format = MT_FORMAT_D32_SFLOAT,
     };
 
+    MtImageCreateInfo color_info = {
+        .width  = width,
+        .height = height,
+        .format = MT_FORMAT_RGBA8_UNORM,
+    };
+
     MtBufferCreateInfo visible_lights_info = {
         .usage  = MT_BUFFER_USAGE_STORAGE,
         .memory = MT_BUFFER_MEMORY_DEVICE,
-        .size   = sizeof(uint32_t) * 1024 * groups_x * groups_y,
+        .size   = sizeof(uint32_t) + sizeof(uint32_t) * MT_MAX_POINT_LIGHTS * groups_x * groups_y,
     };
 
     mt_render.graph_add_image(graph, "depth", &depth_info);
+    mt_render.graph_add_image(graph, "tile_debug_image", &color_info);
     mt_render.graph_add_buffer(graph, "visible_lights_buffer", &visible_lights_info);
 
     MtRenderGraphPass *depth_pre_pass =
         mt_render.graph_add_pass(graph, "depth_pre_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_set_depth_stencil_output(depth_pre_pass, "depth");
+    mt_render.pass_write(depth_pre_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
     mt_render.pass_set_builder(depth_pre_pass, depth_pre_pass_builder);
 
     MtRenderGraphPass *light_cull_pass =
         mt_render.graph_add_pass(graph, "light_cull_pass", MT_PIPELINE_STAGE_COMPUTE);
-    mt_render.pass_add_image_sampled_input(light_cull_pass, "depth");
-    mt_render.pass_add_storage_output(light_cull_pass, "visible_lights_buffer");
+    mt_render.pass_read(light_cull_pass, MT_PASS_READ_SAMPLED_IMAGE, "depth");
+    mt_render.pass_write(light_cull_pass, MT_PASS_WRITE_STORAGE_BUFFER, "visible_lights_buffer");
     mt_render.pass_set_builder(light_cull_pass, light_cull_pass_builder);
 
+    MtRenderGraphPass *tile_debug_pass =
+        mt_render.graph_add_pass(graph, "tile_debug_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_write(tile_debug_pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "tile_debug_image");
+    mt_render.pass_read(tile_debug_pass, MT_PASS_READ_STORAGE_BUFFER, "visible_lights_buffer");
+    mt_render.pass_set_builder(tile_debug_pass, tile_debug_pass_builder);
+
     MtRenderGraphPass *color_pass =
-        mt_render.graph_add_pass(graph, "color_pass", MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT);
-    mt_render.pass_add_storage_input(color_pass, "visible_lights_buffer");
-    mt_render.pass_set_depth_stencil_output(color_pass, "depth");
+        mt_render.graph_add_pass(graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_read(color_pass, MT_PASS_READ_SAMPLED_IMAGE, "tile_debug_image");
+    mt_render.pass_read(color_pass, MT_PASS_READ_STORAGE_BUFFER, "visible_lights_buffer");
+    mt_render.pass_write(color_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
     mt_render.pass_set_builder(color_pass, color_pass_builder);
 }
 

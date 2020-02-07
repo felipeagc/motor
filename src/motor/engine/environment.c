@@ -103,7 +103,7 @@ static void brdf_graph_builder(MtRenderGraph *graph, void *user_data)
 
     MtRenderGraphPass *pass =
         mt_render.graph_add_pass(graph, "brdf_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_add_color_output(pass, "brdf");
+    mt_render.pass_write(pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "brdf");
     mt_render.pass_set_builder(pass, brdf_pass_builder);
 }
 
@@ -252,13 +252,13 @@ static void cubemap_graph_builder(MtRenderGraph *graph, void *user_data)
 
     MtRenderGraphPass *layer_pass =
         mt_render.graph_add_pass(graph, "layer_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_add_color_output(layer_pass, "offscreen");
+    mt_render.pass_write(layer_pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "offscreen");
     mt_render.pass_set_builder(layer_pass, layer_pass_callback);
 
     MtRenderGraphPass *transfer_pass =
         mt_render.graph_add_pass(graph, "transfer_pass", MT_PIPELINE_STAGE_TRANSFER);
-    mt_render.pass_add_image_transfer_input(transfer_pass, "offscreen");
-    mt_render.pass_add_color_output(transfer_pass, "cubemap");
+    mt_render.pass_read(transfer_pass, MT_PASS_READ_IMAGE_TRANSFER, "offscreen");
+    mt_render.pass_write(transfer_pass, MT_PASS_WRITE_IMAGE_TRANSFER, "cubemap");
     mt_render.pass_set_builder(transfer_pass, transfer_pass_callback);
 }
 

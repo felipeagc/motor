@@ -144,6 +144,8 @@ static void destroy_graph(MtRenderGraph *graph)
         }
     }
 
+    mt_array_free(graph->dev->alloc, graph->buffer_barriers);
+    mt_array_free(graph->dev->alloc, graph->image_barriers);
     mt_free(graph->dev->alloc, graph);
 }
 
@@ -152,8 +154,6 @@ static void graph_set_builder(MtRenderGraph *graph, MtRenderGraphBuilder builder
     graph->graph_builder = builder;
 }
 
-static void create_graph_image(MtRenderGraph *graph, GraphResource *resource);
-static void create_graph_buffer(MtRenderGraph *graph, GraphResource *resource);
 static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass);
 
 static void graph_bake(MtRenderGraph *graph)
@@ -238,12 +238,14 @@ static void graph_bake(MtRenderGraph *graph)
         {
             case GRAPH_RESOURCE_IMAGE:
             {
-                create_graph_image(graph, resource);
+                assert(resource->type == GRAPH_RESOURCE_IMAGE);
+                resource->image = mt_render.create_image(graph->dev, &resource->image_info);
                 break;
             }
             case GRAPH_RESOURCE_BUFFER:
             {
-                create_graph_buffer(graph, resource);
+                assert(resource->type == GRAPH_RESOURCE_BUFFER);
+                resource->buffer = mt_render.create_buffer(graph->dev, &resource->buffer_info);
                 break;
             }
         }
@@ -424,38 +426,72 @@ static void graph_execute(MtRenderGraph *graph)
             // Apply some barriers
             //
 
-            if (pass->queue_type == MT_QUEUE_TRANSFER)
+            mt_array_set_size(graph->buffer_barriers, 0);
+            mt_array_set_size(graph->image_barriers, 0);
+
+            for (uint32_t *res = pass->image_transfer_outputs;
+                 res != pass->image_transfer_outputs + mt_array_size(pass->image_transfer_outputs);
+                 ++res)
             {
-                for (uint32_t *res = pass->color_outputs;
-                     res != pass->color_outputs + mt_array_size(pass->color_outputs);
-                     ++res)
-                {
-                    cmd_image_barrier(
-                        cb, graph->resources[*res].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-                }
+                MtImage *image = graph->resources[*res].image;
+
+                VkImageMemoryBarrier barrier = {
+                    .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .srcAccessMask       = 0,
+                    .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+                    .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    .image               = image->image,
+                    .subresourceRange =
+                        {
+                            .aspectMask     = image->aspect,
+                            .baseMipLevel   = 0,
+                            .levelCount     = image->mip_count,
+                            .baseArrayLayer = 0,
+                            .layerCount     = image->layer_count,
+                        },
+                };
+                mt_array_push(graph->dev->alloc, graph->image_barriers, barrier);
             }
 
             for (uint32_t *res = pass->storage_outputs;
                  res != pass->storage_outputs + mt_array_size(pass->storage_outputs);
                  ++res)
             {
-                cmd_buffer_barrier(
-                    cb,
-                    graph->resources[*res].buffer,
-                    VK_ACCESS_SHADER_READ_BIT,
-                    VK_ACCESS_SHADER_WRITE_BIT);
+                VkBufferMemoryBarrier barrier = {
+                    .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .srcAccessMask       = VK_ACCESS_SHADER_READ_BIT,
+                    .dstAccessMask       = VK_ACCESS_SHADER_WRITE_BIT,
+                    .buffer              = graph->resources[*res].buffer->buffer,
+                    .offset              = 0,
+                    .size                = VK_WHOLE_SIZE,
+                };
+                mt_array_push(graph->dev->alloc, graph->buffer_barriers, barrier);
             }
 
-            for (uint32_t *res = pass->storage_inputs;
-                 res != pass->storage_inputs + mt_array_size(pass->storage_inputs);
-                 ++res)
+            VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+            VkPipelineStageFlags dst_stage_mask = pass->stage;
+
+            if (pass->prev)
             {
-                cmd_buffer_barrier(
-                    cb,
-                    graph->resources[*res].buffer,
-                    VK_ACCESS_SHADER_WRITE_BIT,
-                    VK_ACCESS_SHADER_READ_BIT);
+                src_stage_mask = pass->prev->stage;
             }
+
+            vkCmdPipelineBarrier(
+                cb->cmd_buffer,
+                src_stage_mask,
+                dst_stage_mask,
+                0,
+                0,
+                NULL,
+                (uint32_t)mt_array_size(graph->buffer_barriers),
+                graph->buffer_barriers,
+                (uint32_t)mt_array_size(graph->image_barriers),
+                graph->image_barriers);
 
             //
             // Begin render pass (if applicable)
@@ -485,31 +521,85 @@ static void graph_execute(MtRenderGraph *graph)
                 pass->builder(graph, cb, graph->user_data);
             }
 
-            if (pass->queue_type == MT_QUEUE_TRANSFER)
-            {
-                if ((pass->next && pass->next->queue_type == MT_QUEUE_GRAPHICS) || !pass->next)
-                {
-                    // TODO: the pass that needs this might not be the immediate next one...
-                    for (uint32_t *res = pass->color_outputs;
-                         res != pass->color_outputs + mt_array_size(pass->color_outputs);
-                         ++res)
-                    {
-                        cmd_image_barrier(
-                            cb,
-                            graph->resources[*res].image,
-                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                    }
-                }
-            }
-
             //
-            // End render pass
+            // End render pass (if applicable)
             //
 
             if (pass->queue_type == MT_QUEUE_GRAPHICS)
             {
                 cmd_end_render_pass(cb);
             }
+
+            //
+            // Apply more barriers
+            //
+
+            mt_array_set_size(graph->buffer_barriers, 0);
+            mt_array_set_size(graph->image_barriers, 0);
+
+            for (uint32_t *res = pass->image_transfer_outputs;
+                 res != pass->image_transfer_outputs + mt_array_size(pass->image_transfer_outputs);
+                 ++res)
+            {
+                MtImage *image = graph->resources[*res].image;
+
+                VkImageMemoryBarrier barrier = {
+                    .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+                    .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
+                    .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    .newLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    .image               = image->image,
+                    .subresourceRange =
+                        {
+                            .aspectMask     = image->aspect,
+                            .baseMipLevel   = 0,
+                            .levelCount     = image->mip_count,
+                            .baseArrayLayer = 0,
+                            .layerCount     = image->layer_count,
+                        },
+                };
+                mt_array_push(graph->dev->alloc, graph->image_barriers, barrier);
+            }
+
+            for (uint32_t *res = pass->storage_outputs;
+                 res != pass->storage_outputs + mt_array_size(pass->storage_outputs);
+                 ++res)
+            {
+                VkBufferMemoryBarrier barrier = {
+                    .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .srcAccessMask       = VK_ACCESS_SHADER_WRITE_BIT,
+                    .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
+                    .buffer              = graph->resources[*res].buffer->buffer,
+                    .offset              = 0,
+                    .size                = VK_WHOLE_SIZE,
+                };
+                mt_array_push(graph->dev->alloc, graph->buffer_barriers, barrier);
+            }
+
+            src_stage_mask = pass->stage;
+            dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+            if (pass->next)
+            {
+                dst_stage_mask = pass->next->stage;
+            }
+
+            vkCmdPipelineBarrier(
+                cb->cmd_buffer,
+                src_stage_mask,
+                dst_stage_mask,
+                0,
+                0,
+                NULL,
+                (uint32_t)mt_array_size(graph->buffer_barriers),
+                graph->buffer_barriers,
+                (uint32_t)mt_array_size(graph->image_barriers),
+                graph->image_barriers);
         }
 
         end_cmd_buffer(cb);
@@ -565,6 +655,34 @@ static void graph_execute(MtRenderGraph *graph)
 
         swapchain_end_frame(graph->swapchain);
     }
+}
+
+static uint32_t add_graph_resource(MtRenderGraph *graph, const char *name, GraphResourceType type)
+{
+    mt_array_add(graph->dev->alloc, graph->resources, 1);
+    uintptr_t index         = mt_array_last(graph->resources) - graph->resources;
+    GraphResource *resource = &graph->resources[index];
+    memset(resource, 0, sizeof(*resource));
+
+    resource->type  = type;
+    resource->index = (uint32_t)index;
+
+    mt_hash_set_uint(&graph->resource_indices, mt_hash_str(name), index);
+    return (uint32_t)index;
+}
+
+static void graph_add_image(MtRenderGraph *graph, const char *name, MtImageCreateInfo *info)
+{
+    uint32_t index          = add_graph_resource(graph, name, GRAPH_RESOURCE_IMAGE);
+    GraphResource *resource = &graph->resources[index];
+    resource->image_info    = *info;
+}
+
+static void graph_add_buffer(MtRenderGraph *graph, const char *name, MtBufferCreateInfo *info)
+{
+    uint32_t index          = add_graph_resource(graph, name, GRAPH_RESOURCE_BUFFER);
+    GraphResource *resource = &graph->resources[index];
+    resource->buffer_info   = *info;
 }
 
 static MtImage *graph_get_image(MtRenderGraph *graph, const char *name)
@@ -639,167 +757,105 @@ static void pass_set_builder(MtRenderGraphPass *pass, MtRenderGraphPassBuilder b
     pass->builder = builder;
 }
 
-static uint32_t add_graph_resource(MtRenderGraph *graph, const char *name, GraphResourceType type)
-{
-    mt_array_add(graph->dev->alloc, graph->resources, 1);
-    uintptr_t index         = mt_array_last(graph->resources) - graph->resources;
-    GraphResource *resource = &graph->resources[index];
-    memset(resource, 0, sizeof(*resource));
-
-    resource->type  = type;
-    resource->index = (uint32_t)index;
-
-    mt_hash_set_uint(&graph->resource_indices, mt_hash_str(name), index);
-    return (uint32_t)index;
-}
-
-static void graph_add_image(MtRenderGraph *graph, const char *name, MtImageCreateInfo *info)
-{
-    uint32_t index          = add_graph_resource(graph, name, GRAPH_RESOURCE_IMAGE);
-    GraphResource *resource = &graph->resources[index];
-    resource->image_info    = *info;
-}
-
-static void graph_add_buffer(MtRenderGraph *graph, const char *name, MtBufferCreateInfo *info)
-{
-    uint32_t index          = add_graph_resource(graph, name, GRAPH_RESOURCE_BUFFER);
-    GraphResource *resource = &graph->resources[index];
-    resource->buffer_info   = *info;
-}
-
-static void pass_add_color_output(MtRenderGraphPass *pass, const char *name)
+static void pass_read(MtRenderGraphPass *pass, MtRenderGraphPassRead type, const char *name)
 {
     uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
 
-    assert(resource->type == GRAPH_RESOURCE_IMAGE);
+    mt_array_push(pass->graph->dev->alloc, resource->read_in_passes, pass->index);
 
-    mt_array_push(pass->graph->dev->alloc, resource->written_in_passes, pass->index);
-
-    resource->image_info.usage |= MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
-    resource->image_info.aspect |= MT_IMAGE_ASPECT_COLOR_BIT;
-
-    resource->image_info.usage |= MT_IMAGE_USAGE_TRANSFER_SRC_BIT | MT_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-    mt_array_push(pass->graph->dev->alloc, pass->color_outputs, (uint32_t)index);
-}
-
-static void pass_set_depth_stencil_output(MtRenderGraphPass *pass, const char *name)
-{
-    uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
-    assert(index != MT_HASH_NOT_FOUND);
-    GraphResource *resource = &pass->graph->resources[index];
-
-    assert(resource->type == GRAPH_RESOURCE_IMAGE);
-
-    mt_array_push(pass->graph->dev->alloc, resource->written_in_passes, pass->index);
-
-    resource->image_info.usage |= MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-    switch (resource->image_info.format)
+    switch (type)
     {
-        case MT_FORMAT_D16_UNORM:
-        case MT_FORMAT_D32_SFLOAT:
+        case MT_PASS_READ_IMAGE_TRANSFER:
         {
-            resource->image_info.aspect = MT_IMAGE_ASPECT_DEPTH_BIT;
+            assert(resource->type == GRAPH_RESOURCE_IMAGE);
+            resource->image_info.usage |= MT_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            mt_array_push(pass->graph->dev->alloc, pass->image_transfer_inputs, (uint32_t)index);
             break;
         }
-
-        case MT_FORMAT_D16_UNORM_S8_UINT:
-        case MT_FORMAT_D24_UNORM_S8_UINT:
-        case MT_FORMAT_D32_SFLOAT_S8_UINT:
+        case MT_PASS_READ_SAMPLED_IMAGE:
         {
-            resource->image_info.aspect = MT_IMAGE_ASPECT_DEPTH_BIT | MT_IMAGE_ASPECT_STENCIL_BIT;
+            assert(resource->type == GRAPH_RESOURCE_IMAGE);
+            resource->image_info.usage |= MT_IMAGE_USAGE_SAMPLED_BIT;
+            mt_array_push(pass->graph->dev->alloc, pass->image_sampled_inputs, (uint32_t)index);
+            break;
+        }
+        case MT_PASS_READ_STORAGE_BUFFER:
+        {
+            assert(resource->type == GRAPH_RESOURCE_BUFFER);
+            mt_array_push(pass->graph->dev->alloc, pass->storage_inputs, (uint32_t)index);
             break;
         }
         default: assert(0);
     }
-
-    pass->depth_output = (uint32_t)index;
 }
 
-static void pass_add_image_transfer_output(MtRenderGraphPass *pass, const char *name)
+static void pass_write(MtRenderGraphPass *pass, MtRenderGraphPassWrite type, const char *name)
 {
     uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
-
-    assert(resource->type == GRAPH_RESOURCE_IMAGE);
 
     mt_array_push(pass->graph->dev->alloc, resource->written_in_passes, pass->index);
 
-    resource->image_info.usage |= MT_IMAGE_USAGE_TRANSFER_DST_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
+    switch (type)
+    {
+        case MT_PASS_WRITE_COLOR_ATTACHMENT:
+        {
+            assert(resource->type == GRAPH_RESOURCE_IMAGE);
+            resource->image_info.usage |=
+                MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
+            resource->image_info.aspect |= MT_IMAGE_ASPECT_COLOR_BIT;
 
-    mt_array_push(pass->graph->dev->alloc, pass->image_transfer_outputs, (uint32_t)index);
-}
+            mt_array_push(pass->graph->dev->alloc, pass->color_outputs, (uint32_t)index);
+            break;
+        }
+        case MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT:
+        {
+            assert(resource->type == GRAPH_RESOURCE_IMAGE);
 
-static void pass_add_image_transfer_input(MtRenderGraphPass *pass, const char *name)
-{
-    uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
-    assert(index != MT_HASH_NOT_FOUND);
-    GraphResource *resource = &pass->graph->resources[index];
+            resource->image_info.usage |= MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-    assert(resource->type == GRAPH_RESOURCE_IMAGE);
+            switch (resource->image_info.format)
+            {
+                case MT_FORMAT_D16_UNORM:
+                case MT_FORMAT_D32_SFLOAT:
+                {
+                    resource->image_info.aspect = MT_IMAGE_ASPECT_DEPTH_BIT;
+                    break;
+                }
 
-    mt_array_push(pass->graph->dev->alloc, resource->read_in_passes, pass->index);
+                case MT_FORMAT_D16_UNORM_S8_UINT:
+                case MT_FORMAT_D24_UNORM_S8_UINT:
+                case MT_FORMAT_D32_SFLOAT_S8_UINT:
+                {
+                    resource->image_info.aspect =
+                        MT_IMAGE_ASPECT_DEPTH_BIT | MT_IMAGE_ASPECT_STENCIL_BIT;
+                    break;
+                }
+                default: assert(0);
+            }
 
-    resource->image_info.usage |= MT_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
-    mt_array_push(pass->graph->dev->alloc, pass->image_transfer_inputs, (uint32_t)index);
-}
-
-static void pass_add_image_sampled_input(MtRenderGraphPass *pass, const char *name)
-{
-    uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
-    assert(index != MT_HASH_NOT_FOUND);
-    GraphResource *resource = &pass->graph->resources[index];
-
-    assert(resource->type == GRAPH_RESOURCE_IMAGE);
-
-    mt_array_push(pass->graph->dev->alloc, resource->read_in_passes, pass->index);
-
-    resource->image_info.usage |= MT_IMAGE_USAGE_SAMPLED_BIT;
-
-    mt_array_push(pass->graph->dev->alloc, pass->image_sampled_inputs, (uint32_t)index);
-}
-
-static void pass_add_storage_output(MtRenderGraphPass *pass, const char *name)
-{
-    uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
-    assert(index != MT_HASH_NOT_FOUND);
-    GraphResource *resource = &pass->graph->resources[index];
-
-    assert(resource->type == GRAPH_RESOURCE_BUFFER);
-
-    mt_array_push(pass->graph->dev->alloc, resource->written_in_passes, pass->index);
-
-    mt_array_push(pass->graph->dev->alloc, pass->storage_outputs, (uint32_t)index);
-}
-
-static void pass_add_storage_input(MtRenderGraphPass *pass, const char *name)
-{
-    uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
-    assert(index != MT_HASH_NOT_FOUND);
-    GraphResource *resource = &pass->graph->resources[index];
-
-    assert(resource->type == GRAPH_RESOURCE_BUFFER);
-
-    mt_array_push(pass->graph->dev->alloc, resource->read_in_passes, pass->index);
-
-    mt_array_push(pass->graph->dev->alloc, pass->storage_inputs, (uint32_t)index);
-}
-
-static void create_graph_image(MtRenderGraph *graph, GraphResource *resource)
-{
-    assert(resource->type == GRAPH_RESOURCE_IMAGE);
-    resource->image = mt_render.create_image(graph->dev, &resource->image_info);
-}
-
-static void create_graph_buffer(MtRenderGraph *graph, GraphResource *resource)
-{
-    assert(resource->type == GRAPH_RESOURCE_BUFFER);
-    resource->buffer = mt_render.create_buffer(graph->dev, &resource->buffer_info);
+            pass->depth_output = (uint32_t)index;
+            break;
+        }
+        case MT_PASS_WRITE_STORAGE_BUFFER:
+        {
+            assert(resource->type == GRAPH_RESOURCE_BUFFER);
+            mt_array_push(pass->graph->dev->alloc, pass->storage_outputs, (uint32_t)index);
+            break;
+        }
+        case MT_PASS_WRITE_IMAGE_TRANSFER:
+        {
+            assert(resource->type == GRAPH_RESOURCE_IMAGE);
+            resource->image_info.usage |=
+                MT_IMAGE_USAGE_TRANSFER_DST_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
+            mt_array_push(pass->graph->dev->alloc, pass->image_transfer_outputs, (uint32_t)index);
+            break;
+        }
+        default: assert(0);
+    }
 }
 
 // Renderpass creation {{{

@@ -715,7 +715,37 @@ transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const 
 
     begin_cmd_buffer(cb);
 
-    cmd_image_barrier(cb, dst->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VkImageSubresourceRange subresource_range = {
+        .aspectMask     = dst->image->aspect,
+        .baseMipLevel   = 0,
+        .levelCount     = dst->image->mip_count,
+        .baseArrayLayer = 0,
+        .layerCount     = dst->image->layer_count,
+    };
+
+    VkImageMemoryBarrier barrier = {
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .srcAccessMask       = 0,
+        .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .image               = dst->image->image,
+        .subresourceRange    = subresource_range,
+    };
+
+    vkCmdPipelineBarrier(
+        cb->cmd_buffer,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        0,
+        0,
+        NULL,
+        0,
+        NULL,
+        1,
+        &barrier);
 
     cmd_copy_buffer_to_image(
         cb,
@@ -732,7 +762,29 @@ transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const 
             .depth  = dst->image->depth,
         });
 
-    cmd_image_barrier(cb, dst->image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    barrier = (VkImageMemoryBarrier){
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
+        .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .image               = dst->image->image,
+        .subresourceRange    = subresource_range,
+    };
+
+    vkCmdPipelineBarrier(
+        cb->cmd_buffer,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        0,
+        0,
+        NULL,
+        0,
+        NULL,
+        1,
+        &barrier);
 
     end_cmd_buffer(cb);
 
@@ -898,13 +950,8 @@ static MtRenderer g_vulkan_renderer = {
     .graph_add_pass   = graph_add_pass,
     .pass_set_builder = pass_set_builder,
 
-    .pass_add_color_output          = pass_add_color_output,
-    .pass_set_depth_stencil_output  = pass_set_depth_stencil_output,
-    .pass_add_image_sampled_input   = pass_add_image_sampled_input,
-    .pass_add_image_transfer_input  = pass_add_image_transfer_input,
-    .pass_add_image_transfer_output = pass_add_image_transfer_output,
-    .pass_add_storage_input         = pass_add_storage_input,
-    .pass_add_storage_output        = pass_add_storage_output,
+    .pass_read  = pass_read,
+    .pass_write = pass_write,
 };
 
 MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc)

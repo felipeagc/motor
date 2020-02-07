@@ -75,11 +75,16 @@ fragment = @{
     layout (set = 2, binding = 5) uniform sampler2D emissive_texture;
 
     layout (set = 3, binding = 0) uniform EnvironmentUniform {
-        Environment environment;
+        Environment env;
     };
     layout (set = 3, binding = 1) uniform samplerCube irradiance_map;
     layout (set = 3, binding = 2) uniform samplerCube radiance_map;
     layout (set = 3, binding = 3) uniform sampler2D brdf_lut;
+
+    layout (set = 3, binding = 4) readonly buffer VisibleLightsBuffer {
+        uint num_tiles_x;
+        int indices[];
+    } visible_lights_buffer;
 
     layout (location = 0) out vec4 out_color;
     
@@ -118,9 +123,9 @@ fragment = @{
 
         // Directional light (sun)
         {
-            vec3 L = normalize(-environment.sun_direction);
+            vec3 L = normalize(-env.sun_direction);
             vec3 H = normalize(V + L);
-            vec3 radiance = environment.sun_color * environment.sun_intensity;
+            vec3 radiance = env.sun_color * env.sun_intensity;
 
             float NdotL = clamp(dot(N, L), 0.001, 1.0);
             float VdotH = clamp(dot(H, V), 0.0, 1.0);
@@ -141,15 +146,25 @@ fragment = @{
             Lo += (kD * albedo.rgb / PI + specular) * radiance * NdotL;
         }
 
+        //
         // Point lights
-        for (int i = 0; i < environment.light_count; i++) {
+        // 
+
+        ivec2 location = ivec2(gl_FragCoord.xy);
+        ivec2 tile_id = location / ivec2(TILE_SIZE, TILE_SIZE);
+        uint index = tile_id.y * visible_lights_buffer.num_tiles_x + tile_id.x;
+        uint offset = index * MAX_POINT_LIGHTS;
+        for (uint i = 0; i < MAX_POINT_LIGHTS && visible_lights_buffer.indices[offset+i] != -1; i++) {
+            uint light_index = visible_lights_buffer.indices[offset+i];
+            PointLight light = env.point_lights[light_index];
+
             // Calculate per-light radiance
-            vec3 light_pos = environment.point_lights[i].pos.xyz;
+            vec3 light_pos = light.pos.xyz;
             vec3 L = normalize(light_pos - world_pos);
             vec3 H = normalize(V + L);
             float distance = length(light_pos - world_pos);
             float attenuation = 1.0 / (distance * distance);
-            vec3 radiance = environment.point_lights[i].color.rgb * attenuation;
+            vec3 radiance = light.color.rgb * attenuation;
 
             float NdotL = clamp(dot(N, L), 0.001, 1.0);
             float VdotH = clamp(dot(H, V), 0.0, 1.0);
@@ -176,11 +191,11 @@ fragment = @{
         vec3 kD = 1.0 - kS;
         kD *= 1.0 - metallic;
 
-        vec3 irradiance = tonemap(srgb_to_linear(texture(irradiance_map, N)), environment.exposure).rgb;
+        vec3 irradiance = tonemap(srgb_to_linear(texture(irradiance_map, N)), env.exposure).rgb;
         vec3 diffuse = irradiance * albedo.rgb;
 
         vec3 prefiltered_color = 
-                    tonemap(srgb_to_linear(textureLod(radiance_map, R, roughness * environment.radiance_mip_levels)), environment.exposure).rgb;
+                    tonemap(srgb_to_linear(textureLod(radiance_map, R, roughness * env.radiance_mip_levels)), env.exposure).rgb;
         vec2 brdf = srgb_to_linear(texture(brdf_lut, vec2(max(dot(N, V), 0.0), roughness))).rg;
         vec3 specular = prefiltered_color * (F * brdf.x + brdf.y);
 

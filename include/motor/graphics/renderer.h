@@ -244,6 +244,21 @@ typedef enum MtPipelineStage
     MT_PIPELINE_STAGE_TRANSFER,
 } MtPipelineStage;
 
+typedef enum MtRenderGraphPassRead
+{
+    MT_PASS_READ_IMAGE_TRANSFER,
+    MT_PASS_READ_SAMPLED_IMAGE,
+    MT_PASS_READ_STORAGE_BUFFER,
+} MtRenderGraphPassRead;
+
+typedef enum MtRenderGraphPassWrite
+{
+    MT_PASS_WRITE_COLOR_ATTACHMENT,
+    MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT,
+    MT_PASS_WRITE_STORAGE_BUFFER,
+    MT_PASS_WRITE_IMAGE_TRANSFER,
+} MtRenderGraphPassWrite;
+
 typedef struct MtRenderer
 {
     void (*destroy_device)(MtDevice *);
@@ -354,13 +369,8 @@ typedef struct MtRenderer
     MtRenderGraphPass *(*graph_add_pass)(MtRenderGraph *, const char *name, MtPipelineStage stage);
     void (*pass_set_builder)(MtRenderGraphPass *, MtRenderGraphPassBuilder builder);
 
-    void (*pass_add_color_output)(MtRenderGraphPass *, const char *name);
-    void (*pass_set_depth_stencil_output)(MtRenderGraphPass *, const char *name);
-    void (*pass_add_image_sampled_input)(MtRenderGraphPass *, const char *name);
-    void (*pass_add_image_transfer_input)(MtRenderGraphPass *, const char *name);
-    void (*pass_add_image_transfer_output)(MtRenderGraphPass *, const char *name);
-    void (*pass_add_storage_input)(MtRenderGraphPass *, const char *name);
-    void (*pass_add_storage_output)(MtRenderGraphPass *, const char *name);
+    void (*pass_read)(MtRenderGraphPass *, MtRenderGraphPassRead, const char *name);
+    void (*pass_write)(MtRenderGraphPass *, MtRenderGraphPassWrite, const char *name);
 } MtRenderer;
 
 extern MtRenderer mt_render;

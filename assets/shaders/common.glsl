@@ -6,6 +6,7 @@
 #endif
 
 #define MAX_POINT_LIGHTS 64
+#define TILE_SIZE 16
 
 struct PointLight {
     vec4 pos;

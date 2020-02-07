@@ -358,6 +358,9 @@ typedef struct MtRenderGraph
     MtHashMap pass_indices;
     MtHashMap resource_indices;
 
+    /*array*/ VkBufferMemoryBarrier *buffer_barriers;
+    /*array*/ VkImageMemoryBarrier *image_barriers;
+
     /*array*/ ExecutionGroup *execution_groups;
 } MtRenderGraph;
 
