@@ -131,6 +131,7 @@ static MtPipeline *create_compute_pipeline(MtEngine *engine, const char *path, M
     shaderc_compile_options_release(options);
 
     shaderc_result_release(comp_result);
+    mt_free(engine->alloc, comp_text);
 
     return pipeline;
 
@@ -406,6 +407,9 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
 
     shaderc_result_release(vertex_result);
     shaderc_result_release(fragment_result);
+
+    mt_free(engine->alloc, vertex_text);
+    mt_free(engine->alloc, fragment_text);
 
     return pipeline;
 

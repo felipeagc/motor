@@ -469,6 +469,11 @@ static void destroy_swapchain(MtSwapchain *swapchain)
     swapchain_destroy_resizables(swapchain);
 
     vkDestroySurfaceKHR(dev->instance, swapchain->surface, NULL);
+
+    mt_free(dev->alloc, swapchain->swapchain_images);
+    mt_free(dev->alloc, swapchain->swapchain_image_views);
+
+    mt_free(dev->alloc, swapchain);
 }
 
 static float swapchain_get_delta_time(MtSwapchain *swapchain)

@@ -26,6 +26,7 @@ static void buffer_pool_destroy(BufferPool *pool)
     {
         buffer_block_destroy(pool, &pool->blocks[i]);
     }
+    mt_array_free(pool->dev->alloc, pool->blocks);
 }
 
 static void buffer_pool_recycle(BufferPool *pool, BufferBlock *block)

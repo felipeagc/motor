@@ -168,6 +168,7 @@ void mt_asset_manager_destroy(MtAssetManager *am)
         mt_free(am->alloc, asset->inst);
     }
     mt_array_free(am->alloc, am->assets);
+    mt_array_free(am->alloc, am->asset_types);
 
     mt_mutex_unlock(&am->mutex);
 

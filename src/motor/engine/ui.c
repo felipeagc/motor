@@ -62,7 +62,6 @@ struct MtUIRenderer
 
     UIState state;
     /*array*/ UICommand *commands;
-    uint32_t max_command_count;
 };
 
 static UICommand *current_command(MtUIRenderer *ui)
@@ -70,23 +69,21 @@ static UICommand *current_command(MtUIRenderer *ui)
     UICommand *last_cmd = NULL;
     if (mt_array_size(ui->commands) == 0)
     {
-        mt_array_add_zeroed(ui->alloc, ui->commands, 1);
-        last_cmd        = &ui->commands[mt_array_size(ui->commands) - 1];
+        UICommand cmd = {0};
+        mt_array_push(ui->alloc, ui->commands, cmd);
+        last_cmd        = mt_array_last(ui->commands);
         last_cmd->state = ui->state;
     }
 
-    last_cmd = &ui->commands[mt_array_size(ui->commands) - 1];
+    last_cmd = mt_array_last(ui->commands);
 
     if (memcmp(&ui->state, &last_cmd->state, sizeof(UIState)) != 0)
     {
-        mt_array_add_zeroed(ui->alloc, ui->commands, 1);
-        last_cmd        = &ui->commands[mt_array_size(ui->commands) - 1];
+        UICommand cmd = {0};
+        mt_array_push(ui->alloc, ui->commands, cmd);
+        last_cmd        = mt_array_last(ui->commands);
         last_cmd->state = ui->state;
     }
-
-    ui->max_command_count = (mt_array_size(ui->commands) > ui->max_command_count)
-                                ? mt_array_size(ui->commands)
-                                : ui->max_command_count;
 
     return last_cmd;
 }
@@ -129,7 +126,7 @@ void mt_ui_destroy(MtUIRenderer *ui)
 {
     mt_render.destroy_sampler(ui->engine->device, ui->sampler);
 
-    for (uint32_t i = 0; i < ui->max_command_count; ++i)
+    for (uint32_t i = 0; i < mt_array_size(ui->commands); ++i)
     {
         mt_array_free(ui->alloc, ui->commands[i].vertices);
         mt_array_free(ui->alloc, ui->commands[i].indices);
@@ -444,8 +441,8 @@ void mt_ui_draw(MtUIRenderer *ui, MtCmdBuffer *cb)
     for (uint32_t i = 0; i < mt_array_size(ui->commands); ++i)
     {
         UICommand *cmd = &ui->commands[i];
-        mt_array_set_size(cmd->vertices, 0);
-        mt_array_set_size(cmd->indices, 0);
+        mt_array_free(ui->alloc, cmd->vertices);
+        mt_array_free(ui->alloc, cmd->indices);
     }
 
     mt_array_set_size(ui->commands, 0);

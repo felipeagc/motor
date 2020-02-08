@@ -114,12 +114,6 @@ static MtRenderGraph *create_graph(MtDevice *dev, MtSwapchain *swapchain, void *
         graph->frame_count = 1;
     }
 
-    mt_array_reserve(dev->alloc, graph->passes, 32);
-    mt_array_reserve(dev->alloc, graph->resources, 64);
-
-    mt_hash_init(&graph->pass_indices, mt_array_capacity(graph->passes), dev->alloc);
-    mt_hash_init(&graph->resource_indices, mt_array_capacity(graph->resources), dev->alloc);
-
     return graph;
 }
 
@@ -339,6 +333,8 @@ static void graph_unbake(MtRenderGraph *graph)
                 break;
             }
         }
+        mt_array_free(graph->dev->alloc, resource->read_in_passes);
+        mt_array_free(graph->dev->alloc, resource->written_in_passes);
     }
 
     mt_array_free(graph->dev->alloc, graph->resources);
@@ -1081,5 +1077,6 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
     mt_array_free(graph->dev->alloc, rp_attachments);
     mt_array_free(graph->dev->alloc, fb_image_views);
     mt_array_free(graph->dev->alloc, color_attachment_indices);
+    mt_array_free(graph->dev->alloc, color_attachment_refs);
 }
 // }}}

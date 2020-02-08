@@ -19,6 +19,7 @@ void mt_entity_manager_destroy(MtEntityManager *em)
         {
             mt_free(em->alloc, archetype->blocks[j].data);
         }
+        mt_array_free(em->alloc, archetype->blocks);
     }
     mt_array_free(em->alloc, em->archetypes);
 }
