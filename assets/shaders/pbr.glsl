@@ -81,11 +81,6 @@ fragment = @{
     layout (set = 3, binding = 2) uniform samplerCube radiance_map;
     layout (set = 3, binding = 3) uniform sampler2D brdf_lut;
 
-    layout (set = 3, binding = 4) readonly buffer VisibleLightsBuffer {
-        uint num_tiles_x;
-        int indices[];
-    } visible_lights_buffer;
-
     layout (location = 0) out vec4 out_color;
     
     void main() {
@@ -150,13 +145,8 @@ fragment = @{
         // Point lights
         // 
 
-        ivec2 location = ivec2(gl_FragCoord.xy);
-        ivec2 tile_id = location / ivec2(TILE_SIZE, TILE_SIZE);
-        uint index = tile_id.y * visible_lights_buffer.num_tiles_x + tile_id.x;
-        uint offset = index * MAX_POINT_LIGHTS;
-        for (uint i = 0; i < MAX_POINT_LIGHTS && visible_lights_buffer.indices[offset+i] != -1; i++) {
-            uint light_index = visible_lights_buffer.indices[offset+i];
-            PointLight light = env.point_lights[light_index];
+        for (uint i = 0; i < env.light_count; i++) {
+            PointLight light = env.point_lights[i];
 
             // Calculate per-light radiance
             vec3 light_pos = light.pos.xyz;

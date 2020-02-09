@@ -10,14 +10,13 @@ vertex = @{
     layout(set = 0, binding = 0) uniform RadianceUniform {
         mat4 mvp;
         float roughness;
-        uint numSamples;
     };
 
     layout(location = 0) out vec3 tex_coords0;
 
     void main() {
         tex_coords0 = pos;
-        tex_coords0.y *= -1.0f;
+        tex_coords0.y *= -1.0;
 
         gl_Position = mvp * vec4(pos, 1.0);
     }
@@ -84,7 +83,7 @@ fragment = @{
     }
 
     vec3 prefilterEnvMap(vec3 R, float roughness) {
-        uint numSamples = 32;
+        uint numSamples = 1024;
 
         vec3 N = R;
         vec3 V = R;

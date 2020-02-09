@@ -16,12 +16,111 @@ compute = @{
         int indices[];
     } visible_lights_buffer;
 
+    struct ViewFrustum
+    {
+        vec4 planes[6];
+        vec3 points[8]; // 0-3 near 4-7 far
+    };
+
+    const vec2 ndc_upper_left = vec2(-1.0, -1.0);
+    const float ndc_near_plane = 0.0;
+    const float ndc_far_plane = 1.0;
+
     shared uint min_depth_uint;
     shared uint max_depth_uint;
     shared uint visible_light_count;
     shared int visible_light_indices[MAX_POINT_LIGHTS];
     shared mat4 view_projection;
-    shared vec4 frustum_planes[6];
+    shared ViewFrustum frustum;
+
+    ViewFrustum create_frustum(ivec2 tile_pos)
+    {
+        mat4 inv_view_proj = inverse(view_projection);
+        vec2 ndc_size_per_tile = 2.0 * vec2(TILE_SIZE, TILE_SIZE) / vec2(textureSize(depth_sampler, 0).xy);
+
+        // 2D corners of tile in NDC
+        vec2 ndc_pts[4];
+        ndc_pts[0] = ndc_upper_left + tile_pos * ndc_size_per_tile; // upper left
+        ndc_pts[1] = vec2(ndc_pts[0].x + ndc_size_per_tile.x, ndc_pts[0].y); // upper right
+        ndc_pts[2] = ndc_pts[0] + ndc_size_per_tile; // lower right
+        ndc_pts[3] = vec2(ndc_pts[0].x, ndc_pts[0].y + ndc_size_per_tile.y); // lower left
+
+        float min_depth = uintBitsToFloat(min_depth_uint);
+        float max_depth = uintBitsToFloat(max_depth_uint);
+
+        ViewFrustum frustum;
+
+        // Get the points
+        vec4 temp;
+        for (int i = 0; i < 4; i++)
+        {
+            temp = inv_view_proj * vec4(ndc_pts[i], min_depth, 1.0);
+            frustum.points[i] = temp.xyz / temp.w;
+            temp = inv_view_proj * vec4(ndc_pts[i], max_depth, 1.0);
+            frustum.points[i+4] = temp.xyz / temp.w;
+        }
+
+        vec3 temp_normal;
+        for (int i = 0; i < 4; i++)
+        {
+            temp_normal = cross(frustum.points[i] - cam.pos.xyz, frustum.points[i+1] - cam.pos.xyz);
+            temp_normal = normalize(temp_normal);
+            frustum.planes[i] = vec4(temp_normal, -dot(temp_normal, frustum.points[i]));
+        }
+
+        // near plane
+        {
+            temp_normal = cross(frustum.points[1] - frustum.points[0], frustum.points[3] - frustum.points[0]);
+            temp_normal = normalize(temp_normal);
+            frustum.planes[4] = vec4(temp_normal, -dot(temp_normal, frustum.points[0]));
+        }
+
+        // far plane
+        {
+            temp_normal = cross(frustum.points[7] - frustum.points[4], frustum.points[5] - frustum.points[4]);
+            temp_normal = normalize(temp_normal);
+            frustum.planes[5] = vec4(temp_normal, -dot(temp_normal, frustum.points[4]));
+        }
+
+        return frustum;
+    }
+
+    bool is_collided(PointLight light, ViewFrustum frustum)
+    {
+        bool result = true;
+        for (int i = 0; i < 4; i++)
+        {
+            if (dot(light.pos.xyz, frustum.planes[i].xyz) + frustum.planes[i].w < -light.radius)
+            {
+                result = false;
+                break;
+            }
+        }
+
+        if (!result)
+        {
+            return false;
+        }
+
+        // Step2: bbox corner test (to reduce false positive)
+        vec3 light_bbox_max = light.pos.xyz + vec3(light.radius);
+        vec3 light_bbox_min = light.pos.xyz - vec3(light.radius);
+        int probe;
+        probe = 0;
+        for (int i = 0; i < 8; i++) probe += ((frustum.points[i].x > light_bbox_max.x) ? 1 : 0); if(probe == 8) return false;
+        probe = 0;
+        for (int i = 0; i < 8; i++) probe += ((frustum.points[i].x < light_bbox_min.x) ? 1 : 0); if(probe == 8) return false;
+        probe = 0;
+        for (int i = 0; i < 8; i++) probe += ((frustum.points[i].y > light_bbox_max.y) ? 1 : 0); if(probe == 8) return false;
+        probe = 0;
+        for (int i = 0; i < 8; i++) probe += ((frustum.points[i].y < light_bbox_min.y) ? 1 : 0); if(probe == 8) return false;
+        probe = 0;
+        for (int i = 0; i < 8; i++) probe += ((frustum.points[i].z > light_bbox_max.z) ? 1 : 0); if(probe == 8) return false;
+        probe = 0;
+        for (int i = 0; i < 8; i++) probe += ((frustum.points[i].z < light_bbox_min.z) ? 1 : 0); if(probe == 8) return false;
+
+        return true;
+    }
 
     layout(local_size_x = TILE_SIZE, local_size_y = TILE_SIZE) in;
     void main()
@@ -39,8 +138,7 @@ compute = @{
 
         barrier();
 
-        vec2 tex_coord = vec2(gl_GlobalInvocationID.xy) / textureSize(depth_sampler, 0);
-        float depth_float = texture(depth_sampler, tex_coord).x;
+        float depth_float = texelFetch(depth_sampler, ivec2(gl_GlobalInvocationID.xy), 0).x;
         // Linearize depth because of perspective projection
         depth_float = (0.5 * cam.proj[3][2]) / (depth_float + 0.5 * cam.proj[2][2] - 0.5);
 
@@ -53,74 +151,16 @@ compute = @{
         // Calculate the frustum planes
         if (gl_LocalInvocationIndex == 0)
         {
-            float min_depth;
-            float max_depth;
-
-            // Convert the min and max across the entire tile back to float
-            min_depth = uintBitsToFloat(min_depth_uint);
-            max_depth = uintBitsToFloat(max_depth_uint);
-
-            if (min_depth >= max_depth)
-            {
-                min_depth = max_depth;
-            }
-
-
-            // Steps based on tile sale
-            vec2 negative_step = (2.0 * vec2(gl_WorkGroupID.xy)) / vec2(gl_NumWorkGroups.xy);
-            vec2 positive_step =
-                (2.0 * vec2(gl_WorkGroupID.xy + ivec2(1, 1))) / vec2(gl_NumWorkGroups.xy);
-
-            // Set up starting values for planes using steps and min and max z values
-            frustum_planes[0] = vec4(1.0, 0.0, 0.0, 1.0 - negative_step.x); // Left
-            frustum_planes[1] = vec4(-1.0, 0.0, 0.0, -1.0 + positive_step.x); // Right
-            frustum_planes[2] = vec4(0.0, 1.0, 0.0, 1.0 - negative_step.y); // Bottom
-            frustum_planes[3] = vec4(0.0, -1.0, 0.0, -1.0 + positive_step.y); // Top
-            frustum_planes[4] = vec4(0.0, 0.0, 0.0, -min_depth); // Near
-            frustum_planes[5] = vec4(0.0, 0.0, 1.0, max_depth); // Far
-
-            // Transform the first four planes
-            for (uint i = 0; i < 4; i++) {
-                frustum_planes[i] *= view_projection;
-                frustum_planes[i] /= length(frustum_planes[i].xyz);
-            }
-
-            // Transform the depth planes
-            frustum_planes[4] *= cam.view;
-            frustum_planes[4] /= length(frustum_planes[4].xyz);
-            frustum_planes[5] *= cam.view;
-            frustum_planes[5] /= length(frustum_planes[5].xyz);
+            frustum = create_frustum(ivec2(gl_WorkGroupID.xy));
         }
 
         barrier();
 
         // Cull lights
-        uint thread_count = TILE_SIZE * TILE_SIZE;
-        uint pass_count = (env.light_count + thread_count - 1) / thread_count;
-        for (uint i = 0; i < pass_count; i++) {
-            // Get the lightIndex to test for this thread / pass. If the index is >= light count, then this thread can stop testing lights
-            uint light_index = i * thread_count + gl_LocalInvocationIndex;
-            if (light_index >= env.light_count) {
-                break;
-            }
-
-            vec4 position = env.point_lights[light_index].pos;
-            float radius = env.point_lights[light_index].radius;
-
-            // We check if the light exists in our frustum
-            float distance = 0.0;
-            for (uint j = 0; j < 6; j++) {
-                distance = dot(position, frustum_planes[j]) + radius;
-
-                // If one of the tests fails, then there is no intersection
-                if (distance <= 0.0) {
-                    break;
-                }
-            }
-
-            // If greater than zero, then it is a visible light
-            if (distance > 0.0) {
-                // Add index to the shared array of visible indices
+        uint light_index = gl_LocalInvocationIndex;
+        if (light_index < env.light_count) {
+            if (is_collided(env.point_lights[light_index], frustum))
+            {
                 uint offset = atomicAdd(visible_light_count, 1);
                 visible_light_indices[offset] = int(light_index);
             }

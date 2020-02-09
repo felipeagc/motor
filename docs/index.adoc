@@ -33,7 +33,6 @@
 * Statically link shaderc on windows
 
 === Performance
-* Batch memory barriers in render graph
 
 === Bug fixes
 * UI font atlas size needs to be correct

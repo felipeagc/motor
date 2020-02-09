@@ -384,7 +384,7 @@ static void create_graphics_pipeline_instance(
         .sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .sampleShadingEnable   = VK_FALSE,
         .rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT,
-        .minSampleShading      = 1.0f,     // Optional
+        .minSampleShading      = 0.0f,     // Optional
         .pSampleMask           = NULL,     // Optional
         .alphaToCoverageEnable = VK_FALSE, // Optional
         .alphaToOneEnable      = VK_FALSE, // Optional
