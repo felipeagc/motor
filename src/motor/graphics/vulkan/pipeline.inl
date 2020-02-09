@@ -22,7 +22,7 @@ combined_set_layouts_init(CombinedSetLayouts *c, MtPipeline *pipeline, MtAllocat
         {
             SetInfo *shader_set = &shader->sets[i];
 
-            SetInfo *set       = &c->sets[i];
+            SetInfo *set = &c->sets[i];
             set->binding_count = MT_MAX(set->binding_count, shader_set->binding_count);
             for (uint32_t b = 0; b < shader_set->binding_count; ++b)
             {
@@ -34,7 +34,7 @@ combined_set_layouts_init(CombinedSetLayouts *c, MtPipeline *pipeline, MtAllocat
 
                 set->bindings[b].binding = shader_set->bindings[b].binding;
                 set->bindings[b].stageFlags |= shader_set->bindings[b].stageFlags;
-                set->bindings[b].descriptorType  = shader_set->bindings[b].descriptorType;
+                set->bindings[b].descriptorType = shader_set->bindings[b].descriptorType;
                 set->bindings[b].descriptorCount = shader_set->bindings[b].descriptorCount;
             }
         }
@@ -56,15 +56,15 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
     memset(shader, 0, sizeof(*shader));
 
     VkShaderModuleCreateInfo create_info = {
-        .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .codeSize = code_size,
-        .pCode    = (uint32_t *)code,
+        .pCode = (uint32_t *)code,
     };
     VK_CHECK(vkCreateShaderModule(dev->device, &create_info, NULL, &shader->mod));
 
-    spvc_context context     = NULL;
-    spvc_parsed_ir ir        = NULL;
-    spvc_compiler compiler   = NULL;
+    spvc_context context = NULL;
+    spvc_parsed_ir ir = NULL;
+    spvc_compiler compiler = NULL;
     spvc_resources resources = NULL;
 
     spvc_result result;
@@ -79,12 +79,19 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
         context, SPVC_BACKEND_NONE, ir, SPVC_CAPTURE_MODE_COPY, &compiler);
     assert(result == SPVC_SUCCESS);
 
+    size_t num_entry_points = 0;
+    const spvc_entry_point *entry_points = NULL;
+    result = spvc_compiler_get_entry_points(compiler, &entry_points, &num_entry_points);
+
+    assert(num_entry_points == 1);
+    shader->entry_point = mt_strdup(dev->alloc, entry_points[0].name);
+
     result = spvc_compiler_create_shader_resources(compiler, &resources);
     assert(result == SPVC_SUCCESS);
 
     const spvc_reflected_resource *input_list = NULL;
-    size_t input_count                        = 0;
-    result                                    = spvc_resources_get_resource_list_for_type(
+    size_t input_count = 0;
+    result = spvc_resources_get_resource_list_for_type(
         resources, SPVC_RESOURCE_TYPE_STAGE_INPUT, &input_list, &input_count);
     assert(result == SPVC_SUCCESS);
 
@@ -118,12 +125,12 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
             if (location == UINT32_MAX)
                 continue;
 
-            spvc_type type       = spvc_compiler_get_type_handle(compiler, input_list[i].type_id);
-            uint32_t type_width  = spvc_type_get_bit_width(type);
+            spvc_type type = spvc_compiler_get_type_handle(compiler, input_list[i].type_id);
+            uint32_t type_width = spvc_type_get_bit_width(type);
             uint32_t vector_size = spvc_type_get_vector_size(type);
 
             VertexAttribute *attrib = &shader->vertex_attributes[location];
-            attrib->size            = (type_width * vector_size) / 8;
+            attrib->size = (type_width * vector_size) / 8;
 
             switch (attrib->size)
             {
@@ -136,8 +143,10 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
         }
     }
 
-    spvc_resource_type resource_types[3] = {
+    spvc_resource_type resource_types[5] = {
         SPVC_RESOURCE_TYPE_SAMPLED_IMAGE,
+        SPVC_RESOURCE_TYPE_SEPARATE_IMAGE,
+        SPVC_RESOURCE_TYPE_SEPARATE_SAMPLERS,
         SPVC_RESOURCE_TYPE_UNIFORM_BUFFER,
         SPVC_RESOURCE_TYPE_STORAGE_BUFFER,
     };
@@ -145,27 +154,12 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
     for (uint32_t r = 0; r < MT_LENGTH(resource_types); ++r)
     {
         const spvc_reflected_resource *resource_list = NULL;
-        size_t resource_count                        = 0;
+        size_t resource_count = 0;
         spvc_resources_get_resource_list_for_type(
             resources, resource_types[r], &resource_list, &resource_count);
 
         for (uint32_t i = 0; i < resource_count; ++i)
         {
-            VkDescriptorType descriptor_type = 0;
-            switch (resource_types[r])
-            {
-                case SPVC_RESOURCE_TYPE_SAMPLED_IMAGE:
-                    descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                    break;
-                case SPVC_RESOURCE_TYPE_UNIFORM_BUFFER:
-                    descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                    break;
-                case SPVC_RESOURCE_TYPE_STORAGE_BUFFER:
-                    descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-                    break;
-                default: assert(0);
-            }
-
             if (!spvc_compiler_has_decoration(
                     compiler, resource_list[i].id, SpvDecorationDescriptorSet))
             {
@@ -182,14 +176,35 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
             uint32_t binding =
                 spvc_compiler_get_decoration(compiler, resource_list[i].id, SpvDecorationBinding);
 
-            shader->set_count               = MT_MAX(set + 1, shader->set_count);
+            VkDescriptorType descriptor_type = 0;
+            switch (resource_types[r])
+            {
+                case SPVC_RESOURCE_TYPE_SAMPLED_IMAGE:
+                    descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    break;
+                case SPVC_RESOURCE_TYPE_SEPARATE_IMAGE:
+                    descriptor_type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                    break;
+                case SPVC_RESOURCE_TYPE_SEPARATE_SAMPLERS:
+                    descriptor_type = VK_DESCRIPTOR_TYPE_SAMPLER;
+                    break;
+                case SPVC_RESOURCE_TYPE_UNIFORM_BUFFER:
+                    descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                    break;
+                case SPVC_RESOURCE_TYPE_STORAGE_BUFFER:
+                    descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                    break;
+                default: assert(0);
+            }
+
+            shader->set_count = MT_MAX(set + 1, shader->set_count);
             shader->sets[set].binding_count = MT_MAX(binding + 1, shader->sets[set].binding_count);
 
             shader->sets[set].bindings[binding] = (VkDescriptorSetLayoutBinding){
-                .binding         = binding,
-                .descriptorType  = descriptor_type,
+                .binding = binding,
+                .descriptorType = descriptor_type,
                 .descriptorCount = 1,
-                .stageFlags      = shader->stage,
+                .stageFlags = shader->stage,
             };
         }
     }
@@ -200,6 +215,7 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
 static void shader_destroy(MtDevice *dev, Shader *shader)
 {
     device_wait_idle(dev);
+    mt_free(dev->alloc, shader->entry_point);
     vkDestroyShaderModule(dev->device, shader->mod, NULL);
 }
 
@@ -223,11 +239,11 @@ create_pipeline_layout(MtDevice *dev, CombinedSetLayouts *combined, VkPipelineBi
     }
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {
-        .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount         = mt_array_size(set_layouts),
-        .pSetLayouts            = set_layouts,
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = mt_array_size(set_layouts),
+        .pSetLayouts = set_layouts,
         .pushConstantRangeCount = 0,
-        .pPushConstantRanges    = NULL,
+        .pPushConstantRanges = NULL,
     };
 
     VK_CHECK(vkCreatePipelineLayout(dev->device, &pipeline_layout_info, NULL, &l->layout));
@@ -264,7 +280,7 @@ static PipelineLayout *request_pipeline_layout(MtDevice *dev, MtPipeline *pipeli
         return layout;
     }
 
-    layout       = create_pipeline_layout(dev, &combined, pipeline->bind_point);
+    layout = create_pipeline_layout(dev, &combined, pipeline->bind_point);
     layout->hash = hash;
 
     return mt_hash_set_ptr(&dev->pipeline_layout_map, hash, layout);
@@ -274,26 +290,26 @@ static void create_graphics_pipeline_instance(
     MtDevice *dev, PipelineInstance *instance, MtRenderPass *render_pass, MtPipeline *pipeline)
 {
     instance->bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    instance->pipeline   = pipeline;
+    instance->pipeline = pipeline;
 
     MtGraphicsPipelineCreateInfo *options = &pipeline->create_info;
 
     VertexAttribute *attribs = NULL;
-    uint32_t attrib_count    = 0;
+    uint32_t attrib_count = 0;
 
     VkPipelineShaderStageCreateInfo *stages = NULL;
     mt_array_add(dev->alloc, stages, mt_array_size(pipeline->shaders));
     for (uint32_t i = 0; i < mt_array_size(pipeline->shaders); i++)
     {
         stages[i] = (VkPipelineShaderStageCreateInfo){
-            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage  = pipeline->shaders[i].stage,
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = pipeline->shaders[i].stage,
             .module = pipeline->shaders[i].mod,
-            .pName  = "main",
+            .pName = pipeline->shaders[i].entry_point,
         };
         if (stages[i].stage == VK_SHADER_STAGE_VERTEX_BIT)
         {
-            attribs      = pipeline->shaders[i].vertex_attributes;
+            attribs = pipeline->shaders[i].vertex_attributes;
             attrib_count = pipeline->shaders[i].vertex_attribute_count;
         }
     }
@@ -310,8 +326,8 @@ static void create_graphics_pipeline_instance(
     }
 
     VkVertexInputBindingDescription binding_description = {
-        .binding   = 0,
-        .stride    = vertex_stride,
+        .binding = 0,
+        .stride = vertex_stride,
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
     };
 
@@ -319,7 +335,7 @@ static void create_graphics_pipeline_instance(
     if (attrib_count > 0)
     {
         vertex_input_info.vertexBindingDescriptionCount = 1;
-        vertex_input_info.pVertexBindingDescriptions    = &binding_description;
+        vertex_input_info.pVertexBindingDescriptions = &binding_description;
 
         mt_array_add(dev->alloc, attributes, attrib_count);
 
@@ -329,28 +345,28 @@ static void create_graphics_pipeline_instance(
         {
             attributes[i] = (VkVertexInputAttributeDescription){
                 .location = i,
-                .binding  = 0,
-                .format   = attribs[i].format,
-                .offset   = attrib_offset,
+                .binding = 0,
+                .format = attribs[i].format,
+                .offset = attrib_offset,
             };
             attrib_offset += attribs[i].size;
         }
     }
 
     vertex_input_info.vertexAttributeDescriptionCount = attrib_count;
-    vertex_input_info.pVertexAttributeDescriptions    = attributes;
+    vertex_input_info.pVertexAttributeDescriptions = attributes;
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {
-        .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .primitiveRestartEnable = VK_FALSE,
     };
 
     VkViewport viewport = {
-        .x        = 0.0f,
-        .y        = 0.0f,
-        .width    = (float)render_pass->extent.width,
-        .height   = (float)render_pass->extent.height,
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = (float)render_pass->extent.width,
+        .height = (float)render_pass->extent.height,
         .minDepth = 0.0f,
         .maxDepth = 1.0f,
     };
@@ -359,65 +375,65 @@ static void create_graphics_pipeline_instance(
         .extent = render_pass->extent,
     };
     VkPipelineViewportStateCreateInfo viewport_state = {
-        .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .viewportCount = 1,
-        .pViewports    = &viewport,
-        .scissorCount  = 1,
-        .pScissors     = &scissor,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor,
     };
 
     VkPipelineRasterizationStateCreateInfo rasterizer = {
-        .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .depthClampEnable        = VK_FALSE,
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode             = VK_POLYGON_MODE_FILL,
-        .lineWidth               = options->line_width,
-        .cullMode                = cull_mode_to_vulkan(options->cull_mode),
-        .frontFace               = front_face_to_vulkan(options->front_face),
-        .depthBiasEnable         = options->depth_bias,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .lineWidth = options->line_width,
+        .cullMode = cull_mode_to_vulkan(options->cull_mode),
+        .frontFace = front_face_to_vulkan(options->front_face),
+        .depthBiasEnable = options->depth_bias,
         .depthBiasConstantFactor = 0.0f,
-        .depthBiasClamp          = 0.0f,
-        .depthBiasSlopeFactor    = 0.0f,
+        .depthBiasClamp = 0.0f,
+        .depthBiasSlopeFactor = 0.0f,
     };
 
     VkPipelineMultisampleStateCreateInfo multisampling = {
-        .sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .sampleShadingEnable   = VK_FALSE,
-        .rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT,
-        .minSampleShading      = 0.0f,     // Optional
-        .pSampleMask           = NULL,     // Optional
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .sampleShadingEnable = VK_FALSE,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .minSampleShading = 0.0f,          // Optional
+        .pSampleMask = NULL,               // Optional
         .alphaToCoverageEnable = VK_FALSE, // Optional
-        .alphaToOneEnable      = VK_FALSE, // Optional
+        .alphaToOneEnable = VK_FALSE,      // Optional
     };
 
     VkPipelineDepthStencilStateCreateInfo depth_stencil = {
-        .sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthTestEnable  = options->depth_test,
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = options->depth_test,
         .depthWriteEnable = options->depth_write,
-        .depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL,
+        .depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL,
     };
 
     VkPipelineColorBlendAttachmentState color_blend_attachment_enabled = {
-        .blendEnable         = VK_TRUE,
+        .blendEnable = VK_TRUE,
         .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
         .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        .colorBlendOp        = VK_BLEND_OP_ADD,
+        .colorBlendOp = VK_BLEND_OP_ADD,
         .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
         .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-        .alphaBlendOp        = VK_BLEND_OP_ADD,
-        .colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
     };
 
     VkPipelineColorBlendAttachmentState color_blend_attachment_disabled = {
-        .blendEnable         = VK_FALSE,
+        .blendEnable = VK_FALSE,
         .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
         .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        .colorBlendOp        = VK_BLEND_OP_ADD,
+        .colorBlendOp = VK_BLEND_OP_ADD,
         .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
         .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-        .alphaBlendOp        = VK_BLEND_OP_ADD,
-        .colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
     };
 
@@ -438,12 +454,12 @@ static void create_graphics_pipeline_instance(
     }
 
     VkPipelineColorBlendStateCreateInfo color_blending = {
-        .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-        .logicOpEnable   = VK_FALSE,
-        .logicOp         = VK_LOGIC_OP_COPY, // Optional
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY, // Optional
         .attachmentCount = render_pass->color_attachment_count,
-        .pAttachments    = blend_infos,
-        .blendConstants  = {0.0f, 0.0f, 0.0f, 0.0f},
+        .pAttachments = blend_infos,
+        .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f},
     };
 
     VkDynamicState dynamic_states[4] = {
@@ -454,28 +470,28 @@ static void create_graphics_pipeline_instance(
     };
 
     VkPipelineDynamicStateCreateInfo dynamic_state = {
-        .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         .dynamicStateCount = MT_LENGTH(dynamic_states),
-        .pDynamicStates    = dynamic_states,
+        .pDynamicStates = dynamic_states,
     };
 
     VkGraphicsPipelineCreateInfo pipeline_info = {
-        .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount          = mt_array_size(stages),
-        .pStages             = stages,
-        .pVertexInputState   = &vertex_input_info,
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = mt_array_size(stages),
+        .pStages = stages,
+        .pVertexInputState = &vertex_input_info,
         .pInputAssemblyState = &input_assembly,
-        .pViewportState      = &viewport_state,
+        .pViewportState = &viewport_state,
         .pRasterizationState = &rasterizer,
-        .pMultisampleState   = &multisampling,
-        .pDepthStencilState  = &depth_stencil,
-        .pColorBlendState    = &color_blending,
-        .pDynamicState       = &dynamic_state,
-        .layout              = instance->pipeline->layout->layout,
-        .renderPass          = render_pass->renderpass,
-        .subpass             = 0,
-        .basePipelineHandle  = VK_NULL_HANDLE,
-        .basePipelineIndex   = -1,
+        .pMultisampleState = &multisampling,
+        .pDepthStencilState = &depth_stencil,
+        .pColorBlendState = &color_blending,
+        .pDynamicState = &dynamic_state,
+        .layout = instance->pipeline->layout->layout,
+        .renderPass = render_pass->renderpass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = -1,
     };
 
     VK_CHECK(vkCreateGraphicsPipelines(
@@ -489,22 +505,22 @@ static void
 create_compute_pipeline_instance(MtDevice *dev, PipelineInstance *instance, MtPipeline *pipeline)
 {
     instance->bind_point = VK_PIPELINE_BIND_POINT_COMPUTE;
-    instance->pipeline   = pipeline;
+    instance->pipeline = pipeline;
 
     VkPipelineShaderStageCreateInfo shader_stage = {
-        .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage               = VK_SHADER_STAGE_COMPUTE_BIT,
-        .module              = pipeline->shaders[0].mod,
-        .pName               = "main",
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .module = pipeline->shaders[0].mod,
+        .pName = "main",
         .pSpecializationInfo = NULL,
     };
 
     VkComputePipelineCreateInfo create_info = {
-        .sType              = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-        .stage              = shader_stage,
-        .layout             = instance->pipeline->layout->layout,
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .stage = shader_stage,
+        .layout = instance->pipeline->layout->layout,
         .basePipelineHandle = VK_NULL_HANDLE,
-        .basePipelineIndex  = 0,
+        .basePipelineIndex = 0,
     };
 
     VK_CHECK(vkCreateComputePipelines(
@@ -523,7 +539,7 @@ request_graphics_pipeline_instance(MtDevice *dev, MtPipeline *pipeline, MtRender
     if (instance)
         return instance;
 
-    instance       = mt_alloc(dev->alloc, sizeof(PipelineInstance));
+    instance = mt_alloc(dev->alloc, sizeof(PipelineInstance));
     instance->hash = hash;
     create_graphics_pipeline_instance(dev, instance, render_pass, pipeline);
     return mt_hash_set_ptr(&pipeline->instances, instance->hash, instance);
@@ -535,7 +551,7 @@ static PipelineInstance *request_compute_pipeline_instance(MtDevice *dev, MtPipe
     if (instance)
         return instance;
 
-    instance       = mt_alloc(dev->alloc, sizeof(PipelineInstance));
+    instance = mt_alloc(dev->alloc, sizeof(PipelineInstance));
     instance->hash = pipeline->hash;
 
     create_compute_pipeline_instance(dev, instance, pipeline);

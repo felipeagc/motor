@@ -142,18 +142,18 @@ typedef struct MtBufferCreateInfo
 
 typedef enum MtImageUsage
 {
-    MT_IMAGE_USAGE_SAMPLED_BIT                  = 1 << 0,
-    MT_IMAGE_USAGE_STORAGE_BIT                  = 1 << 1,
-    MT_IMAGE_USAGE_TRANSFER_SRC_BIT             = 1 << 2,
-    MT_IMAGE_USAGE_TRANSFER_DST_BIT             = 1 << 3,
-    MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT         = 1 << 4,
+    MT_IMAGE_USAGE_SAMPLED_BIT = 1 << 0,
+    MT_IMAGE_USAGE_STORAGE_BIT = 1 << 1,
+    MT_IMAGE_USAGE_TRANSFER_SRC_BIT = 1 << 2,
+    MT_IMAGE_USAGE_TRANSFER_DST_BIT = 1 << 3,
+    MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT = 1 << 4,
     MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT = 1 << 5,
 } MtImageUsage;
 
 typedef enum MtImageAspect
 {
-    MT_IMAGE_ASPECT_COLOR_BIT   = 1 << 0,
-    MT_IMAGE_ASPECT_DEPTH_BIT   = 1 << 1,
+    MT_IMAGE_ASPECT_COLOR_BIT = 1 << 0,
+    MT_IMAGE_ASPECT_DEPTH_BIT = 1 << 1,
     MT_IMAGE_ASPECT_STENCIL_BIT = 1 << 2,
 } MtImageAspect;
 
@@ -322,7 +322,10 @@ typedef struct MtRenderer
 
     void (*cmd_bind_uniform)(
         MtCmdBuffer *, const void *data, size_t size, uint32_t set, uint32_t binding);
-    void (*cmd_bind_image)(MtCmdBuffer *, MtImage *, MtSampler *, uint32_t set, uint32_t binding);
+    void (*cmd_bind_sampler)(MtCmdBuffer *, MtSampler *, uint32_t set, uint32_t binding);
+    void (*cmd_bind_image)(MtCmdBuffer *, MtImage *, uint32_t set, uint32_t binding);
+    void (*cmd_bind_image_sampler)(
+        MtCmdBuffer *, MtImage *, MtSampler *, uint32_t set, uint32_t binding);
     void (*cmd_bind_storage_buffer)(MtCmdBuffer *, MtBuffer *, uint32_t set, uint32_t binding);
 
     void (*cmd_bind_pipeline)(MtCmdBuffer *, MtPipeline *pipeline);

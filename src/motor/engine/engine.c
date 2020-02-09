@@ -38,8 +38,7 @@ void mt_engine_init(MtEngine *engine)
 
     mt_log_init();
 
-    /* uint32_t num_threads = mt_cpu_count() / 2; */
-    uint32_t num_threads = 1;
+    uint32_t num_threads = mt_cpu_count() / 2;
 
     mt_log_debug("Using %u threads", num_threads);
 
@@ -51,7 +50,7 @@ void mt_engine_init(MtEngine *engine)
         },
         engine->alloc);
 
-    engine->window    = mt_window.create(1280, 720, "Motor", engine->alloc);
+    engine->window = mt_window.create(1280, 720, "Motor", engine->alloc);
     engine->swapchain = mt_render.create_swapchain(engine->device, engine->window, engine->alloc);
 
     engine->compiler = shaderc_compiler_initialize();
@@ -84,9 +83,9 @@ void mt_engine_init(MtEngine *engine)
         engine->default_cubemap = mt_render.create_image(
             engine->device,
             &(MtImageCreateInfo){
-                .format      = MT_FORMAT_RGBA16_SFLOAT,
-                .width       = 1,
-                .height      = 1,
+                .format = MT_FORMAT_RGBA16_SFLOAT,
+                .width = 1,
+                .height = 1,
                 .layer_count = 6,
             });
 
@@ -95,7 +94,7 @@ void mt_engine_init(MtEngine *engine)
             mt_render.transfer_to_image(
                 engine->device,
                 &(MtImageCopyView){
-                    .image       = engine->default_cubemap,
+                    .image = engine->default_cubemap,
                     .array_layer = i,
                 },
                 8,
@@ -106,9 +105,9 @@ void mt_engine_init(MtEngine *engine)
     engine->default_sampler = mt_render.create_sampler(
         engine->device,
         &(MtSamplerCreateInfo){
-            .anisotropy   = true,
-            .mag_filter   = MT_FILTER_LINEAR,
-            .min_filter   = MT_FILTER_LINEAR,
+            .anisotropy = true,
+            .mag_filter = MT_FILTER_LINEAR,
+            .min_filter = MT_FILTER_LINEAR,
             .address_mode = MT_SAMPLER_ADDRESS_MODE_REPEAT,
             .border_color = MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
         });
@@ -117,7 +116,7 @@ void mt_engine_init(MtEngine *engine)
     mt_asset_manager_init(&engine->asset_manager, engine);
     mt_entity_manager_init(&engine->entity_manager, engine->alloc);
 
-    engine->ui      = mt_ui_create(engine->alloc, engine->window, &engine->asset_manager);
+    engine->ui = mt_ui_create(engine->alloc, engine->window, &engine->asset_manager);
     engine->watcher = mt_file_watcher_create(
         engine->alloc, MT_FILE_WATCHER_EVENT_MODIFY, asset_watcher_handler, "../assets");
 }

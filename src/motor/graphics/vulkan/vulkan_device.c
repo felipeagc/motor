@@ -64,7 +64,7 @@ static const char *INSTANCE_EXTENSIONS[1] = {
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 };
 #else
-static const char *VALIDATION_LAYERS[0]   = {};
+static const char *VALIDATION_LAYERS[0] = {};
 static const char *INSTANCE_EXTENSIONS[0] = {};
 #endif
 
@@ -140,30 +140,30 @@ static void create_instance(MtDevice *dev)
 #endif
 
     VkApplicationInfo app_info = {
-        .sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName   = "Motor",
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pApplicationName = "Motor",
         .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
-        .pEngineName        = "Motor",
-        .engineVersion      = VK_MAKE_VERSION(0, 1, 0),
-        .apiVersion         = VK_API_VERSION_1_1,
+        .pEngineName = "Motor",
+        .engineVersion = VK_MAKE_VERSION(0, 1, 0),
+        .apiVersion = VK_API_VERSION_1_1,
     };
 
     VkInstanceCreateInfo create_info = {
-        .sType            = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &app_info,
     };
 
 #ifdef MT_ENABLE_VALIDATION
-    create_info.enabledLayerCount   = MT_LENGTH(VALIDATION_LAYERS);
+    create_info.enabledLayerCount = MT_LENGTH(VALIDATION_LAYERS);
     create_info.ppEnabledLayerNames = VALIDATION_LAYERS;
 #endif
 
-    const char **extensions  = NULL;
+    const char **extensions = NULL;
     uint32_t extension_count = 0;
     if (MT_LENGTH(INSTANCE_EXTENSIONS) > 0)
     {
         extension_count = MT_LENGTH(INSTANCE_EXTENSIONS);
-        extensions      = mt_alloc(dev->alloc, sizeof(char *) * extension_count);
+        extensions = mt_alloc(dev->alloc, sizeof(char *) * extension_count);
         memcpy(extensions, INSTANCE_EXTENSIONS, sizeof(char *) * MT_LENGTH(INSTANCE_EXTENSIONS));
     }
 
@@ -182,7 +182,7 @@ static void create_instance(MtDevice *dev)
             window_extension_count * sizeof(char *));
     }
 
-    create_info.enabledExtensionCount   = extension_count;
+    create_info.enabledExtensionCount = extension_count;
     create_info.ppEnabledExtensionNames = extensions;
 
     VK_CHECK(vkCreateInstance(&create_info, NULL, &dev->instance));
@@ -195,7 +195,7 @@ static void create_instance(MtDevice *dev)
 static void create_debug_messenger(MtDevice *dev)
 {
     VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
-    create_info.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
                                   VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                                   VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -213,7 +213,7 @@ static QueueFamilyIndices find_queue_families(MtDevice *dev, VkPhysicalDevice ph
     QueueFamilyIndices indices;
     indices.graphics = UINT32_MAX;
     indices.transfer = UINT32_MAX;
-    indices.compute  = UINT32_MAX;
+    indices.compute = UINT32_MAX;
 
     uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, NULL);
@@ -266,7 +266,7 @@ static bool check_device_extension_support(MtDevice *dev, VkPhysicalDevice physi
     for (uint32_t i = 0; i < MT_LENGTH(DEVICE_EXTENSIONS); i++)
     {
         const char *required_ext = DEVICE_EXTENSIONS[i];
-        bool found               = false;
+        bool found = false;
         for (uint32_t j = 0; j < extension_count; j++)
         {
             VkExtensionProperties *available_ext = &available_extensions[j];
@@ -333,13 +333,13 @@ static void create_device(MtDevice *dev)
 {
     dev->indices = find_queue_families(dev, dev->physical_device);
 
-    float queue_priority                          = 1.0f;
+    float queue_priority = 1.0f;
     VkDeviceQueueCreateInfo queue_create_infos[3] = {0};
-    uint32_t queue_create_info_count              = 1;
+    uint32_t queue_create_info_count = 1;
 
-    queue_create_infos[0].sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_create_infos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue_create_infos[0].queueFamilyIndex = dev->indices.graphics;
-    queue_create_infos[0].queueCount       = 1;
+    queue_create_infos[0].queueCount = 1;
     queue_create_infos[0].pQueuePriorities = &queue_priority;
 
     if (dev->indices.graphics != dev->indices.transfer)
@@ -348,7 +348,7 @@ static void create_device(MtDevice *dev)
         queue_create_infos[queue_create_info_count - 1].sType =
             VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queue_create_infos[queue_create_info_count - 1].queueFamilyIndex = dev->indices.transfer;
-        queue_create_infos[queue_create_info_count - 1].queueCount       = 1;
+        queue_create_infos[queue_create_info_count - 1].queueCount = 1;
         queue_create_infos[queue_create_info_count - 1].pQueuePriorities = &queue_priority;
     }
 
@@ -358,7 +358,7 @@ static void create_device(MtDevice *dev)
         queue_create_infos[queue_create_info_count - 1].sType =
             VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queue_create_infos[queue_create_info_count - 1].queueFamilyIndex = dev->indices.compute;
-        queue_create_infos[queue_create_info_count - 1].queueCount       = 1;
+        queue_create_infos[queue_create_info_count - 1].queueCount = 1;
         queue_create_infos[queue_create_info_count - 1].pQueuePriorities = &queue_priority;
     }
 
@@ -367,20 +367,20 @@ static void create_device(MtDevice *dev)
     };
 
     VkDeviceCreateInfo create_info = {
-        .sType                = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pQueueCreateInfos    = queue_create_infos,
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pQueueCreateInfos = queue_create_infos,
         .queueCreateInfoCount = queue_create_info_count,
-        .pEnabledFeatures     = &device_features,
+        .pEnabledFeatures = &device_features,
     };
 
 #ifdef MT_ENABLE_VALIDATION
-    create_info.enabledLayerCount   = MT_LENGTH(VALIDATION_LAYERS);
+    create_info.enabledLayerCount = MT_LENGTH(VALIDATION_LAYERS);
     create_info.ppEnabledLayerNames = VALIDATION_LAYERS;
 #endif
 
     if (!(dev->flags & MT_DEVICE_HEADLESS))
     {
-        create_info.enabledExtensionCount   = MT_LENGTH(DEVICE_EXTENSIONS);
+        create_info.enabledExtensionCount = MT_LENGTH(DEVICE_EXTENSIONS);
         create_info.ppEnabledExtensionNames = DEVICE_EXTENSIONS;
     }
 
@@ -394,27 +394,27 @@ static void create_device(MtDevice *dev)
 static void create_allocator(MtDevice *dev)
 {
     VmaAllocatorCreateInfo allocator_info = {0};
-    allocator_info.physicalDevice         = dev->physical_device;
-    allocator_info.device                 = dev->device;
+    allocator_info.physicalDevice = dev->physical_device;
+    allocator_info.device = dev->device;
 
     VmaVulkanFunctions vk_functions = {
-        .vkGetPhysicalDeviceProperties       = vkGetPhysicalDeviceProperties,
+        .vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
         .vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties,
-        .vkAllocateMemory                    = vkAllocateMemory,
-        .vkFreeMemory                        = vkFreeMemory,
-        .vkMapMemory                         = vkMapMemory,
-        .vkUnmapMemory                       = vkUnmapMemory,
-        .vkFlushMappedMemoryRanges           = vkFlushMappedMemoryRanges,
-        .vkInvalidateMappedMemoryRanges      = vkInvalidateMappedMemoryRanges,
-        .vkBindBufferMemory                  = vkBindBufferMemory,
-        .vkBindImageMemory                   = vkBindImageMemory,
-        .vkGetBufferMemoryRequirements       = vkGetBufferMemoryRequirements,
-        .vkGetImageMemoryRequirements        = vkGetImageMemoryRequirements,
-        .vkCreateBuffer                      = vkCreateBuffer,
-        .vkDestroyBuffer                     = vkDestroyBuffer,
-        .vkCreateImage                       = vkCreateImage,
-        .vkDestroyImage                      = vkDestroyImage,
-        .vkCmdCopyBuffer                     = vkCmdCopyBuffer,
+        .vkAllocateMemory = vkAllocateMemory,
+        .vkFreeMemory = vkFreeMemory,
+        .vkMapMemory = vkMapMemory,
+        .vkUnmapMemory = vkUnmapMemory,
+        .vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges,
+        .vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges,
+        .vkBindBufferMemory = vkBindBufferMemory,
+        .vkBindImageMemory = vkBindImageMemory,
+        .vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements,
+        .vkGetImageMemoryRequirements = vkGetImageMemoryRequirements,
+        .vkCreateBuffer = vkCreateBuffer,
+        .vkDestroyBuffer = vkDestroyBuffer,
+        .vkCreateImage = vkCreateImage,
+        .vkDestroyImage = vkDestroyImage,
+        .vkCmdCopyBuffer = vkCmdCopyBuffer,
     };
 
     allocator_info.pVulkanFunctions = &vk_functions;
@@ -474,8 +474,8 @@ static void create_command_pools(MtDevice *dev)
     for (uint32_t i = 0; i < dev->num_threads; i++)
     {
         VkCommandPoolCreateInfo create_info = {
-            .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
             .queueFamilyIndex = dev->indices.graphics,
         };
         VK_CHECK(vkCreateCommandPool(dev->device, &create_info, NULL, &dev->graphics_cmd_pools[i]));
@@ -489,8 +489,8 @@ static void create_command_pools(MtDevice *dev)
         for (uint32_t i = 0; i < dev->num_threads; i++)
         {
             VkCommandPoolCreateInfo create_info = {
-                .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
                 .queueFamilyIndex = dev->indices.compute,
             };
             VK_CHECK(
@@ -542,9 +542,9 @@ static void allocate_cmd_buffers(
     VkCommandBuffer *command_buffers = mt_alloc(dev->alloc, sizeof(VkCommandBuffer) * count);
 
     VkCommandBufferAllocateInfo alloc_info = {
-        .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool        = pool,
-        .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = count,
     };
 
@@ -554,7 +554,7 @@ static void allocate_cmd_buffers(
     {
         cmd_buffers[i] = mt_alloc(dev->alloc, sizeof(*cmd_buffers[i]));
         memset(cmd_buffers[i], 0, sizeof(*cmd_buffers[i]));
-        cmd_buffers[i]->dev        = dev;
+        cmd_buffers[i]->dev = dev;
         cmd_buffers[i]->cmd_buffer = command_buffers[i];
         cmd_buffers[i]->queue_type = queue_type;
     }
@@ -636,14 +636,14 @@ static void submit_cmd(MtDevice *dev, SubmitInfo *info)
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 
         .commandBufferCount = 1,
-        .pCommandBuffers    = &info->cmd_buffer->cmd_buffer,
+        .pCommandBuffers = &info->cmd_buffer->cmd_buffer,
 
         .waitSemaphoreCount = info->wait_semaphore_count,
-        .pWaitSemaphores    = info->wait_semaphores,
-        .pWaitDstStageMask  = info->wait_stages,
+        .pWaitSemaphores = info->wait_semaphores,
+        .pWaitDstStageMask = info->wait_stages,
 
         .signalSemaphoreCount = info->signal_semaphore_count,
-        .pSignalSemaphores    = info->signal_semaphores,
+        .pSignalSemaphores = info->signal_semaphores,
     };
 
     mt_mutex_lock(&dev->device_mutex);
@@ -654,16 +654,16 @@ static void submit_cmd(MtDevice *dev, SubmitInfo *info)
 static void
 transfer_to_buffer(MtDevice *dev, MtBuffer *buffer, size_t offset, size_t size, const void *data)
 {
-    VkFence fence                       = VK_NULL_HANDLE;
+    VkFence fence = VK_NULL_HANDLE;
     VkFenceCreateInfo fence_create_info = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
     VK_CHECK(vkCreateFence(dev->device, &fence_create_info, NULL, &fence));
 
     MtBuffer *staging = create_buffer(
         dev,
         &(MtBufferCreateInfo){
-            .usage  = MT_BUFFER_USAGE_TRANSFER,
+            .usage = MT_BUFFER_USAGE_TRANSFER,
             .memory = MT_BUFFER_MEMORY_HOST,
-            .size   = size,
+            .size = size,
         });
 
     void *mapping = map_buffer(dev, staging);
@@ -695,16 +695,16 @@ transfer_to_buffer(MtDevice *dev, MtBuffer *buffer, size_t offset, size_t size, 
 static void
 transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const void *data)
 {
-    VkFence fence                       = VK_NULL_HANDLE;
+    VkFence fence = VK_NULL_HANDLE;
     VkFenceCreateInfo fence_create_info = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
     VK_CHECK(vkCreateFence(dev->device, &fence_create_info, NULL, &fence));
 
     MtBuffer *staging = create_buffer(
         dev,
         &(MtBufferCreateInfo){
-            .usage  = MT_BUFFER_USAGE_TRANSFER,
+            .usage = MT_BUFFER_USAGE_TRANSFER,
             .memory = MT_BUFFER_MEMORY_HOST,
-            .size   = size,
+            .size = size,
         });
 
     void *mapping = map_buffer(dev, staging);
@@ -716,23 +716,23 @@ transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const 
     begin_cmd_buffer(cb);
 
     VkImageSubresourceRange subresource_range = {
-        .aspectMask     = dst->image->aspect,
-        .baseMipLevel   = 0,
-        .levelCount     = dst->image->mip_count,
+        .aspectMask = dst->image->aspect,
+        .baseMipLevel = 0,
+        .levelCount = dst->image->mip_count,
         .baseArrayLayer = 0,
-        .layerCount     = dst->image->layer_count,
+        .layerCount = dst->image->layer_count,
     };
 
     VkImageMemoryBarrier barrier = {
-        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .srcAccessMask       = 0,
-        .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .image               = dst->image->image,
-        .subresourceRange    = subresource_range,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .image = dst->image->image,
+        .subresourceRange = subresource_range,
     };
 
     vkCmdPipelineBarrier(
@@ -750,28 +750,28 @@ transfer_to_image(MtDevice *dev, const MtImageCopyView *dst, size_t size, const 
     cmd_copy_buffer_to_image(
         cb,
         &(MtBufferCopyView){
-            .buffer       = staging,
-            .offset       = 0,
-            .row_length   = 0,
+            .buffer = staging,
+            .offset = 0,
+            .row_length = 0,
             .image_height = 0,
         },
         dst,
         (MtExtent3D){
-            .width  = dst->image->width >> dst->mip_level,
+            .width = dst->image->width >> dst->mip_level,
             .height = dst->image->height >> dst->mip_level,
-            .depth  = dst->image->depth,
+            .depth = dst->image->depth,
         });
 
     barrier = (VkImageMemoryBarrier){
-        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
-        .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .newLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .image               = dst->image->image,
-        .subresourceRange    = subresource_range,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .image = dst->image->image,
+        .subresourceRange = subresource_range,
     };
 
     vkCmdPipelineBarrier(
@@ -873,10 +873,10 @@ static uint32_t get_thread_id(void)
 // }}}
 
 static MtRenderer g_vulkan_renderer = {
-    .destroy_device   = destroy_device,
+    .destroy_device = destroy_device,
     .device_wait_idle = device_wait_idle,
 
-    .create_swapchain  = create_swapchain,
+    .create_swapchain = create_swapchain,
     .destroy_swapchain = destroy_swapchain,
 
     .swapchain_get_delta_time = swapchain_get_delta_time,
@@ -884,73 +884,75 @@ static MtRenderer g_vulkan_renderer = {
     .set_thread_id = set_thread_id,
     .get_thread_id = get_thread_id,
 
-    .create_buffer  = create_buffer,
+    .create_buffer = create_buffer,
     .destroy_buffer = destroy_buffer,
 
-    .map_buffer   = map_buffer,
+    .map_buffer = map_buffer,
     .unmap_buffer = unmap_buffer,
 
-    .create_image  = create_image,
+    .create_image = create_image,
     .destroy_image = destroy_image,
 
-    .create_sampler  = create_sampler,
+    .create_sampler = create_sampler,
     .destroy_sampler = destroy_sampler,
 
     .transfer_to_buffer = transfer_to_buffer,
-    .transfer_to_image  = transfer_to_image,
+    .transfer_to_image = transfer_to_image,
 
     .create_graphics_pipeline = create_graphics_pipeline,
-    .create_compute_pipeline  = create_compute_pipeline,
-    .destroy_pipeline         = destroy_pipeline,
+    .create_compute_pipeline = create_compute_pipeline,
+    .destroy_pipeline = destroy_pipeline,
 
     .cmd_get_viewport = get_viewport,
 
     .cmd_copy_buffer_to_buffer = cmd_copy_buffer_to_buffer,
-    .cmd_copy_buffer_to_image  = cmd_copy_buffer_to_image,
-    .cmd_copy_image_to_buffer  = cmd_copy_image_to_buffer,
-    .cmd_copy_image_to_image   = cmd_copy_image_to_image,
+    .cmd_copy_buffer_to_image = cmd_copy_buffer_to_image,
+    .cmd_copy_image_to_buffer = cmd_copy_image_to_buffer,
+    .cmd_copy_image_to_image = cmd_copy_image_to_image,
 
     .cmd_fill_buffer = cmd_fill_buffer,
 
     .cmd_set_viewport = cmd_set_viewport,
-    .cmd_set_scissor  = cmd_set_scissor,
+    .cmd_set_scissor = cmd_set_scissor,
 
     .cmd_bind_pipeline = cmd_bind_pipeline,
 
-    .cmd_bind_uniform        = cmd_bind_uniform,
-    .cmd_bind_image          = cmd_bind_image,
+    .cmd_bind_uniform = cmd_bind_uniform,
+    .cmd_bind_image = cmd_bind_image,
+    .cmd_bind_sampler = cmd_bind_sampler,
+    .cmd_bind_image_sampler = cmd_bind_image_sampler,
     .cmd_bind_storage_buffer = cmd_bind_storage_buffer,
 
     .cmd_bind_vertex_buffer = cmd_bind_vertex_buffer,
-    .cmd_bind_index_buffer  = cmd_bind_index_buffer,
+    .cmd_bind_index_buffer = cmd_bind_index_buffer,
 
     .cmd_bind_vertex_data = cmd_bind_vertex_data,
-    .cmd_bind_index_data  = cmd_bind_index_data,
+    .cmd_bind_index_data = cmd_bind_index_data,
 
-    .cmd_draw         = cmd_draw,
+    .cmd_draw = cmd_draw,
     .cmd_draw_indexed = cmd_draw_indexed,
 
     .cmd_dispatch = cmd_dispatch,
 
-    .create_graph  = create_graph,
+    .create_graph = create_graph,
     .destroy_graph = destroy_graph,
 
-    .graph_bake     = graph_bake,
-    .graph_execute  = graph_execute,
+    .graph_bake = graph_bake,
+    .graph_execute = graph_execute,
     .graph_wait_all = graph_wait_all,
 
     .graph_set_builder = graph_set_builder,
-    .graph_add_image   = graph_add_image,
-    .graph_add_buffer  = graph_add_buffer,
+    .graph_add_image = graph_add_image,
+    .graph_add_buffer = graph_add_buffer,
 
-    .graph_get_image     = graph_get_image,
+    .graph_get_image = graph_get_image,
     .graph_consume_image = graph_consume_image,
-    .graph_get_buffer    = graph_get_buffer,
+    .graph_get_buffer = graph_get_buffer,
 
-    .graph_add_pass   = graph_add_pass,
+    .graph_add_pass = graph_add_pass,
     .pass_set_builder = pass_set_builder,
 
-    .pass_read  = pass_read,
+    .pass_read = pass_read,
     .pass_write = pass_write,
 };
 

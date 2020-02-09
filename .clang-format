@@ -14,6 +14,6 @@ AllowShortFunctionsOnASingleLine: false
 AlignAfterOpenBracket: AlwaysBreak
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortCaseLabelsOnASingleLine: true
-AlignConsecutiveAssignments: true
+AlignConsecutiveAssignments: false
 AllowShortIfStatementsOnASingleLine: false
 SortIncludes: false

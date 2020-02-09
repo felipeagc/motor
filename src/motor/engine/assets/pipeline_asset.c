@@ -24,7 +24,7 @@ static void asset_destroy(MtAsset *asset_)
 static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path)
 {
     MtPipelineAsset *asset = (MtPipelineAsset *)asset_;
-    asset->asset_manager   = asset_manager;
+    asset->asset_manager = asset_manager;
 
     // Read file
     FILE *f = fopen(path, "rb");
@@ -55,14 +55,15 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
 static const char *g_extensions[] = {
     ".glsl",
+    ".hlsl",
 };
 
 static MtAssetVT g_asset_vt = {
-    .name            = "Pipeline",
-    .extensions      = g_extensions,
+    .name = "Pipeline",
+    .extensions = g_extensions,
     .extension_count = MT_LENGTH(g_extensions),
-    .size            = sizeof(MtPipelineAsset),
-    .init            = asset_init,
-    .destroy         = asset_destroy,
+    .size = sizeof(MtPipelineAsset),
+    .init = asset_init,
+    .destroy = asset_destroy,
 };
 MtAssetVT *mt_pipeline_asset_vt = &g_asset_vt;

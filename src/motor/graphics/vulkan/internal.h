@@ -156,8 +156,8 @@ typedef struct SubmitInfo
 enum
 {
     MAX_DESCRIPTOR_BINDINGS = 8,
-    MAX_DESCRIPTOR_SETS     = 8,
-    MAX_VERTEX_ATTRIBUTES   = 8,
+    MAX_DESCRIPTOR_SETS = 8,
+    MAX_VERTEX_ATTRIBUTES = 8,
 };
 
 typedef struct SetInfo
@@ -179,6 +179,8 @@ typedef struct Shader
 
     uint32_t set_count;
     uint32_t vertex_attribute_count;
+
+    char *entry_point;
 
     SetInfo sets[MAX_DESCRIPTOR_SETS];
     VertexAttribute vertex_attributes[MAX_VERTEX_ATTRIBUTES];

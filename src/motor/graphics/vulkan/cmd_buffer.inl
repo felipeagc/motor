@@ -81,7 +81,7 @@ static void cmd_copy_buffer_to_buffer(
     VkBufferCopy region = {
         .srcOffset = src_offset,
         .dstOffset = dst_offset,
-        .size      = size,
+        .size = size,
     };
     vkCmdCopyBuffer(cb->cmd_buffer, src->buffer, dst->buffer, 1, &region);
 }
@@ -90,17 +90,17 @@ static void cmd_copy_buffer_to_image(
     MtCmdBuffer *cb, const MtBufferCopyView *src, const MtImageCopyView *dst, MtExtent3D extent)
 {
     VkImageSubresourceLayers subresource = {
-        .aspectMask     = dst->image->aspect,
-        .mipLevel       = dst->mip_level,
+        .aspectMask = dst->image->aspect,
+        .mipLevel = dst->mip_level,
         .baseArrayLayer = dst->array_layer,
-        .layerCount     = 1,
+        .layerCount = 1,
     };
 
     VkBufferImageCopy region = {
-        .bufferOffset      = src->offset,
-        .bufferRowLength   = src->row_length,
+        .bufferOffset = src->offset,
+        .bufferRowLength = src->row_length,
         .bufferImageHeight = src->image_height,
-        .imageSubresource  = subresource,
+        .imageSubresource = subresource,
         .imageOffset =
             (VkOffset3D){
                 .x = dst->offset.x,
@@ -109,9 +109,9 @@ static void cmd_copy_buffer_to_image(
             },
         .imageExtent =
             (VkExtent3D){
-                .width  = extent.width,
+                .width = extent.width,
                 .height = extent.height,
-                .depth  = extent.depth,
+                .depth = extent.depth,
             },
     };
 
@@ -128,17 +128,17 @@ static void cmd_copy_image_to_buffer(
     MtCmdBuffer *cb, const MtImageCopyView *src, const MtBufferCopyView *dst, MtExtent3D extent)
 {
     VkImageSubresourceLayers subresource = {
-        .aspectMask     = src->image->aspect,
-        .mipLevel       = src->mip_level,
+        .aspectMask = src->image->aspect,
+        .mipLevel = src->mip_level,
         .baseArrayLayer = src->array_layer,
-        .layerCount     = 1,
+        .layerCount = 1,
     };
 
     VkBufferImageCopy region = {
-        .bufferOffset      = dst->offset,
-        .bufferRowLength   = dst->row_length,
+        .bufferOffset = dst->offset,
+        .bufferRowLength = dst->row_length,
         .bufferImageHeight = dst->image_height,
-        .imageSubresource  = subresource,
+        .imageSubresource = subresource,
         .imageOffset =
             (VkOffset3D){
                 .x = src->offset.x,
@@ -147,9 +147,9 @@ static void cmd_copy_image_to_buffer(
             },
         .imageExtent =
             (VkExtent3D){
-                .width  = extent.width,
+                .width = extent.width,
                 .height = extent.height,
-                .depth  = extent.depth,
+                .depth = extent.depth,
             },
     };
 
@@ -166,25 +166,25 @@ static void cmd_copy_image_to_image(
     MtCmdBuffer *cb, const MtImageCopyView *src, const MtImageCopyView *dst, MtExtent3D extent)
 {
     VkImageSubresourceLayers src_subresource = {
-        .aspectMask     = src->image->aspect,
-        .mipLevel       = src->mip_level,
+        .aspectMask = src->image->aspect,
+        .mipLevel = src->mip_level,
         .baseArrayLayer = src->array_layer,
-        .layerCount     = 1,
+        .layerCount = 1,
     };
 
     VkImageSubresourceLayers dst_subresource = {
-        .aspectMask     = dst->image->aspect,
-        .mipLevel       = dst->mip_level,
+        .aspectMask = dst->image->aspect,
+        .mipLevel = dst->mip_level,
         .baseArrayLayer = dst->array_layer,
-        .layerCount     = 1,
+        .layerCount = 1,
     };
 
     VkImageCopy region = {
         .srcSubresource = src_subresource,
-        .srcOffset      = {.x = src->offset.x, .y = src->offset.y, .z = src->offset.z},
+        .srcOffset = {.x = src->offset.x, .y = src->offset.y, .z = src->offset.z},
         .dstSubresource = dst_subresource,
-        .dstOffset      = {.x = dst->offset.x, .y = dst->offset.y, .z = dst->offset.z},
-        .extent         = {.width = extent.width, .height = extent.height, .depth = extent.depth},
+        .dstOffset = {.x = dst->offset.x, .y = dst->offset.y, .z = dst->offset.z},
+        .extent = {.width = extent.width, .height = extent.height, .depth = extent.depth},
     };
 
     vkCmdCopyImage(
@@ -211,10 +211,10 @@ static void cmd_set_viewport(MtCmdBuffer *cb, MtViewport *viewport)
         0,
         1,
         &(VkViewport){
-            .width    = viewport->width,
-            .height   = viewport->height,
-            .x        = viewport->x,
-            .y        = viewport->y,
+            .width = viewport->width,
+            .height = viewport->height,
+            .x = viewport->x,
+            .y = viewport->y,
             .minDepth = viewport->min_depth,
             .maxDepth = viewport->max_depth,
         });
@@ -283,7 +283,7 @@ static void cmd_begin_render_pass(
     }
 
     VkClearValue clear_values[8] = {0};
-    uint32_t clear_value_count   = 0;
+    uint32_t clear_value_count = 0;
 
     for (uint32_t i = 0; i < render_pass->color_attachment_count; ++i)
     {
@@ -296,13 +296,13 @@ static void cmd_begin_render_pass(
     }
 
     VkRenderPassBeginInfo render_pass_info = {
-        .sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .renderPass        = render_pass->renderpass,
-        .framebuffer       = render_pass->current_framebuffer,
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = render_pass->renderpass,
+        .framebuffer = render_pass->current_framebuffer,
         .renderArea.offset = (VkOffset2D){0, 0},
         .renderArea.extent = render_pass->extent,
-        .clearValueCount   = clear_value_count,
-        .pClearValues      = clear_values,
+        .clearValueCount = clear_value_count,
+        .pClearValues = clear_values,
     };
 
     vkCmdBeginRenderPass(cmd_buffer->cmd_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -310,10 +310,10 @@ static void cmd_begin_render_pass(
     cmd_set_viewport(
         cmd_buffer,
         &(MtViewport){
-            .x         = 0.0f,
-            .y         = 0.0f,
-            .width     = (float)render_pass->extent.width,
-            .height    = (float)render_pass->extent.height,
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = (float)render_pass->extent.width,
+            .height = (float)render_pass->extent.height,
             .min_depth = 0.0f,
             .max_depth = 1.0f,
         });
@@ -346,7 +346,7 @@ cmd_bind_uniform(MtCmdBuffer *cb, const void *data, size_t size, uint32_t set, u
 
     cb->bound_descriptors[set][binding].buffer.buffer = cb->ubo_block.buffer->buffer;
     cb->bound_descriptors[set][binding].buffer.offset = allocation.offset;
-    cb->bound_descriptors[set][binding].buffer.range  = allocation.padded_size;
+    cb->bound_descriptors[set][binding].buffer.range = allocation.padded_size;
 }
 
 static void
@@ -357,14 +357,40 @@ cmd_bind_storage_buffer(MtCmdBuffer *cb, MtBuffer *buffer, uint32_t set, uint32_
 
     cb->bound_descriptors[set][binding].buffer.buffer = buffer->buffer;
     cb->bound_descriptors[set][binding].buffer.offset = 0;
-    cb->bound_descriptors[set][binding].buffer.range  = VK_WHOLE_SIZE;
+    cb->bound_descriptors[set][binding].buffer.range = VK_WHOLE_SIZE;
 }
 
-static void
-cmd_bind_image(MtCmdBuffer *cb, MtImage *image, MtSampler *sampler, uint32_t set, uint32_t binding)
+static void cmd_bind_sampler(MtCmdBuffer *cb, MtSampler *sampler, uint32_t set, uint32_t binding)
 {
     assert(MT_LENGTH(cb->bound_descriptors) > set);
     assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
+    cb->bound_descriptors[set][binding].image.sampler = sampler->sampler;
+}
+
+static void cmd_bind_image(MtCmdBuffer *cb, MtImage *image, uint32_t set, uint32_t binding)
+{
+    assert(MT_LENGTH(cb->bound_descriptors) > set);
+    assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
+
+    memset(&cb->bound_descriptors[set][binding], 0, sizeof(cb->bound_descriptors[set][binding]));
+
+    cb->bound_descriptors[set][binding].image.imageView = image->image_view;
+    cb->bound_descriptors[set][binding].image.imageLayout =
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    if (image->aspect & VK_IMAGE_ASPECT_DEPTH_BIT)
+    {
+        cb->bound_descriptors[set][binding].image.imageLayout =
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    }
+}
+
+static void cmd_bind_image_sampler(
+    MtCmdBuffer *cb, MtImage *image, MtSampler *sampler, uint32_t set, uint32_t binding)
+{
+    assert(MT_LENGTH(cb->bound_descriptors) > set);
+    assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
+
+    memset(&cb->bound_descriptors[set][binding], 0, sizeof(cb->bound_descriptors[set][binding]));
 
     cb->bound_descriptors[set][binding].image.imageView = image->image_view;
     cb->bound_descriptors[set][binding].image.imageLayout =

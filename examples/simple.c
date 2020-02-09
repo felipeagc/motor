@@ -44,10 +44,10 @@ static void game_init(Game *g)
 
     mt_engine_init(&g->engine);
 
-    MtEntityManager *em    = &g->engine.entity_manager;
-    MtAssetManager *am     = &g->engine.asset_manager;
+    MtEntityManager *em = &g->engine.entity_manager;
+    MtAssetManager *am = &g->engine.asset_manager;
     MtSwapchain *swapchain = g->engine.swapchain;
-    MtDevice *dev          = g->engine.device;
+    MtDevice *dev = g->engine.device;
 
     MtImageAsset *skybox_asset = NULL;
     mt_asset_manager_queue_load(
@@ -55,7 +55,7 @@ static void game_init(Game *g)
     mt_asset_manager_queue_load(am, "../assets/test.png", (MtAsset **)&g->image);
     mt_asset_manager_queue_load(am, "../assets/shaders/pbr.glsl", (MtAsset **)&g->pbr_pipeline);
     mt_asset_manager_queue_load(
-        am, "../assets/shaders/fullscreen.glsl", (MtAsset **)&g->fullscreen_pipeline);
+        am, "../assets/shaders/fullscreen.hlsl", (MtAsset **)&g->fullscreen_pipeline);
 
     mt_asset_manager_queue_load(am, "../assets/helmet_ktx.glb", NULL);
     mt_asset_manager_queue_load(am, "../assets/boombox_ktx.glb", NULL);
@@ -81,16 +81,16 @@ static void game_init(Game *g)
         MtModelArchetype *block;
         uint32_t e;
 
-        block           = mt_entity_manager_add_entity(em, g->model_archetype, &e);
+        block = mt_entity_manager_add_entity(em, g->model_archetype, &e);
         block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
-        block->pos[e]   = V3(-1.5, 1, 0);
+        block->pos[e] = V3(-1.5, 1, 0);
 
-        block           = mt_entity_manager_add_entity(em, g->model_archetype, &e);
+        block = mt_entity_manager_add_entity(em, g->model_archetype, &e);
         block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
         block->scale[e] = V3(100, 100, 100);
-        block->pos[e]   = V3(1.5, 1, 0);
+        block->pos[e] = V3(1.5, 1, 0);
 
-        block           = mt_entity_manager_add_entity(em, g->model_archetype, &e);
+        block = mt_entity_manager_add_entity(em, g->model_archetype, &e);
         block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
         block->scale[e] = V3(3, 3, 3);
     }
@@ -108,8 +108,8 @@ static void game_init(Game *g)
 #define LIGHT_POS_Z mt_xor_shift_float(&xs, -20.0f, 20.0f)
 #define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
 
-        block           = mt_entity_manager_add_entity(em, g->light_archetype, &e);
-        block->pos[e]   = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
+        block = mt_entity_manager_add_entity(em, g->light_archetype, &e);
+        block->pos[e] = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
         block->color[e] = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
         block->color[e] = v3_muls(v3_normalize(block->color[e]), 10.0f);
     }
@@ -132,10 +132,10 @@ static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float
     float x = sin(acc * 2.0f) * 2.0f;
     float z = cos(acc * 2.0f) * 2.0f;
 
-    const float constant  = 1.0;
-    const float linear    = 0.7;
+    const float constant = 1.0;
+    const float linear = 0.7;
     const float quadratic = 1.8;
-    float light_max       = 10.0f;
+    float light_max = 10.0f;
     float radius =
         (-linear +
          sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 5.0) * light_max))) /
@@ -150,7 +150,7 @@ static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float
         {
             uint32_t l = env->uniform.point_light_count;
 
-            MtPointLightArchetype *b             = block->data;
+            MtPointLightArchetype *b = block->data;
             env->uniform.point_lights[l].pos.xyz = b->pos[i];
             env->uniform.point_lights[l].pos.x += x;
             env->uniform.point_lights[l].pos.z += z;
@@ -178,9 +178,9 @@ static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
             MtModelArchetype *b = block->data;
 
             Mat4 transform = mat4_identity();
-            transform      = mat4_scale(transform, b->scale[i]);
-            transform      = mat4_mul(quat_to_mat4(b->rot[i]), transform);
-            transform      = mat4_translate(transform, b->pos[i]);
+            transform = mat4_scale(transform, b->scale[i]);
+            transform = mat4_mul(quat_to_mat4(b->rot[i]), transform);
+            transform = mat4_translate(transform, b->pos[i]);
 
             mt_gltf_asset_draw(b->model[i], cb, &transform, 1, 2);
         }
@@ -192,7 +192,7 @@ static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
 static void draw_ui(Game *g)
 {
     MtSwapchain *swapchain = g->engine.swapchain;
-    MtUIRenderer *ui       = g->engine.ui;
+    MtUIRenderer *ui = g->engine.ui;
 
     float delta_time = mt_render.swapchain_get_delta_time(swapchain);
     mt_ui_printf(ui, "Delta: %fms", delta_time);
@@ -211,7 +211,7 @@ static void draw_ui(Game *g)
 
 static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
 {
-    Game *g             = user_data;
+    Game *g = user_data;
     MtEntityManager *em = &g->engine.entity_manager;
 
     // Draw skybox
@@ -246,7 +246,7 @@ static void graph_builder(MtRenderGraph *graph, void *user_data)
     mt_window.get_size(g->engine.window, &width, &height);
 
     MtImageCreateInfo depth_info = {
-        .width  = width,
+        .width = width,
         .height = height,
         .format = MT_FORMAT_D32_SFLOAT,
     };
@@ -264,10 +264,10 @@ int main(int argc, char *argv[])
     Game game = {0};
     game_init(&game);
 
-    MtWindow *win          = game.engine.window;
+    MtWindow *win = game.engine.window;
     MtSwapchain *swapchain = game.engine.swapchain;
-    MtEntityManager *em    = &game.engine.entity_manager;
-    MtUIRenderer *ui       = game.engine.ui;
+    MtEntityManager *em = &game.engine.entity_manager;
+    MtUIRenderer *ui = game.engine.ui;
 
     mt_render.graph_set_builder(game.graph, graph_builder);
     mt_render.graph_bake(game.graph);
@@ -302,7 +302,7 @@ int main(int argc, char *argv[])
 
         // Update cam
         mt_window.get_size(win, &width, &height);
-        float aspect     = (float)width / (float)height;
+        float aspect = (float)width / (float)height;
         float delta_time = mt_render.swapchain_get_delta_time(swapchain);
         mt_perspective_camera_update(&game.cam, win, aspect, delta_time);
 

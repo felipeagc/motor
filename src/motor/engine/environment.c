@@ -126,7 +126,7 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     fread(input, input_size, 1, f);
     fclose(f);
 
-    MtPipeline *pipeline = create_pipeline(engine, "", input, input_size);
+    MtPipeline *pipeline = create_pipeline(engine, path, input, input_size);
 
     mt_free(engine->alloc, input);
 
@@ -188,10 +188,10 @@ static void layer_pass_callback(MtRenderGraph *graph, MtCmdBuffer *cb, void *use
     mt_render.cmd_set_viewport(
         cb,
         &(MtViewport){
-            .x         = 0.0f,
-            .y         = 0.0f,
-            .width     = mip_dim,
-            .height    = mip_dim,
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = mip_dim,
+            .height = mip_dim,
             .min_depth = 0.0f,
             .max_depth = 1.0f,
         });
@@ -200,7 +200,7 @@ static void layer_pass_callback(MtRenderGraph *graph, MtCmdBuffer *cb, void *use
 
     mt_render.cmd_bind_pipeline(cb, data->pipeline);
     mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), 0, 0);
-    mt_render.cmd_bind_image(cb, data->env->skybox_image, data->env->skybox_sampler, 0, 1);
+    mt_render.cmd_bind_image_sampler(cb, data->env->skybox_image, data->env->skybox_sampler, 0, 1);
     mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
 }
@@ -210,26 +210,26 @@ static void transfer_pass_callback(MtRenderGraph *graph, MtCmdBuffer *cb, void *
     CubemapGraphData *data = user_data;
 
     MtImage *offscreen = mt_render.graph_get_image(graph, "offscreen");
-    MtImage *cubemap   = mt_render.graph_get_image(graph, "cubemap");
+    MtImage *cubemap = mt_render.graph_get_image(graph, "cubemap");
 
     float mip_dim = (float)data->dim * powf(0.5f, (float)data->level);
 
     mt_render.cmd_copy_image_to_image(
         cb,
         &(MtImageCopyView){
-            .image       = offscreen,
-            .mip_level   = 0,
+            .image = offscreen,
+            .mip_level = 0,
             .array_layer = 0,
         },
         &(MtImageCopyView){
-            .image       = cubemap,
-            .mip_level   = data->level,
+            .image = cubemap,
+            .mip_level = data->level,
             .array_layer = data->layer,
         },
         (MtExtent3D){
-            .width  = (uint32_t)mip_dim,
+            .width = (uint32_t)mip_dim,
             .height = (uint32_t)mip_dim,
-            .depth  = 1,
+            .depth = 1,
         });
 }
 
@@ -240,11 +240,11 @@ static void cubemap_graph_builder(MtRenderGraph *graph, void *user_data)
     MtImageCreateInfo color_info = {
         .width = data->dim, .height = data->dim, .format = data->format};
     MtImageCreateInfo cube_info = {
-        .width       = data->dim,
-        .height      = data->dim,
-        .format      = data->format,
+        .width = data->dim,
+        .height = data->dim,
+        .format = data->format,
         .layer_count = 6,
-        .mip_count   = data->mip_count,
+        .mip_count = data->mip_count,
     };
 
     mt_render.graph_add_image(graph, "offscreen", &color_info);
@@ -287,7 +287,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
     fread(input, input_size, 1, f);
     fclose(f);
 
-    MtPipeline *pipeline = create_pipeline(engine, "", input, input_size);
+    MtPipeline *pipeline = create_pipeline(engine, path, input, input_size);
 
     mt_free(engine->alloc, input);
 
@@ -298,11 +298,11 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
     switch (type)
     {
         case CUBEMAP_IRRADIANCE:
-            dim    = 64;
+            dim = 64;
             format = MT_FORMAT_RGBA32_SFLOAT;
             break;
         case CUBEMAP_RADIANCE:
-            dim    = 512;
+            dim = 512;
             format = MT_FORMAT_RGBA16_SFLOAT;
             break;
     }
@@ -315,12 +315,12 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
     }
 
     CubemapGraphData data = {
-        .env       = env,
-        .pipeline  = pipeline,
-        .type      = type,
-        .dim       = dim,
+        .env = env,
+        .pipeline = pipeline,
+        .type = type,
+        .dim = dim,
         .mip_count = mip_count,
-        .format    = format,
+        .format = format,
     };
 
     MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, &data);
@@ -353,9 +353,9 @@ static void maybe_generate_images(MtEnvironment *env)
 {
     MtEngine *engine = env->asset_manager->engine;
 
-    MtImage *old_skybox     = env->skybox_image;
+    MtImage *old_skybox = env->skybox_image;
     MtImage *old_irradiance = env->irradiance_image;
-    MtImage *old_radiance   = env->radiance_image;
+    MtImage *old_radiance = env->radiance_image;
 
     env->skybox_image = (env->skybox_asset) ? env->skybox_asset->image : engine->default_cubemap;
 
@@ -401,7 +401,7 @@ static void maybe_generate_images(MtEnvironment *env)
                 .anisotropy = false,
                 .mag_filter = MT_FILTER_LINEAR,
                 .min_filter = MT_FILTER_LINEAR,
-                .max_lod    = env->uniform.radiance_mip_levels,
+                .max_lod = env->uniform.radiance_mip_levels,
             });
     }
 }
@@ -416,28 +416,28 @@ void mt_environment_init(
     MtEngine *engine = env->asset_manager->engine;
 
     env->skybox_pipeline =
-        (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/skybox.glsl");
+        (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/skybox.hlsl");
 
     env->skybox_asset = skybox_asset;
 
     env->brdf_image = generate_brdf_lut(engine);
 
     env->uniform.sun_direction = V3(1.0f, -1.0f, -1.0f);
-    env->uniform.exposure      = 4.5f;
+    env->uniform.exposure = 4.5f;
 
-    env->uniform.sun_color     = V3(1.0f, 1.0f, 1.0f);
+    env->uniform.sun_color = V3(1.0f, 1.0f, 1.0f);
     env->uniform.sun_intensity = 1.0f;
 
     env->uniform.radiance_mip_levels = 1.0f;
-    env->uniform.point_light_count   = 0;
+    env->uniform.point_light_count = 0;
 
     env->skybox_sampler = mt_render.create_sampler(
         engine->device,
         &(MtSamplerCreateInfo){
-            .anisotropy   = false,
-            .mag_filter   = MT_FILTER_LINEAR,
-            .min_filter   = MT_FILTER_LINEAR,
-            .max_lod      = 1.0f,
+            .anisotropy = false,
+            .mag_filter = MT_FILTER_LINEAR,
+            .min_filter = MT_FILTER_LINEAR,
+            .max_lod = 1.0f,
             .address_mode = MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .border_color = MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
         });
@@ -451,8 +451,9 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 
     mt_render.cmd_bind_pipeline(cb, env->skybox_pipeline->pipeline);
 
-    mt_render.cmd_bind_image(cb, env->radiance_image, env->skybox_sampler, 1, 0);
-    mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 1);
+    mt_render.cmd_bind_sampler(cb, env->skybox_sampler, 1, 0);
+    mt_render.cmd_bind_image(cb, env->radiance_image, 1, 1);
+    mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 2);
     mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
 
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
@@ -461,9 +462,9 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set)
 {
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), set, 0);
-    mt_render.cmd_bind_image(cb, env->irradiance_image, env->skybox_sampler, set, 1);
-    mt_render.cmd_bind_image(cb, env->radiance_image, env->radiance_sampler, set, 2);
-    mt_render.cmd_bind_image(cb, env->brdf_image, env->skybox_sampler, set, 3);
+    mt_render.cmd_bind_image_sampler(cb, env->irradiance_image, env->skybox_sampler, set, 1);
+    mt_render.cmd_bind_image_sampler(cb, env->radiance_image, env->radiance_sampler, set, 2);
+    mt_render.cmd_bind_image_sampler(cb, env->brdf_image, env->skybox_sampler, set, 3);
 }
 
 void mt_environment_destroy(MtEnvironment *env)

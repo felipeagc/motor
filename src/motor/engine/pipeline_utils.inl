@@ -3,8 +3,63 @@
 #include <shaderc/shaderc.h>
 #include <motor/base/string_builder.h>
 #include <motor/base/log.h>
+#include <motor/base/array.h>
 #include <motor/engine/config.h>
 
+typedef struct PipelinePragma
+{
+    const char *key;
+    uint32_t key_len;
+    const char *value;
+    uint32_t value_len;
+} PipelinePragma;
+
+static PipelinePragma *parse_pragmas(MtAllocator *alloc, const char *input, size_t input_size)
+{
+    PipelinePragma *pragmas = NULL;
+
+    const char *c = input;
+    do
+    {
+        if (*c == '#')
+        {
+            const char *pragma_prefix = "#pragma motor ";
+            if (strncmp(c, pragma_prefix, strlen(pragma_prefix)) == 0)
+            {
+                c += strlen(pragma_prefix);
+                PipelinePragma pragma;
+                pragma.key_len = 0;
+                pragma.key = c;
+                while (*c && *c != ' ' && (c - input) < input_size)
+                {
+                    pragma.key_len++;
+                    c++;
+                }
+
+                if (!(*c) || (c - input) >= input_size)
+                {
+                    return pragmas;
+                }
+
+                assert(*c == ' ');
+                c++;
+
+                pragma.value_len = 0;
+                pragma.value = c;
+                while (*c && *c != '\n' && (c - input) < input_size)
+                {
+                    pragma.value_len++;
+                    c++;
+                }
+                mt_array_push(alloc, pragmas, pragma);
+            }
+        }
+    } while (*c++ && (c - input) < input_size);
+
+    return pragmas;
+}
+
+// Include resolver {{{
 static shaderc_include_result *include_resolver(
     void *user_data,
     const char *requested_source,
@@ -12,7 +67,7 @@ static shaderc_include_result *include_resolver(
     const char *requesting_source,
     size_t include_depth)
 {
-    MtEngine *engine   = user_data;
+    MtEngine *engine = user_data;
     MtAllocator *alloc = engine->alloc;
 
     assert(type == shaderc_include_type_relative);
@@ -50,12 +105,12 @@ static shaderc_include_result *include_resolver(
     fclose(f);
 
     shaderc_include_result *result = mt_alloc(alloc, sizeof(*result));
-    *result                        = (shaderc_include_result){
-        .source_name        = path,
+    *result = (shaderc_include_result){
+        .source_name = path,
         .source_name_length = strlen(path),
-        .content            = content,
-        .content_length     = size,
-        .user_data          = user_data,
+        .content = content,
+        .content_length = size,
+        .user_data = user_data,
     };
 
     return result;
@@ -64,22 +119,25 @@ static shaderc_include_result *include_resolver(
 // An includer callback type for destroying an include result.
 static void include_result_releaser(void *user_data, shaderc_include_result *include_result)
 {
-    MtEngine *engine   = user_data;
+    MtEngine *engine = user_data;
     MtAllocator *alloc = engine->alloc;
 
     mt_free(alloc, (void *)include_result->content);
     mt_free(alloc, (void *)include_result->source_name);
     mt_free(alloc, include_result);
 }
+// }}}
 
-static MtPipeline *create_compute_pipeline(MtEngine *engine, const char *path, MtConfig *config)
+// GLSL compute {{{
+static MtPipeline *
+create_compute_pipeline_glsl(MtEngine *engine, const char *path, MtConfig *config)
 {
-    MtConfigObject *obj         = mt_config_get_root(config);
+    MtConfigObject *obj = mt_config_get_root(config);
     MtConfigEntry *common_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
-    MtConfigEntry *comp_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("compute"));
+    MtConfigEntry *comp_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("compute"));
 
-    shaderc_compile_options_t options        = NULL;
-    char *comp_text                          = NULL;
+    shaderc_compile_options_t options = NULL;
+    char *comp_text = NULL;
     shaderc_compilation_result_t comp_result = NULL;
 
     options = shaderc_compile_options_initialize();
@@ -144,22 +202,25 @@ failed:
 
     return NULL;
 }
+// }}}
 
-static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, MtConfig *config)
+// GLSL graphics {{{
+static MtPipeline *
+create_graphics_pipeline_glsl(MtEngine *engine, const char *path, MtConfig *config)
 {
     MtConfigObject *obj = mt_config_get_root(config);
 
-    MtConfigEntry *common_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
-    MtConfigEntry *vertex_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
+    MtConfigEntry *common_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
+    MtConfigEntry *vertex_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
     MtConfigEntry *fragment_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
 
-    MtConfigEntry *blending_entry    = mt_hash_get_ptr(&obj->map, mt_hash_str("blending"));
-    MtConfigEntry *depth_test_entry  = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_test"));
+    MtConfigEntry *blending_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("blending"));
+    MtConfigEntry *depth_test_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_test"));
     MtConfigEntry *depth_write_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_write"));
-    MtConfigEntry *depth_bias_entry  = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_bias"));
-    MtConfigEntry *cull_mode_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("cull_mode"));
-    MtConfigEntry *front_face_entry  = mt_hash_get_ptr(&obj->map, mt_hash_str("front_face"));
-    MtConfigEntry *line_width_entry  = mt_hash_get_ptr(&obj->map, mt_hash_str("line_width"));
+    MtConfigEntry *depth_bias_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_bias"));
+    MtConfigEntry *cull_mode_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("cull_mode"));
+    MtConfigEntry *front_face_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("front_face"));
+    MtConfigEntry *line_width_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("line_width"));
 
     shaderc_compile_options_t options = NULL;
     char *vertex_text = NULL, *fragment_text = NULL;
@@ -200,7 +261,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
             mt_str_builder_append_str(&sb, common_entry->value.string);
         }
         mt_str_builder_append_strn(&sb, vertex_entry->value.string, vertex_entry->value.length);
-        vertex_text      = mt_str_builder_build(&sb, engine->alloc);
+        vertex_text = mt_str_builder_build(&sb, engine->alloc);
         vertex_text_size = strlen(vertex_text);
 
         // Compile vertex shader
@@ -220,7 +281,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
             goto failed;
         }
 
-        vertex_code      = (uint8_t *)shaderc_result_get_bytes(vertex_result);
+        vertex_code = (uint8_t *)shaderc_result_get_bytes(vertex_result);
         vertex_code_size = shaderc_result_get_length(vertex_result);
     }
 
@@ -232,7 +293,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
             mt_str_builder_append_str(&sb, common_entry->value.string);
         }
         mt_str_builder_append_strn(&sb, fragment_entry->value.string, fragment_entry->value.length);
-        fragment_text      = mt_str_builder_build(&sb, engine->alloc);
+        fragment_text = mt_str_builder_build(&sb, engine->alloc);
         fragment_text_size = strlen(fragment_text);
 
         // Compile fragment shader
@@ -252,25 +313,27 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
             goto failed;
         }
 
-        fragment_code      = (uint8_t *)shaderc_result_get_bytes(fragment_result);
+        fragment_code = (uint8_t *)shaderc_result_get_bytes(fragment_result);
         fragment_code_size = shaderc_result_get_length(fragment_result);
     }
 
     mt_str_builder_destroy(&sb);
 
-    bool blending          = true;
-    bool depth_test        = true;
-    bool depth_write       = true;
-    bool depth_bias        = false;
-    MtFrontFace front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE;
-    MtCullMode cull_mode   = MT_CULL_MODE_NONE;
-    float line_width       = 1.0f;
+    MtGraphicsPipelineCreateInfo pipeline_create_info = {
+        .blending = true,
+        .depth_test = true,
+        .depth_write = true,
+        .depth_bias = false,
+        .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
+        .cull_mode = MT_CULL_MODE_NONE,
+        .line_width = 1.0f,
+    };
 
     if (blending_entry)
     {
         if (blending_entry->value.type == MT_CONFIG_VALUE_BOOL)
         {
-            blending = blending_entry->value.boolean;
+            pipeline_create_info.blending = blending_entry->value.boolean;
         }
         else
         {
@@ -283,7 +346,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
     {
         if (depth_test_entry->value.type == MT_CONFIG_VALUE_BOOL)
         {
-            depth_test = depth_test_entry->value.boolean;
+            pipeline_create_info.depth_test = depth_test_entry->value.boolean;
         }
         else
         {
@@ -296,7 +359,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
     {
         if (depth_write_entry->value.type == MT_CONFIG_VALUE_BOOL)
         {
-            depth_write = depth_write_entry->value.boolean;
+            pipeline_create_info.depth_write = depth_write_entry->value.boolean;
         }
         else
         {
@@ -309,7 +372,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
     {
         if (depth_bias_entry->value.type == MT_CONFIG_VALUE_BOOL)
         {
-            depth_bias = depth_bias_entry->value.boolean;
+            pipeline_create_info.depth_bias = depth_bias_entry->value.boolean;
         }
         else
         {
@@ -325,11 +388,11 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
         {
             if (strncmp(value->string, "clockwise", value->length) == 0)
             {
-                front_face = MT_FRONT_FACE_CLOCKWISE;
+                pipeline_create_info.front_face = MT_FRONT_FACE_CLOCKWISE;
             }
             else if (strncmp(value->string, "counter_clockwise", value->length) == 0)
             {
-                front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE;
+                pipeline_create_info.front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE;
             }
             else
             {
@@ -351,15 +414,15 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
         {
             if (strncmp(value->string, "none", value->length) == 0)
             {
-                cull_mode = MT_CULL_MODE_NONE;
+                pipeline_create_info.cull_mode = MT_CULL_MODE_NONE;
             }
             else if (strncmp(value->string, "front", value->length) == 0)
             {
-                cull_mode = MT_CULL_MODE_FRONT;
+                pipeline_create_info.cull_mode = MT_CULL_MODE_FRONT;
             }
             else if (strncmp(value->string, "back", value->length) == 0)
             {
-                cull_mode = MT_CULL_MODE_BACK;
+                pipeline_create_info.cull_mode = MT_CULL_MODE_BACK;
             }
             else
             {
@@ -378,7 +441,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
     {
         if (line_width_entry->value.type == MT_CONFIG_VALUE_FLOAT)
         {
-            line_width = (float)line_width_entry->value.f64;
+            pipeline_create_info.line_width = (float)line_width_entry->value.f64;
         }
         else
         {
@@ -393,15 +456,7 @@ static MtPipeline *create_graphics_pipeline(MtEngine *engine, const char *path, 
         vertex_code_size,
         fragment_code,
         fragment_code_size,
-        &(MtGraphicsPipelineCreateInfo){
-            .blending    = blending,
-            .depth_test  = depth_test,
-            .depth_write = depth_write,
-            .depth_bias  = depth_bias,
-            .cull_mode   = cull_mode,
-            .front_face  = front_face,
-            .line_width  = line_width,
-        });
+        &pipeline_create_info);
 
     shaderc_compile_options_release(options);
 
@@ -423,38 +478,245 @@ failed:
         shaderc_result_release(fragment_result);
     return NULL;
 }
+// }}}
+
+static MtPipeline *create_graphics_pipeline_hlsl(
+    MtEngine *engine,
+    const char *path,
+    const char *input,
+    size_t input_size,
+    PipelinePragma *pragmas)
+{
+    shaderc_compile_options_t options = shaderc_compile_options_initialize();
+    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
+    shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
+    shaderc_compile_options_set_target_env(
+        options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
+    shaderc_compile_options_set_include_callbacks(
+        options, include_resolver, include_result_releaser, engine);
+    shaderc_compile_options_set_source_language(options, shaderc_source_language_hlsl);
+
+    shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
+
+    uint8_t *vertex_code = NULL, *fragment_code = NULL;
+    size_t vertex_code_size = 0, fragment_code_size = 0;
+
+    vertex_result = shaderc_compile_into_spv(
+        engine->compiler, input, input_size, shaderc_vertex_shader, path, "vertex", options);
+
+    if (shaderc_result_get_compilation_status(vertex_result) ==
+        shaderc_compilation_status_compilation_error)
+    {
+        mt_log_error("%s", shaderc_result_get_error_message(vertex_result));
+        goto failed;
+    }
+
+    vertex_code = (uint8_t *)shaderc_result_get_bytes(vertex_result);
+    vertex_code_size = shaderc_result_get_length(vertex_result);
+
+    // Compile fragment shader
+    fragment_result = shaderc_compile_into_spv(
+        engine->compiler, input, input_size, shaderc_fragment_shader, path, "pixel", options);
+
+    if (shaderc_result_get_compilation_status(fragment_result) ==
+        shaderc_compilation_status_compilation_error)
+    {
+        mt_log_error("%s", shaderc_result_get_error_message(fragment_result));
+        goto failed;
+    }
+
+    fragment_code = (uint8_t *)shaderc_result_get_bytes(fragment_result);
+    fragment_code_size = shaderc_result_get_length(fragment_result);
+
+    MtGraphicsPipelineCreateInfo pipeline_create_info = {
+        .blending = true,
+        .depth_test = true,
+        .depth_write = true,
+        .depth_bias = false,
+        .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
+        .cull_mode = MT_CULL_MODE_NONE,
+        .line_width = 1.0f,
+    };
+
+    for (PipelinePragma *pragma = pragmas; pragma != pragmas + mt_array_size(pragmas); ++pragma)
+    {
+        if (strncmp(pragma->key, "blending", pragma->key_len) == 0)
+        {
+            pipeline_create_info.blending = strncmp(pragma->value, "true", pragma->value_len) == 0;
+        }
+
+        if (strncmp(pragma->key, "depth_test", pragma->key_len) == 0)
+        {
+            pipeline_create_info.depth_test =
+                strncmp(pragma->value, "true", pragma->value_len) == 0;
+        }
+
+        if (strncmp(pragma->key, "depth_write", pragma->key_len) == 0)
+        {
+            pipeline_create_info.depth_write =
+                strncmp(pragma->value, "true", pragma->value_len) == 0;
+        }
+
+        if (strncmp(pragma->key, "depth_bias", pragma->key_len) == 0)
+        {
+            pipeline_create_info.depth_bias =
+                strncmp(pragma->value, "true", pragma->value_len) == 0;
+        }
+
+        if (strncmp(pragma->key, "front_face", pragma->key_len) == 0)
+        {
+            if (strncmp(pragma->value, "clockwise", pragma->value_len) == 0)
+            {
+                pipeline_create_info.front_face = MT_FRONT_FACE_CLOCKWISE;
+            }
+            else if (strncmp(pragma->value, "counter_clockwise", pragma->value_len) == 0)
+            {
+                pipeline_create_info.front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE;
+            }
+        }
+
+        if (strncmp(pragma->key, "cull_mode", pragma->key_len) == 0)
+        {
+            if (strncmp(pragma->value, "none", pragma->value_len) == 0)
+            {
+                pipeline_create_info.cull_mode = MT_CULL_MODE_NONE;
+            }
+            else if (strncmp(pragma->value, "back", pragma->value_len) == 0)
+            {
+                pipeline_create_info.cull_mode = MT_CULL_MODE_BACK;
+            }
+            else if (strncmp(pragma->value, "front", pragma->value_len) == 0)
+            {
+                pipeline_create_info.cull_mode = MT_CULL_MODE_FRONT;
+            }
+            else if (strncmp(pragma->value, "front_and_back", pragma->value_len) == 0)
+            {
+                pipeline_create_info.cull_mode = MT_CULL_MODE_FRONT_AND_BACK;
+            }
+        }
+
+        if (strncmp(pragma->key, "line_width", pragma->key_len) == 0)
+        {
+            char str[48];
+            assert(pragma->value_len < sizeof(str));
+            memcpy(str, pragma->value, pragma->value_len);
+            str[pragma->value_len] = '\0';
+            pipeline_create_info.line_width = (float)strtod(str, NULL);
+        }
+    }
+
+    MtPipeline *pipeline = mt_render.create_graphics_pipeline(
+        engine->device,
+        vertex_code,
+        vertex_code_size,
+        fragment_code,
+        fragment_code_size,
+        &pipeline_create_info);
+
+    shaderc_compile_options_release(options);
+
+    shaderc_result_release(vertex_result);
+    shaderc_result_release(fragment_result);
+
+    return pipeline;
+
+failed:
+    if (options)
+        shaderc_compile_options_release(options);
+
+    if (vertex_result)
+        shaderc_result_release(vertex_result);
+    if (fragment_result)
+        shaderc_result_release(fragment_result);
+    return NULL;
+}
 
 static MtPipeline *
 create_pipeline(MtEngine *engine, const char *path, const char *input, size_t input_size)
 {
-    // Parse file
-    MtConfig *config = mt_config_parse(engine->alloc, input, input_size);
-    if (!config)
+    assert(strlen(path) > 0);
+    const char *ext = mt_path_ext(path);
+
+    if (strcmp(ext, ".glsl") == 0)
     {
-        mt_log_error("Failed to parse pipeline config: \"%s\"", path);
-        return NULL;
+        // Parse file
+        MtConfig *config = mt_config_parse(engine->alloc, input, input_size);
+        if (!config)
+        {
+            mt_log_error("Failed to parse pipeline config: \"%s\"", path);
+            return NULL;
+        }
+
+        MtConfigObject *obj = mt_config_get_root(config);
+        MtConfigEntry *vertex_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
+        MtConfigEntry *fragment_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
+        MtConfigEntry *comp_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("compute"));
+
+        MtPipeline *pipeline = NULL;
+
+        if (comp_entry && !vertex_entry && !fragment_entry)
+        {
+            pipeline = create_compute_pipeline_glsl(engine, path, config);
+        }
+        else if (!comp_entry && vertex_entry)
+        {
+            pipeline = create_graphics_pipeline_glsl(engine, path, config);
+        }
+        else
+        {
+            mt_log_error("Failed to create pipeline: \"%s\", missing required shader fields", path);
+        }
+
+        mt_config_destroy(config);
+        return pipeline;
     }
 
-    MtConfigObject *obj           = mt_config_get_root(config);
-    MtConfigEntry *vertex_entry   = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
-    MtConfigEntry *fragment_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
-    MtConfigEntry *comp_entry     = mt_hash_get_ptr(&obj->map, mt_hash_str("compute"));
-
-    MtPipeline *pipeline = NULL;
-
-    if (comp_entry && !vertex_entry && !fragment_entry)
+    if (strcmp(ext, ".hlsl") == 0)
     {
-        pipeline = create_compute_pipeline(engine, path, config);
-    }
-    else if (!comp_entry && vertex_entry)
-    {
-        pipeline = create_graphics_pipeline(engine, path, config);
-    }
-    else
-    {
-        mt_log_error("Failed to create pipeline: \"%s\", missing required shader fields", path);
+        PipelinePragma *pragmas = parse_pragmas(engine->alloc, input, input_size);
+
+        MtPipeline *pipeline = NULL;
+
+        enum
+        {
+            GRAPHICS,
+            COMPUTE,
+        } type = GRAPHICS;
+
+        for (PipelinePragma *pragma = pragmas; pragma != pragmas + mt_array_size(pragmas); ++pragma)
+        {
+            if (strncmp(pragma->key, "type", pragma->key_len) == 0)
+            {
+                if (strncmp(pragma->value, "graphics", pragma->value_len) == 0)
+                {
+                    type = GRAPHICS;
+                }
+                if (strncmp(pragma->value, "compute", pragma->value_len) == 0)
+                {
+                    type = COMPUTE;
+                }
+            }
+        }
+
+        switch (type)
+        {
+            case GRAPHICS:
+            {
+                pipeline = create_graphics_pipeline_hlsl(engine, path, input, input_size, pragmas);
+                break;
+            }
+            case COMPUTE:
+            {
+                /* pipeline = create_compute_pipeline_hlsl(engine, path, input, input_size,
+                 * pragmas); */
+                break;
+            }
+        }
+
+        mt_array_free(engine->alloc, pragmas);
+
+        return pipeline;
     }
 
-    mt_config_destroy(config);
-    return pipeline;
+    return NULL;
 }
