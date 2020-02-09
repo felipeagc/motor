@@ -34,9 +34,10 @@
     Environment env;
 };
 [[vk::binding(1, 3)]] SamplerState cube_sampler;
-[[vk::binding(2, 3)]] TextureCube<float4> irradiance_map;
-[[vk::binding(3, 3)]] TextureCube<float4> radiance_map;
-[[vk::binding(4, 3)]] Texture2D<float4> brdf_lut;
+[[vk::binding(2, 3)]] SamplerState radiance_sampler;
+[[vk::binding(3, 3)]] TextureCube<float4> irradiance_map;
+[[vk::binding(4, 3)]] TextureCube<float4> radiance_map;
+[[vk::binding(5, 3)]] Texture2D<float4> brdf_lut;
 
 struct VsInput
 {
@@ -99,7 +100,7 @@ float3 get_ibl_contribution(PBRInfo pbr_inputs)
 
     float3 specular_light =
         srgb_to_linear(
-            tonemap(radiance_map.SampleLevel(cube_sampler, pbr_inputs.R, lod), env.exposure))
+            tonemap(radiance_map.SampleLevel(radiance_sampler, pbr_inputs.R, lod), env.exposure))
             .rgb;
 
     float3 diffuse = diffuse_light * pbr_inputs.diffuse_color;
@@ -192,7 +193,6 @@ float4 pixel(VsOutput fs_in) : SV_Target
         LightInfo light_info;
         light_info.NdotL = clamp(dot(pbr_inputs.N, L), 0.001, 1.0);
         light_info.NdotH = clamp(dot(pbr_inputs.N, H), 0.0, 1.0);
-        light_info.LdotH = clamp(dot(L, H), 0.0, 1.0);
         light_info.VdotH = clamp(dot(pbr_inputs.V, H), 0.0, 1.0);
 
         float3 F = specular_reflection(pbr_inputs, light_info);
@@ -225,7 +225,6 @@ float4 pixel(VsOutput fs_in) : SV_Target
         LightInfo light_info;
         light_info.NdotL = clamp(dot(pbr_inputs.N, L), 0.001, 1.0);
         light_info.NdotH = clamp(dot(pbr_inputs.N, H), 0.0, 1.0);
-        light_info.LdotH = clamp(dot(L, H), 0.0, 1.0);
         light_info.VdotH = clamp(dot(pbr_inputs.V, H), 0.0, 1.0);
 
         float3 F = specular_reflection(pbr_inputs, light_info);

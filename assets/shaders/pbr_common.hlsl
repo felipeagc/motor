@@ -28,7 +28,6 @@ struct LightInfo
 {
     float NdotL; // cos angle between normal and light direction
     float NdotH; // cos angle between normal and half vector
-    float LdotH; // cos angle between light direction and half vector
     float VdotH; // cos angle between view direction and half vector
 };
 

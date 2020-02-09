@@ -98,14 +98,14 @@ static void game_init(Game *g)
     MtXorShift xs;
     mt_xor_shift_init(&xs, (uint64_t)time(NULL));
 
-    for (uint32_t i = 0; i < 64; ++i)
+    for (uint32_t i = 0; i < 8; ++i)
     {
         MtPointLightArchetype *block;
         uint32_t e;
 
-#define LIGHT_POS_X mt_xor_shift_float(&xs, -30.0f, 30.0f)
+#define LIGHT_POS_X mt_xor_shift_float(&xs, -15.0f, 15.0f)
 #define LIGHT_POS_Y mt_xor_shift_float(&xs, 0.0f, 2.0f)
-#define LIGHT_POS_Z mt_xor_shift_float(&xs, -20.0f, 20.0f)
+#define LIGHT_POS_Z mt_xor_shift_float(&xs, -10.0f, 10.0f)
 #define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
 
         block = mt_entity_manager_add_entity(em, g->light_archetype, &e);

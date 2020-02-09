@@ -110,7 +110,7 @@ static void brdf_graph_builder(MtRenderGraph *graph, void *user_data)
 static MtImage *generate_brdf_lut(MtEngine *engine)
 {
     // Create pipeline
-    const char *path = "../assets/shaders/brdf.glsl";
+    const char *path = "../assets/shaders/brdf.hlsl";
 
     FILE *f = fopen(path, "rb");
     if (!f)
@@ -200,7 +200,8 @@ static void layer_pass_callback(MtRenderGraph *graph, MtCmdBuffer *cb, void *use
 
     mt_render.cmd_bind_pipeline(cb, data->pipeline);
     mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), 0, 0);
-    mt_render.cmd_bind_image_sampler(cb, data->env->skybox_image, data->env->skybox_sampler, 0, 1);
+    mt_render.cmd_bind_sampler(cb, data->env->skybox_sampler, 0, 1);
+    mt_render.cmd_bind_image(cb, data->env->skybox_image, 0, 2);
     mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
 }
@@ -269,8 +270,8 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
     const char *path = NULL;
     switch (type)
     {
-        case CUBEMAP_IRRADIANCE: path = "../assets/shaders/irradiance_cube.glsl"; break;
-        case CUBEMAP_RADIANCE: path = "../assets/shaders/prefilter_env_map.glsl"; break;
+        case CUBEMAP_IRRADIANCE: path = "../assets/shaders/irradiance_cube.hlsl"; break;
+        case CUBEMAP_RADIANCE: path = "../assets/shaders/prefilter_env_map.hlsl"; break;
     }
 
     FILE *f = fopen(path, "rb");
@@ -452,7 +453,7 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 
     mt_render.cmd_bind_pipeline(cb, env->skybox_pipeline->pipeline);
 
-    mt_render.cmd_bind_sampler(cb, env->skybox_sampler, 1, 0);
+    mt_render.cmd_bind_sampler(cb, env->radiance_sampler, 1, 0);
     mt_render.cmd_bind_image(cb, env->radiance_image, 1, 1);
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 2);
     mt_render.cmd_bind_vertex_data(cb, cube_positions, sizeof(cube_positions));
@@ -464,9 +465,10 @@ void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set)
 {
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), set, 0);
     mt_render.cmd_bind_sampler(cb, env->skybox_sampler, set, 1);
-    mt_render.cmd_bind_image(cb, env->irradiance_image, set, 2);
-    mt_render.cmd_bind_image(cb, env->radiance_image, set, 3);
-    mt_render.cmd_bind_image(cb, env->brdf_image, set, 4);
+    mt_render.cmd_bind_sampler(cb, env->radiance_sampler, set, 2);
+    mt_render.cmd_bind_image(cb, env->irradiance_image, set, 3);
+    mt_render.cmd_bind_image(cb, env->radiance_image, set, 4);
+    mt_render.cmd_bind_image(cb, env->brdf_image, set, 5);
 }
 
 void mt_environment_destroy(MtEnvironment *env)
