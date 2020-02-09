@@ -36,11 +36,11 @@ struct Environment {
 
     mat4 light_space_matrix;
 
-    float radiance_mip_levels;
     uint light_count;
 
-    float dummy1;
-    float dummy2;
+    float pad1;
+    float pad2;
+    float pad3;
 
     PointLight point_lights[MAX_POINT_LIGHTS];
 };

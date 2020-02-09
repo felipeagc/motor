@@ -860,36 +860,14 @@ static void node_draw(
                     sizeof(primitive->material->uniform),
                     material_set,
                     0);
-                mt_render.cmd_bind_image_sampler(
-                    cb,
-                    primitive->material->albedo_image,
-                    primitive->material->albedo_sampler,
-                    material_set,
-                    1);
-                mt_render.cmd_bind_image_sampler(
-                    cb,
-                    primitive->material->normal_image,
-                    primitive->material->normal_sampler,
-                    material_set,
-                    2);
-                mt_render.cmd_bind_image_sampler(
-                    cb,
-                    primitive->material->metallic_roughness_image,
-                    primitive->material->metallic_roughness_sampler,
-                    material_set,
-                    3);
-                mt_render.cmd_bind_image_sampler(
-                    cb,
-                    primitive->material->occlusion_image,
-                    primitive->material->occlusion_sampler,
-                    material_set,
-                    4);
-                mt_render.cmd_bind_image_sampler(
-                    cb,
-                    primitive->material->emissive_image,
-                    primitive->material->emissive_sampler,
-                    material_set,
-                    5);
+                mt_render.cmd_bind_sampler(
+                    cb, primitive->material->albedo_sampler, material_set, 1);
+                mt_render.cmd_bind_image(cb, primitive->material->albedo_image, material_set, 2);
+                mt_render.cmd_bind_image(cb, primitive->material->normal_image, material_set, 3);
+                mt_render.cmd_bind_image(
+                    cb, primitive->material->metallic_roughness_image, material_set, 4);
+                mt_render.cmd_bind_image(cb, primitive->material->occlusion_image, material_set, 5);
+                mt_render.cmd_bind_image(cb, primitive->material->emissive_image, material_set, 6);
             }
 
             if (primitive->has_indices)

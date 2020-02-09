@@ -53,7 +53,7 @@ static void game_init(Game *g)
     mt_asset_manager_queue_load(
         am, "../assets/papermill_hdr16f_cube.ktx", (MtAsset **)&skybox_asset);
     mt_asset_manager_queue_load(am, "../assets/test.png", (MtAsset **)&g->image);
-    mt_asset_manager_queue_load(am, "../assets/shaders/pbr.glsl", (MtAsset **)&g->pbr_pipeline);
+    mt_asset_manager_queue_load(am, "../assets/shaders/pbr.hlsl", (MtAsset **)&g->pbr_pipeline);
     mt_asset_manager_queue_load(
         am, "../assets/shaders/fullscreen.hlsl", (MtAsset **)&g->fullscreen_pipeline);
 

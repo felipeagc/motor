@@ -181,6 +181,7 @@ create_compute_pipeline_glsl(MtEngine *engine, const char *path, MtConfig *confi
         goto failed;
     }
 
+    mt_render.device_wait_idle(engine->device);
     MtPipeline *pipeline = mt_render.create_compute_pipeline(
         engine->device,
         (uint8_t *)shaderc_result_get_bytes(comp_result),
@@ -450,6 +451,7 @@ create_graphics_pipeline_glsl(MtEngine *engine, const char *path, MtConfig *conf
         }
     }
 
+    mt_render.device_wait_idle(engine->device);
     MtPipeline *pipeline = mt_render.create_graphics_pipeline(
         engine->device,
         vertex_code,
@@ -605,6 +607,7 @@ static MtPipeline *create_graphics_pipeline_hlsl(
         }
     }
 
+    mt_render.device_wait_idle(engine->device);
     MtPipeline *pipeline = mt_render.create_graphics_pipeline(
         engine->device,
         vertex_code,

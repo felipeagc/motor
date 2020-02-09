@@ -311,7 +311,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 
     if (type == CUBEMAP_RADIANCE)
     {
-        env->uniform.radiance_mip_levels = (float)mip_count;
+        env->radiance_mip_levels = (float)mip_count;
     }
 
     CubemapGraphData data = {
@@ -401,7 +401,7 @@ static void maybe_generate_images(MtEnvironment *env)
                 .anisotropy = false,
                 .mag_filter = MT_FILTER_LINEAR,
                 .min_filter = MT_FILTER_LINEAR,
-                .max_lod = env->uniform.radiance_mip_levels,
+                .max_lod = env->radiance_mip_levels,
             });
     }
 }
@@ -414,6 +414,8 @@ void mt_environment_init(
     env->asset_manager = asset_manager;
 
     MtEngine *engine = env->asset_manager->engine;
+
+    env->radiance_mip_levels = 1.0f;
 
     env->skybox_pipeline =
         (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/skybox.hlsl");
@@ -428,7 +430,6 @@ void mt_environment_init(
     env->uniform.sun_color = V3(1.0f, 1.0f, 1.0f);
     env->uniform.sun_intensity = 1.0f;
 
-    env->uniform.radiance_mip_levels = 1.0f;
     env->uniform.point_light_count = 0;
 
     env->skybox_sampler = mt_render.create_sampler(
@@ -462,9 +463,10 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set)
 {
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), set, 0);
-    mt_render.cmd_bind_image_sampler(cb, env->irradiance_image, env->skybox_sampler, set, 1);
-    mt_render.cmd_bind_image_sampler(cb, env->radiance_image, env->radiance_sampler, set, 2);
-    mt_render.cmd_bind_image_sampler(cb, env->brdf_image, env->skybox_sampler, set, 3);
+    mt_render.cmd_bind_sampler(cb, env->skybox_sampler, set, 1);
+    mt_render.cmd_bind_image(cb, env->irradiance_image, set, 2);
+    mt_render.cmd_bind_image(cb, env->radiance_image, set, 3);
+    mt_render.cmd_bind_image(cb, env->brdf_image, set, 4);
 }
 
 void mt_environment_destroy(MtEnvironment *env)

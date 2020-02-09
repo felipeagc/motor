@@ -29,11 +29,11 @@ typedef struct MtEnvironmentUniform
 
     Mat4 light_space_matrix;
 
-    float radiance_mip_levels;
     uint32_t point_light_count;
 
-    float dummy1;
-    float dummy2;
+    float pad1;
+    float pad2;
+    float pad3;
 
     MtPointLight point_lights[MT_MAX_POINT_LIGHTS];
 } MtEnvironmentUniform;
@@ -56,6 +56,8 @@ typedef struct MtEnvironment
     MtSampler *radiance_sampler;
 
     MtEnvironmentUniform uniform;
+
+    float radiance_mip_levels;
 } MtEnvironment;
 
 void mt_environment_init(
