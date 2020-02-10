@@ -384,25 +384,6 @@ static void cmd_bind_image(MtCmdBuffer *cb, MtImage *image, uint32_t set, uint32
     }
 }
 
-static void cmd_bind_image_sampler(
-    MtCmdBuffer *cb, MtImage *image, MtSampler *sampler, uint32_t set, uint32_t binding)
-{
-    assert(MT_LENGTH(cb->bound_descriptors) > set);
-    assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
-
-    memset(&cb->bound_descriptors[set][binding], 0, sizeof(cb->bound_descriptors[set][binding]));
-
-    cb->bound_descriptors[set][binding].image.imageView = image->image_view;
-    cb->bound_descriptors[set][binding].image.imageLayout =
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    if (image->aspect & VK_IMAGE_ASPECT_DEPTH_BIT)
-    {
-        cb->bound_descriptors[set][binding].image.imageLayout =
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-    }
-    cb->bound_descriptors[set][binding].image.sampler = sampler->sampler;
-}
-
 static void cmd_bind_vertex_buffer(MtCmdBuffer *cb, MtBuffer *buffer, size_t offset)
 {
     vkCmdBindVertexBuffers(cb->cmd_buffer, 0, 1, &buffer->buffer, &offset);

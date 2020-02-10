@@ -920,7 +920,6 @@ static MtRenderer g_vulkan_renderer = {
     .cmd_bind_uniform = cmd_bind_uniform,
     .cmd_bind_image = cmd_bind_image,
     .cmd_bind_sampler = cmd_bind_sampler,
-    .cmd_bind_image_sampler = cmd_bind_image_sampler,
     .cmd_bind_storage_buffer = cmd_bind_storage_buffer,
 
     .cmd_bind_vertex_buffer = cmd_bind_vertex_buffer,
