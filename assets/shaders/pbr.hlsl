@@ -1,4 +1,5 @@
-#pragma motor type graphics
+#pragma motor vertex_entry vertex
+#pragma motor pixel_entry pixel
 #pragma motor blending true
 #pragma motor depth_test true
 #pragma motor depth_write true

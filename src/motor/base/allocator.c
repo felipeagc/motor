@@ -59,7 +59,7 @@ void mt_internal_free(MtAllocator *alloc, void *ptr, const char *filename, uint3
 char *mt_strdup(MtAllocator *alloc, const char *str)
 {
     uint64_t len = strlen(str);
-    char *s      = mt_alloc(alloc, len + 1);
+    char *s = mt_alloc(alloc, len + 1);
     memcpy(s, str, len + 1);
     return s;
 }
@@ -67,15 +67,16 @@ char *mt_strdup(MtAllocator *alloc, const char *str)
 char *mt_strndup(MtAllocator *alloc, const char *str, uint64_t num_bytes)
 {
     char *s = mt_alloc(alloc, num_bytes);
-    strncpy(s, str, num_bytes);
+    memcpy(s, str, num_bytes);
+    s[num_bytes - 1] = '\0';
     return s;
 }
 
 char *mt_strcat(MtAllocator *alloc, char *dest, const char *src)
 {
     uint64_t dest_len = strlen(dest);
-    uint64_t src_len  = strlen(src);
-    dest              = mt_realloc(alloc, dest, dest_len + src_len + 1);
+    uint64_t src_len = strlen(src);
+    dest = mt_realloc(alloc, dest, dest_len + src_len + 1);
 
     char *c = &dest[dest_len];
     for (uint64_t i = 0; i < src_len; i++)

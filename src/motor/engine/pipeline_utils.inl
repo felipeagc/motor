@@ -128,360 +128,7 @@ static void include_result_releaser(void *user_data, shaderc_include_result *inc
 }
 // }}}
 
-// GLSL compute {{{
-static MtPipeline *
-create_compute_pipeline_glsl(MtEngine *engine, const char *path, MtConfig *config)
-{
-    MtConfigObject *obj = mt_config_get_root(config);
-    MtConfigEntry *common_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
-    MtConfigEntry *comp_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("compute"));
-
-    shaderc_compile_options_t options = NULL;
-    char *comp_text = NULL;
-    shaderc_compilation_result_t comp_result = NULL;
-
-    options = shaderc_compile_options_initialize();
-    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
-    shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
-
-    shaderc_compile_options_set_target_env(
-        options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
-
-    shaderc_compile_options_set_include_callbacks(
-        options, include_resolver, include_result_releaser, engine);
-
-    if (comp_entry->value.type != MT_CONFIG_VALUE_STRING)
-    {
-        mt_log_error("Pipeline asset requires \"compute\"  to be a string");
-        goto failed;
-    }
-
-    MtStringBuilder sb;
-    mt_str_builder_init(&sb, engine->alloc);
-
-    if (common_entry)
-    {
-        mt_str_builder_append_str(&sb, common_entry->value.string);
-    }
-    mt_str_builder_append_strn(&sb, comp_entry->value.string, comp_entry->value.length);
-    comp_text = mt_str_builder_build(&sb, engine->alloc);
-
-    mt_str_builder_destroy(&sb);
-
-    size_t comp_text_size = strlen(comp_text);
-
-    // Compile vertex shader
-    comp_result = shaderc_compile_into_spv(
-        engine->compiler, comp_text, comp_text_size, shaderc_compute_shader, path, "main", options);
-
-    if (shaderc_result_get_compilation_status(comp_result) ==
-        shaderc_compilation_status_compilation_error)
-    {
-        mt_log_error("%s", shaderc_result_get_error_message(comp_result));
-        goto failed;
-    }
-
-    mt_render.device_wait_idle(engine->device);
-    MtPipeline *pipeline = mt_render.create_compute_pipeline(
-        engine->device,
-        (uint8_t *)shaderc_result_get_bytes(comp_result),
-        shaderc_result_get_length(comp_result));
-
-    shaderc_compile_options_release(options);
-
-    shaderc_result_release(comp_result);
-    mt_free(engine->alloc, comp_text);
-
-    return pipeline;
-
-failed:
-    if (options)
-        shaderc_compile_options_release(options);
-
-    if (comp_result)
-        shaderc_result_release(comp_result);
-
-    return NULL;
-}
-// }}}
-
-// GLSL graphics {{{
-static MtPipeline *
-create_graphics_pipeline_glsl(MtEngine *engine, const char *path, MtConfig *config)
-{
-    MtConfigObject *obj = mt_config_get_root(config);
-
-    MtConfigEntry *common_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("common"));
-    MtConfigEntry *vertex_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
-    MtConfigEntry *fragment_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
-
-    MtConfigEntry *blending_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("blending"));
-    MtConfigEntry *depth_test_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_test"));
-    MtConfigEntry *depth_write_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_write"));
-    MtConfigEntry *depth_bias_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("depth_bias"));
-    MtConfigEntry *cull_mode_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("cull_mode"));
-    MtConfigEntry *front_face_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("front_face"));
-    MtConfigEntry *line_width_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("line_width"));
-
-    shaderc_compile_options_t options = NULL;
-    char *vertex_text = NULL, *fragment_text = NULL;
-    size_t vertex_text_size = 0, fragment_text_size = 0;
-    shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
-
-    options = shaderc_compile_options_initialize();
-    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
-    shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
-    shaderc_compile_options_set_target_env(
-        options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
-    shaderc_compile_options_set_include_callbacks(
-        options, include_resolver, include_result_releaser, engine);
-
-    if (vertex_entry && vertex_entry->value.type != MT_CONFIG_VALUE_STRING)
-    {
-        mt_log_error("Pipeline asset requires \"vertex\" field to be a string");
-        goto failed;
-    }
-
-    if (fragment_entry && fragment_entry->value.type != MT_CONFIG_VALUE_STRING)
-    {
-        mt_log_error("Pipeline asset requires \"fragment\" field to be a string");
-        goto failed;
-    }
-
-    uint8_t *vertex_code = NULL, *fragment_code = NULL;
-    size_t vertex_code_size = 0, fragment_code_size = 0;
-
-    MtStringBuilder sb;
-    mt_str_builder_init(&sb, engine->alloc);
-
-    if (vertex_entry)
-    {
-        mt_str_builder_reset(&sb);
-        if (common_entry)
-        {
-            mt_str_builder_append_str(&sb, common_entry->value.string);
-        }
-        mt_str_builder_append_strn(&sb, vertex_entry->value.string, vertex_entry->value.length);
-        vertex_text = mt_str_builder_build(&sb, engine->alloc);
-        vertex_text_size = strlen(vertex_text);
-
-        // Compile vertex shader
-        vertex_result = shaderc_compile_into_spv(
-            engine->compiler,
-            vertex_text,
-            vertex_text_size,
-            shaderc_vertex_shader,
-            path,
-            "main",
-            options);
-
-        if (shaderc_result_get_compilation_status(vertex_result) ==
-            shaderc_compilation_status_compilation_error)
-        {
-            mt_log_error("%s", shaderc_result_get_error_message(vertex_result));
-            goto failed;
-        }
-
-        vertex_code = (uint8_t *)shaderc_result_get_bytes(vertex_result);
-        vertex_code_size = shaderc_result_get_length(vertex_result);
-    }
-
-    if (fragment_entry)
-    {
-        mt_str_builder_reset(&sb);
-        if (common_entry)
-        {
-            mt_str_builder_append_str(&sb, common_entry->value.string);
-        }
-        mt_str_builder_append_strn(&sb, fragment_entry->value.string, fragment_entry->value.length);
-        fragment_text = mt_str_builder_build(&sb, engine->alloc);
-        fragment_text_size = strlen(fragment_text);
-
-        // Compile fragment shader
-        fragment_result = shaderc_compile_into_spv(
-            engine->compiler,
-            fragment_text,
-            fragment_text_size,
-            shaderc_fragment_shader,
-            path,
-            "main",
-            options);
-
-        if (shaderc_result_get_compilation_status(fragment_result) ==
-            shaderc_compilation_status_compilation_error)
-        {
-            mt_log_error("%s", shaderc_result_get_error_message(fragment_result));
-            goto failed;
-        }
-
-        fragment_code = (uint8_t *)shaderc_result_get_bytes(fragment_result);
-        fragment_code_size = shaderc_result_get_length(fragment_result);
-    }
-
-    mt_str_builder_destroy(&sb);
-
-    MtGraphicsPipelineCreateInfo pipeline_create_info = {
-        .blending = true,
-        .depth_test = true,
-        .depth_write = true,
-        .depth_bias = false,
-        .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
-        .cull_mode = MT_CULL_MODE_NONE,
-        .line_width = 1.0f,
-    };
-
-    if (blending_entry)
-    {
-        if (blending_entry->value.type == MT_CONFIG_VALUE_BOOL)
-        {
-            pipeline_create_info.blending = blending_entry->value.boolean;
-        }
-        else
-        {
-            mt_log_error("Invalid pipeline blending type, wanted bool");
-            goto failed;
-        }
-    }
-
-    if (depth_test_entry)
-    {
-        if (depth_test_entry->value.type == MT_CONFIG_VALUE_BOOL)
-        {
-            pipeline_create_info.depth_test = depth_test_entry->value.boolean;
-        }
-        else
-        {
-            mt_log_error("Invalid pipeline depth test type, wanted bool");
-            goto failed;
-        }
-    }
-
-    if (depth_write_entry)
-    {
-        if (depth_write_entry->value.type == MT_CONFIG_VALUE_BOOL)
-        {
-            pipeline_create_info.depth_write = depth_write_entry->value.boolean;
-        }
-        else
-        {
-            mt_log_error("Invalid pipeline depth write type, wanted bool");
-            goto failed;
-        }
-    }
-
-    if (depth_bias_entry)
-    {
-        if (depth_bias_entry->value.type == MT_CONFIG_VALUE_BOOL)
-        {
-            pipeline_create_info.depth_bias = depth_bias_entry->value.boolean;
-        }
-        else
-        {
-            mt_log_error("Invalid pipeline depth bias type, wanted bool");
-            goto failed;
-        }
-    }
-
-    if (front_face_entry)
-    {
-        MtConfigValue *value = &front_face_entry->value;
-        if (value->type == MT_CONFIG_VALUE_STRING)
-        {
-            if (strncmp(value->string, "clockwise", value->length) == 0)
-            {
-                pipeline_create_info.front_face = MT_FRONT_FACE_CLOCKWISE;
-            }
-            else if (strncmp(value->string, "counter_clockwise", value->length) == 0)
-            {
-                pipeline_create_info.front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE;
-            }
-            else
-            {
-                mt_log_error("Invalid pipeline front face: \"%.*s\"", value->length, value->string);
-                goto failed;
-            }
-        }
-        else
-        {
-            mt_log_error("Invalid pipeline front face type, wanted string");
-            goto failed;
-        }
-    }
-
-    if (cull_mode_entry)
-    {
-        MtConfigValue *value = &cull_mode_entry->value;
-        if (value->type == MT_CONFIG_VALUE_STRING)
-        {
-            if (strncmp(value->string, "none", value->length) == 0)
-            {
-                pipeline_create_info.cull_mode = MT_CULL_MODE_NONE;
-            }
-            else if (strncmp(value->string, "front", value->length) == 0)
-            {
-                pipeline_create_info.cull_mode = MT_CULL_MODE_FRONT;
-            }
-            else if (strncmp(value->string, "back", value->length) == 0)
-            {
-                pipeline_create_info.cull_mode = MT_CULL_MODE_BACK;
-            }
-            else
-            {
-                mt_log_error("Invalid pipeline cull mode: \"%.*s\"", value->length, value->string);
-                goto failed;
-            }
-        }
-        else
-        {
-            mt_log_error("Invalid pipeline cull mode type, wanted string");
-            goto failed;
-        }
-    }
-
-    if (line_width_entry)
-    {
-        if (line_width_entry->value.type == MT_CONFIG_VALUE_FLOAT)
-        {
-            pipeline_create_info.line_width = (float)line_width_entry->value.f64;
-        }
-        else
-        {
-            mt_log_error("Invalid pipeline line width type, wanted float");
-            goto failed;
-        }
-    }
-
-    mt_render.device_wait_idle(engine->device);
-    MtPipeline *pipeline = mt_render.create_graphics_pipeline(
-        engine->device,
-        vertex_code,
-        vertex_code_size,
-        fragment_code,
-        fragment_code_size,
-        &pipeline_create_info);
-
-    shaderc_compile_options_release(options);
-
-    shaderc_result_release(vertex_result);
-    shaderc_result_release(fragment_result);
-
-    mt_free(engine->alloc, vertex_text);
-    mt_free(engine->alloc, fragment_text);
-
-    return pipeline;
-
-failed:
-    if (options)
-        shaderc_compile_options_release(options);
-
-    if (vertex_result)
-        shaderc_result_release(vertex_result);
-    if (fragment_result)
-        shaderc_result_release(fragment_result);
-    return NULL;
-}
-// }}}
-
+// HLSL graphics pipeline {{{
 static MtPipeline *create_graphics_pipeline_hlsl(
     MtEngine *engine,
     const char *path,
@@ -489,47 +136,6 @@ static MtPipeline *create_graphics_pipeline_hlsl(
     size_t input_size,
     PipelinePragma *pragmas)
 {
-    shaderc_compile_options_t options = shaderc_compile_options_initialize();
-    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
-    shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
-    shaderc_compile_options_set_target_env(
-        options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
-    shaderc_compile_options_set_include_callbacks(
-        options, include_resolver, include_result_releaser, engine);
-    shaderc_compile_options_set_source_language(options, shaderc_source_language_hlsl);
-
-    shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
-
-    uint8_t *vertex_code = NULL, *fragment_code = NULL;
-    size_t vertex_code_size = 0, fragment_code_size = 0;
-
-    vertex_result = shaderc_compile_into_spv(
-        engine->compiler, input, input_size, shaderc_vertex_shader, path, "vertex", options);
-
-    if (shaderc_result_get_compilation_status(vertex_result) ==
-        shaderc_compilation_status_compilation_error)
-    {
-        mt_log_error("%s", shaderc_result_get_error_message(vertex_result));
-        goto failed;
-    }
-
-    vertex_code = (uint8_t *)shaderc_result_get_bytes(vertex_result);
-    vertex_code_size = shaderc_result_get_length(vertex_result);
-
-    // Compile fragment shader
-    fragment_result = shaderc_compile_into_spv(
-        engine->compiler, input, input_size, shaderc_fragment_shader, path, "pixel", options);
-
-    if (shaderc_result_get_compilation_status(fragment_result) ==
-        shaderc_compilation_status_compilation_error)
-    {
-        mt_log_error("%s", shaderc_result_get_error_message(fragment_result));
-        goto failed;
-    }
-
-    fragment_code = (uint8_t *)shaderc_result_get_bytes(fragment_result);
-    fragment_code_size = shaderc_result_get_length(fragment_result);
-
     MtGraphicsPipelineCreateInfo pipeline_create_info = {
         .blending = true,
         .depth_test = true,
@@ -540,8 +146,21 @@ static MtPipeline *create_graphics_pipeline_hlsl(
         .line_width = 1.0f,
     };
 
+    char *vertex_entry_point = NULL;
+    char *fragment_entry_point = NULL;
+
     for (PipelinePragma *pragma = pragmas; pragma != pragmas + mt_array_size(pragmas); ++pragma)
     {
+        if (strncmp(pragma->key, "vertex_entry", pragma->key_len) == 0)
+        {
+            vertex_entry_point = mt_strndup(engine->alloc, pragma->value, pragma->value_len + 1);
+        }
+
+        if (strncmp(pragma->key, "pixel_entry", pragma->key_len) == 0)
+        {
+            fragment_entry_point = mt_strndup(engine->alloc, pragma->value, pragma->value_len + 1);
+        }
+
         if (strncmp(pragma->key, "blending", pragma->key_len) == 0)
         {
             pipeline_create_info.blending = strncmp(pragma->value, "true", pragma->value_len) == 0;
@@ -607,6 +226,68 @@ static MtPipeline *create_graphics_pipeline_hlsl(
         }
     }
 
+    if (!vertex_entry_point)
+    {
+        mt_log_error("Missing vertex shader entry point");
+        return NULL;
+    }
+
+    shaderc_compile_options_t options = shaderc_compile_options_initialize();
+    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
+    shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
+    shaderc_compile_options_set_target_env(
+        options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
+    shaderc_compile_options_set_include_callbacks(
+        options, include_resolver, include_result_releaser, engine);
+    shaderc_compile_options_set_source_language(options, shaderc_source_language_hlsl);
+
+    shaderc_compilation_result_t vertex_result = NULL, fragment_result = NULL;
+
+    uint8_t *vertex_code = NULL, *fragment_code = NULL;
+    size_t vertex_code_size = 0, fragment_code_size = 0;
+
+    vertex_result = shaderc_compile_into_spv(
+        engine->compiler,
+        input,
+        input_size,
+        shaderc_vertex_shader,
+        path,
+        vertex_entry_point,
+        options);
+
+    if (shaderc_result_get_compilation_status(vertex_result) ==
+        shaderc_compilation_status_compilation_error)
+    {
+        mt_log_error("%s", shaderc_result_get_error_message(vertex_result));
+        goto failed;
+    }
+
+    vertex_code = (uint8_t *)shaderc_result_get_bytes(vertex_result);
+    vertex_code_size = shaderc_result_get_length(vertex_result);
+
+    // Compile fragment shader
+    if (fragment_entry_point)
+    {
+        fragment_result = shaderc_compile_into_spv(
+            engine->compiler,
+            input,
+            input_size,
+            shaderc_fragment_shader,
+            path,
+            fragment_entry_point,
+            options);
+
+        if (shaderc_result_get_compilation_status(fragment_result) ==
+            shaderc_compilation_status_compilation_error)
+        {
+            mt_log_error("%s", shaderc_result_get_error_message(fragment_result));
+            goto failed;
+        }
+
+        fragment_code = (uint8_t *)shaderc_result_get_bytes(fragment_result);
+        fragment_code_size = shaderc_result_get_length(fragment_result);
+    }
+
     mt_render.device_wait_idle(engine->device);
     MtPipeline *pipeline = mt_render.create_graphics_pipeline(
         engine->device,
@@ -621,6 +302,9 @@ static MtPipeline *create_graphics_pipeline_hlsl(
     shaderc_result_release(vertex_result);
     shaderc_result_release(fragment_result);
 
+    mt_free(engine->alloc, vertex_entry_point);
+    mt_free(engine->alloc, fragment_entry_point);
+
     return pipeline;
 
 failed:
@@ -633,46 +317,92 @@ failed:
         shaderc_result_release(fragment_result);
     return NULL;
 }
+// }}}
+
+// HLSL compute pipeline {{{
+static MtPipeline *create_compute_pipeline_hlsl(
+    MtEngine *engine,
+    const char *path,
+    const char *input,
+    size_t input_size,
+    PipelinePragma *pragmas)
+{
+    char *compute_entry_point = NULL;
+
+    for (PipelinePragma *pragma = pragmas; pragma != pragmas + mt_array_size(pragmas); ++pragma)
+    {
+        if (strncmp(pragma->key, "compute_entry", pragma->key_len) == 0)
+        {
+            compute_entry_point = mt_strndup(engine->alloc, pragma->value, pragma->value_len + 1);
+        }
+    }
+
+    if (!compute_entry_point)
+    {
+        mt_log_error("Missing shader compute entry point");
+        return NULL;
+    }
+
+    shaderc_compile_options_t options = shaderc_compile_options_initialize();
+    shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
+    shaderc_compile_options_set_forced_version_profile(options, 450, shaderc_profile_none);
+    shaderc_compile_options_set_target_env(
+        options, shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
+    shaderc_compile_options_set_include_callbacks(
+        options, include_resolver, include_result_releaser, engine);
+    shaderc_compile_options_set_source_language(options, shaderc_source_language_hlsl);
+
+    shaderc_compilation_result_t compute_result = NULL;
+
+    uint8_t *compute_code = NULL;
+    size_t compute_code_size = 0;
+
+    compute_result = shaderc_compile_into_spv(
+        engine->compiler,
+        input,
+        input_size,
+        shaderc_compute_shader,
+        path,
+        compute_entry_point,
+        options);
+
+    if (shaderc_result_get_compilation_status(compute_result) ==
+        shaderc_compilation_status_compilation_error)
+    {
+        mt_log_error("%s", shaderc_result_get_error_message(compute_result));
+        goto failed;
+    }
+
+    compute_code = (uint8_t *)shaderc_result_get_bytes(compute_result);
+    compute_code_size = shaderc_result_get_length(compute_result);
+
+    mt_render.device_wait_idle(engine->device);
+    MtPipeline *pipeline =
+        mt_render.create_compute_pipeline(engine->device, compute_code, compute_code_size);
+
+    shaderc_compile_options_release(options);
+
+    shaderc_result_release(compute_result);
+
+    mt_free(engine->alloc, compute_entry_point);
+
+    return pipeline;
+
+failed:
+    if (options)
+        shaderc_compile_options_release(options);
+
+    if (compute_result)
+        shaderc_result_release(compute_result);
+    return NULL;
+}
+// }}}
 
 static MtPipeline *
 create_pipeline(MtEngine *engine, const char *path, const char *input, size_t input_size)
 {
     assert(strlen(path) > 0);
     const char *ext = mt_path_ext(path);
-
-    if (strcmp(ext, ".glsl") == 0)
-    {
-        // Parse file
-        MtConfig *config = mt_config_parse(engine->alloc, input, input_size);
-        if (!config)
-        {
-            mt_log_error("Failed to parse pipeline config: \"%s\"", path);
-            return NULL;
-        }
-
-        MtConfigObject *obj = mt_config_get_root(config);
-        MtConfigEntry *vertex_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("vertex"));
-        MtConfigEntry *fragment_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("fragment"));
-        MtConfigEntry *comp_entry = mt_hash_get_ptr(&obj->map, mt_hash_str("compute"));
-
-        MtPipeline *pipeline = NULL;
-
-        if (comp_entry && !vertex_entry && !fragment_entry)
-        {
-            pipeline = create_compute_pipeline_glsl(engine, path, config);
-        }
-        else if (!comp_entry && vertex_entry)
-        {
-            pipeline = create_graphics_pipeline_glsl(engine, path, config);
-        }
-        else
-        {
-            mt_log_error("Failed to create pipeline: \"%s\", missing required shader fields", path);
-        }
-
-        mt_config_destroy(config);
-        return pipeline;
-    }
 
     if (strcmp(ext, ".hlsl") == 0)
     {
@@ -682,22 +412,24 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
 
         enum
         {
+            NONE,
             GRAPHICS,
             COMPUTE,
         } type = GRAPHICS;
 
         for (PipelinePragma *pragma = pragmas; pragma != pragmas + mt_array_size(pragmas); ++pragma)
         {
-            if (strncmp(pragma->key, "type", pragma->key_len) == 0)
+            if (strncmp(pragma->key, "vertex_entry", pragma->key_len) == 0)
             {
-                if (strncmp(pragma->value, "graphics", pragma->value_len) == 0)
-                {
-                    type = GRAPHICS;
-                }
-                if (strncmp(pragma->value, "compute", pragma->value_len) == 0)
-                {
-                    type = COMPUTE;
-                }
+                type = GRAPHICS;
+            }
+            if (strncmp(pragma->key, "pixel_entry", pragma->key_len) == 0)
+            {
+                type = GRAPHICS;
+            }
+            if (strncmp(pragma->key, "compute_entry", pragma->key_len) == 0)
+            {
+                type = COMPUTE;
             }
         }
 
@@ -710,8 +442,12 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
             }
             case COMPUTE:
             {
-                /* pipeline = create_compute_pipeline_hlsl(engine, path, input, input_size,
-                 * pragmas); */
+                pipeline = create_compute_pipeline_hlsl(engine, path, input, input_size, pragmas);
+                break;
+            }
+            case NONE:
+            {
+                mt_log_error("Missing shader entry point: \"%s\"", path);
                 break;
             }
         }

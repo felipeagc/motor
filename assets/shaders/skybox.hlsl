@@ -1,4 +1,5 @@
-#pragma motor type graphics
+#pragma motor vertex_entry vertex
+#pragma motor pixel_entry pixel
 #pragma motor blending false
 #pragma motor depth_test false
 #pragma motor depth_write false
@@ -26,10 +27,8 @@ struct VsOutput
     float3 uvw : TEXCOORD;
 };
 
-VsOutput vertex(float3 pos)
+void vertex(out VsOutput vs_out, float3 pos)
 {
-    VsOutput vs_out;
-
     vs_out.uvw = pos;
 
     float4x4 view = cam.view;
@@ -39,7 +38,6 @@ VsOutput vertex(float3 pos)
 
     vs_out.sv_pos = mul(mul(cam.proj, view), float4(pos * float3(100.0), 1.0));
     vs_out.sv_pos = vs_out.sv_pos.xyww;
-    return vs_out;
 }
 
 float4 pixel(VsOutput vs_out) : SV_Target

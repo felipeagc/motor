@@ -1,4 +1,5 @@
-#pragma motor type graphics
+#pragma motor vertex_entry vertex
+#pragma motor pixel_entry pixel
 
 #define NUM_SAMPLES 1024u
 #define PI 3.1415926536

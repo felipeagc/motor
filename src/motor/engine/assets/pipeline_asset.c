@@ -54,7 +54,6 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 }
 
 static const char *g_extensions[] = {
-    ".glsl",
     ".hlsl",
 };
 
