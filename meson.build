@@ -1,5 +1,5 @@
 project('motor', 'c', 'cpp', 
-  default_options: ['default_library=static'])
+  default_options: ['default_library=shared'])
 
 cc = meson.get_compiler('c')
 m_dep = cc.find_library('m', required: false)
@@ -55,6 +55,13 @@ motor_graphics_sources = [
 
 motor_graphics_deps = [motor_base_dep, glfw_dep, spirv_cross_dep]
 
+if target_machine.system() == 'linux'
+  motor_graphics_deps += dependency('x11-xcb')
+elif target_machine.system() == 'windows'
+else
+   error('OS not supported')
+endif
+
 motor_graphics_lib = library(
   'motor_graphics',
   motor_graphics_sources,
@@ -71,7 +78,7 @@ motor_engine_sources = [
   'src/motor/engine/file_watcher.c',
   'src/motor/engine/config.c',
   'src/motor/engine/engine.c',
-  'src/motor/engine/ui.c',
+  'src/motor/engine/nuklear_impl.c',
   'src/motor/engine/camera.c',
   'src/motor/engine/environment.c',
   'src/motor/engine/entities.c',
@@ -82,6 +89,7 @@ motor_engine_sources = [
   'src/motor/engine/assets/gltf_asset.c',
   'src/motor/engine/cgltf.c',
   'src/motor/engine/tinyktx.c',
+  'src/motor/engine/nuklear.c',
   'src/motor/engine/stb_image.c',
   'src/motor/engine/stb_rect_pack.c',
   'src/motor/engine/stb_truetype.c',

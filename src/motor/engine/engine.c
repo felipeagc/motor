@@ -8,7 +8,6 @@
 #include <motor/graphics/vulkan/vulkan_device.h>
 #include <motor/graphics/vulkan/glfw_window.h>
 #include <motor/engine/file_watcher.h>
-#include <motor/engine/ui.h>
 #include <shaderc/shaderc.h>
 #include <string.h>
 #include <stdio.h>
@@ -116,7 +115,8 @@ void mt_engine_init(MtEngine *engine)
     mt_asset_manager_init(&engine->asset_manager, engine);
     mt_entity_manager_init(&engine->entity_manager, engine->alloc);
 
-    engine->ui = mt_ui_create(engine->alloc, engine->window, &engine->asset_manager);
+    engine->nk_ctx = mt_nuklear_create(engine);
+
     engine->watcher = mt_file_watcher_create(
         engine->alloc, MT_FILE_WATCHER_EVENT_MODIFY, asset_watcher_handler, "../assets");
 }
@@ -128,7 +128,7 @@ void mt_engine_destroy(MtEngine *engine)
     mt_thread_pool_destroy(&engine->thread_pool);
 
     mt_file_watcher_destroy(engine->watcher);
-    mt_ui_destroy(engine->ui);
+    mt_nuklear_destroy(engine->nk_ctx);
 
     mt_render.destroy_image(engine->device, engine->default_cubemap);
     mt_render.destroy_image(engine->device, engine->white_image);

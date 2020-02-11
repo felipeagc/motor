@@ -395,7 +395,7 @@ cmd_bind_index_buffer(MtCmdBuffer *cb, MtBuffer *buffer, MtIndexType index_type,
     vkCmdBindIndexBuffer(cb->cmd_buffer, buffer->buffer, offset, index_type_to_vulkan(index_type));
 }
 
-static void cmd_bind_vertex_data(MtCmdBuffer *cb, const void *data, size_t size)
+static void *cmd_bind_vertex_data(MtCmdBuffer *cb, size_t size)
 {
     mt_mutex_lock(&cb->dev->device_mutex);
 
@@ -407,13 +407,12 @@ static void cmd_bind_vertex_data(MtCmdBuffer *cb, const void *data, size_t size)
 
     mt_mutex_unlock(&cb->dev->device_mutex);
 
-    memcpy(allocation.mapping, data, size);
-
     cmd_bind_vertex_buffer(cb, cb->vbo_block.buffer, allocation.offset);
+
+    return allocation.mapping;
 }
 
-static void
-cmd_bind_index_data(MtCmdBuffer *cb, const void *data, size_t size, MtIndexType index_type)
+static void *cmd_bind_index_data(MtCmdBuffer *cb, size_t size, MtIndexType index_type)
 {
     mt_mutex_lock(&cb->dev->device_mutex);
 
@@ -425,9 +424,9 @@ cmd_bind_index_data(MtCmdBuffer *cb, const void *data, size_t size, MtIndexType 
 
     mt_mutex_unlock(&cb->dev->device_mutex);
 
-    memcpy(allocation.mapping, data, size);
-
     cmd_bind_index_buffer(cb, cb->ibo_block.buffer, index_type, allocation.offset);
+
+    return allocation.mapping;
 }
 
 static void cmd_draw(

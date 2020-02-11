@@ -1,6 +1,17 @@
 = Motor
 
 == To-do
+* Alpha sorting for GLTF models
+* Code hot reloading
+* Better entity ID system
+* Entity menu
+* Gizmos
+
+=== Cool stuff to do
+* Tesselated terrain
+* Voxel world
+* Water shader
+* Fog
 
 === Features
 * Base
@@ -19,7 +30,6 @@
 ** Procedural sky
 *** http://codeflow.org/entries/2011/apr/13/advanced-webgl-part-2-sky-rendering/
 ** Voxel cone tracing GI
-** Revert swapchain format to UNORM instead of SRGB (maybe)
 
 * Engine
 ** Introspection system
@@ -30,10 +40,10 @@
 ** Physics
 
 === Restructuring
-* Statically link shaderc on windows
+* Dynamically link stuff for better build times (maybe?)
 
 === Performance
+* Descriptor indexing (does not work on haswell mobile though)
 
 === Bug fixes
-* UI font atlas size needs to be correct
 * Fix IBL cubemap generation (images are grainy)

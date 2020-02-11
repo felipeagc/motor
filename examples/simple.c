@@ -6,7 +6,8 @@
 #include <motor/base/rand.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/window.h>
-#include <motor/engine/ui.h>
+#include <motor/engine/nuklear.h>
+#include <motor/engine/nuklear_impl.h>
 #include <motor/engine/file_watcher.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/camera.h>
@@ -188,31 +189,11 @@ static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
 }
 // }}}
 
-// UI {{{
-static void draw_ui(Game *g)
-{
-    MtSwapchain *swapchain = g->engine.swapchain;
-    MtUIRenderer *ui = g->engine.ui;
-
-    float delta_time = mt_render.swapchain_get_delta_time(swapchain);
-    mt_ui_printf(ui, "Delta: %fms", delta_time);
-    mt_ui_printf(ui, "FPS: %.0f", 1.0f / delta_time);
-
-    mt_ui_printf(
-        ui,
-        "Pos: %.2f  %.2f  %.2f",
-        g->cam.uniform.pos.x,
-        g->cam.uniform.pos.y,
-        g->cam.uniform.pos.z);
-
-    mt_ui_image(ui, g->image->image, 64, 64);
-}
-// }}}
-
 static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
 {
     Game *g = user_data;
     MtEntityManager *em = &g->engine.entity_manager;
+    MtNuklearContext *nk_ctx = g->engine.nk_ctx;
 
     // Draw skybox
     mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
@@ -224,18 +205,8 @@ static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user
     mt_environment_bind(&g->env, cb, 3);
     model_system(cb, &em->archetypes[g->model_archetype]);
 
-    // Begin UI
-    MtUIRenderer *ui = g->engine.ui;
-
-    MtViewport viewport;
-    mt_render.cmd_get_viewport(cb, &viewport);
-    mt_ui_begin(ui, &viewport);
-
-    // Submit UI commands
-    draw_ui(g);
-
     // Draw UI
-    mt_ui_draw(ui, cb);
+    mt_nuklear_render(nk_ctx, cb);
 }
 
 static void graph_builder(MtRenderGraph *graph, void *user_data)
@@ -267,7 +238,7 @@ int main(int argc, char *argv[])
     MtWindow *win = game.engine.window;
     MtSwapchain *swapchain = game.engine.swapchain;
     MtEntityManager *em = &game.engine.entity_manager;
-    MtUIRenderer *ui = game.engine.ui;
+    struct nk_context *nk = mt_nuklear_get_context(game.engine.nk_ctx);
 
     mt_render.graph_set_builder(game.graph, graph_builder);
     mt_render.graph_bake(game.graph);
@@ -280,10 +251,12 @@ int main(int argc, char *argv[])
         mt_file_watcher_poll(game.engine.watcher, &game.engine);
         mt_window.poll_events();
 
+        nk_input_begin(nk);
+
         MtEvent event;
         while (mt_window.next_event(win, &event))
         {
-            mt_ui_on_event(ui, &event);
+            mt_nuklear_handle_event(game.engine.nk_ctx, &event);
             mt_perspective_camera_on_event(&game.cam, &event);
             switch (event.type)
             {
@@ -300,10 +273,46 @@ int main(int argc, char *argv[])
             }
         }
 
+        nk_input_end(nk);
+
+        float delta_time = mt_render.swapchain_get_delta_time(swapchain);
+
+        // UI
+        if (nk_begin(
+                nk,
+                "Demo",
+                nk_rect(50, 50, 230, 250),
+                NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE |
+                    NK_WINDOW_TITLE))
+        {
+            nk_layout_row_dynamic(nk, 0, 2);
+
+            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "Delta");
+            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "%fms", delta_time);
+
+            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "FPS");
+            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "%.0f", 1.0f / delta_time);
+
+            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "Camera pos");
+            nk_labelf(
+                nk,
+                NK_TEXT_ALIGN_LEFT,
+                "%.2f %.2f %.2f",
+                game.cam.pos.x,
+                game.cam.pos.y,
+                game.cam.pos.z);
+
+            nk_layout_row_dynamic(nk, 32, 1);
+            if (nk_button_label(nk, "button"))
+            {
+                mt_log("Hello");
+            }
+        }
+        nk_end(nk);
+
         // Update cam
         mt_window.get_size(win, &width, &height);
         float aspect = (float)width / (float)height;
-        float delta_time = mt_render.swapchain_get_delta_time(swapchain);
         mt_perspective_camera_update(&game.cam, win, aspect, delta_time);
 
         light_system(&em->archetypes[game.light_archetype], &game.env, delta_time);
