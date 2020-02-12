@@ -35,8 +35,8 @@ typedef struct Game
     MtPerspectiveCamera cam;
     MtEnvironment env;
 
-    uint32_t model_archetype;
-    uint32_t light_archetype;
+    MtEntityArchetype *model_archetype;
+    MtEntityArchetype *light_archetype;
 } Game;
 
 static void game_init(Game *g)
@@ -72,28 +72,40 @@ static void game_init(Game *g)
     g->graph = mt_render.create_graph(dev, swapchain, g);
 
     // Create entities
-    g->model_archetype =
-        mt_entity_manager_register_archetype(em, mt_model_archetype_init, sizeof(MtModelArchetype));
+    g->model_archetype = mt_entity_manager_register_archetype(
+        em,
+        mt_model_archetype_components,
+        MT_LENGTH(mt_model_archetype_components),
+        mt_model_archetype_init);
 
     g->light_archetype = mt_entity_manager_register_archetype(
-        em, mt_point_light_archetype_init, sizeof(MtPointLightArchetype));
+        em,
+        mt_light_archetype_components,
+        MT_LENGTH(mt_light_archetype_components),
+        mt_point_light_archetype_init);
 
     {
-        MtModelArchetype *block;
-        uint32_t e;
+        uint64_t e;
+        MtEntityArchetype *arch = g->model_archetype;
+        MtModelArchetype *comps = (MtModelArchetype *)arch->components;
 
-        block = mt_entity_manager_add_entity(em, g->model_archetype, &e);
-        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
-        block->pos[e] = V3(-1.5, 1, 0);
+        e = mt_entity_manager_add_entity(em, g->model_archetype);
+        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
+        comps->scale[e] = V3(1, 1, 1);
+        comps->pos[e] = V3(-1.5, 1, 0);
+        comps->rot[e] = (Quat){0, 0, 0, 1};
 
-        block = mt_entity_manager_add_entity(em, g->model_archetype, &e);
-        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
-        block->scale[e] = V3(100, 100, 100);
-        block->pos[e] = V3(1.5, 1, 0);
+        e = mt_entity_manager_add_entity(em, g->model_archetype);
+        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
+        comps->scale[e] = V3(100, 100, 100);
+        comps->pos[e] = V3(1.5, 1, 0);
+        comps->rot[e] = (Quat){0, 0, 0, 1};
 
-        block = mt_entity_manager_add_entity(em, g->model_archetype, &e);
-        block->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
-        block->scale[e] = V3(3, 3, 3);
+        e = mt_entity_manager_add_entity(em, g->model_archetype);
+        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
+        comps->pos[e] = V3(0, 0, 0);
+        comps->scale[e] = V3(3, 3, 3);
+        comps->rot[e] = (Quat){0, 0, 0, 1};
     }
 
     MtXorShift xs;
@@ -101,18 +113,19 @@ static void game_init(Game *g)
 
     for (uint32_t i = 0; i < 8; ++i)
     {
-        MtPointLightArchetype *block;
-        uint32_t e;
+        uint64_t e;
+        MtEntityArchetype *arch = g->light_archetype;
+        MtPointLightArchetype *comps = (MtPointLightArchetype *)arch->components;
 
 #define LIGHT_POS_X mt_xor_shift_float(&xs, -15.0f, 15.0f)
 #define LIGHT_POS_Y mt_xor_shift_float(&xs, 0.0f, 2.0f)
 #define LIGHT_POS_Z mt_xor_shift_float(&xs, -10.0f, 10.0f)
 #define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
 
-        block = mt_entity_manager_add_entity(em, g->light_archetype, &e);
-        block->pos[e] = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
-        block->color[e] = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
-        block->color[e] = v3_muls(v3_normalize(block->color[e]), 10.0f);
+        e = mt_entity_manager_add_entity(em, g->light_archetype);
+        comps->pos[e] = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
+        comps->color[e] = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
+        comps->color[e] = v3_muls(v3_normalize(comps->color[e]), 10.0f);
     }
 }
 
@@ -125,8 +138,10 @@ static void game_destroy(Game *g)
 // }}}
 
 // Light system {{{
-static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float delta)
+static void light_system(MtEntityArchetype *arch, MtEnvironment *env, float delta)
 {
+    MtPointLightArchetype *comps = (MtPointLightArchetype *)arch->components;
+
     static float acc = 0.0f;
     acc += delta;
 
@@ -143,48 +158,36 @@ static void light_system(MtEntityArchetype *archetype, MtEnvironment *env, float
         (2 * quadratic);
 
     env->uniform.point_light_count = 0;
-    for (MtEntityBlock *block = archetype->blocks;
-         block != (archetype->blocks + mt_array_size(archetype->blocks));
-         ++block)
+    for (uint32_t e = 0; e < arch->entity_count; ++e)
     {
-        for (uint32_t i = 0; i < block->entity_count; ++i)
-        {
-            uint32_t l = env->uniform.point_light_count;
+        uint32_t l = env->uniform.point_light_count;
 
-            MtPointLightArchetype *b = block->data;
-            env->uniform.point_lights[l].pos.xyz = b->pos[i];
-            env->uniform.point_lights[l].pos.x += x;
-            env->uniform.point_lights[l].pos.z += z;
-            env->uniform.point_lights[l].pos.w = 1.0f;
+        env->uniform.point_lights[l].pos.xyz = comps->pos[e];
+        env->uniform.point_lights[l].pos.x += x;
+        env->uniform.point_lights[l].pos.z += z;
+        env->uniform.point_lights[l].pos.w = 1.0f;
 
-            env->uniform.point_lights[l].color = b->color[i];
+        env->uniform.point_lights[l].color = comps->color[e];
 
-            env->uniform.point_lights[l].radius = radius;
+        env->uniform.point_lights[l].radius = radius;
 
-            env->uniform.point_light_count++;
-        }
+        env->uniform.point_light_count++;
     }
 }
 // }}}
 
 // Model system {{{
-static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
+static void model_system(MtCmdBuffer *cb, MtEntityArchetype *arch)
 {
-    for (MtEntityBlock *block = archetype->blocks;
-         block != (archetype->blocks + mt_array_size(archetype->blocks));
-         ++block)
+    MtModelArchetype *comps = (MtModelArchetype *)arch->components;
+    for (uint32_t e = 0; e < arch->entity_count; ++e)
     {
-        for (uint32_t i = 0; i < block->entity_count; ++i)
-        {
-            MtModelArchetype *b = block->data;
+        Mat4 transform = mat4_identity();
+        transform = mat4_scale(transform, comps->scale[e]);
+        transform = mat4_mul(quat_to_mat4(comps->rot[e]), transform);
+        transform = mat4_translate(transform, comps->pos[e]);
 
-            Mat4 transform = mat4_identity();
-            transform = mat4_scale(transform, b->scale[i]);
-            transform = mat4_mul(quat_to_mat4(b->rot[i]), transform);
-            transform = mat4_translate(transform, b->pos[i]);
-
-            mt_gltf_asset_draw(b->model[i], cb, &transform, 1, 2);
-        }
+        mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, 2);
     }
 }
 // }}}
@@ -192,7 +195,6 @@ static void model_system(MtCmdBuffer *cb, MtEntityArchetype *archetype)
 static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
 {
     Game *g = user_data;
-    MtEntityManager *em = &g->engine.entity_manager;
     MtNuklearContext *nk_ctx = g->engine.nk_ctx;
 
     // Draw skybox
@@ -203,7 +205,7 @@ static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user
     mt_render.cmd_bind_pipeline(cb, g->pbr_pipeline->pipeline);
     mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
     mt_environment_bind(&g->env, cb, 3);
-    model_system(cb, &em->archetypes[g->model_archetype]);
+    model_system(cb, g->model_archetype);
 
     // Draw UI
     mt_nuklear_render(nk_ctx, cb);
@@ -237,7 +239,6 @@ int main(int argc, char *argv[])
 
     MtWindow *win = game.engine.window;
     MtSwapchain *swapchain = game.engine.swapchain;
-    MtEntityManager *em = &game.engine.entity_manager;
     struct nk_context *nk = mt_nuklear_get_context(game.engine.nk_ctx);
 
     mt_render.graph_set_builder(game.graph, graph_builder);
@@ -307,6 +308,12 @@ int main(int argc, char *argv[])
             {
                 mt_log("Hello");
             }
+
+            nk_layout_row_dynamic(nk, 0, 1);
+            for (uint64_t e = 0; e < game.model_archetype->entity_count; ++e)
+            {
+                nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "Entity %lu", e);
+            }
         }
         nk_end(nk);
 
@@ -315,7 +322,7 @@ int main(int argc, char *argv[])
         float aspect = (float)width / (float)height;
         mt_perspective_camera_update(&game.cam, win, aspect, delta_time);
 
-        light_system(&em->archetypes[game.light_archetype], &game.env, delta_time);
+        light_system(game.light_archetype, &game.env, delta_time);
 
         // Execute render graph
         mt_render.graph_execute(game.graph);

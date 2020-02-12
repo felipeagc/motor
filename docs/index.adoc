@@ -6,6 +6,7 @@
 * Better entity ID system
 * Entity menu
 * Gizmos
+** https://nelari.us/post/gizmos/
 
 === Cool stuff to do
 * Tesselated terrain
@@ -30,6 +31,9 @@
 ** Procedural sky
 *** http://codeflow.org/entries/2011/apr/13/advanced-webgl-part-2-sky-rendering/
 ** Voxel cone tracing GI
+** Spherical harmonics for irradiance
+*** https://patapom.com/blog/SHPortal/
+*** https://cseweb.ucsd.edu/~ravir/papers/envmap/envmap.pdf
 
 * Engine
 ** Introspection system

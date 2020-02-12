@@ -1,42 +1,54 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
+
+#ifndef MT_COMP_INDEX
+#define MT_COMP_INDEX(archetype, component) (offsetof(archetype, component) / sizeof(void *))
+#endif
 
 typedef struct MtAllocator MtAllocator;
+typedef struct MtEntityManager MtEntityManager;
 
-enum
+typedef void (*MtEntityInitializer)(void *data, uint64_t index);
+
+typedef struct MtComponentSpec
 {
-    MT_ENTITIES_PER_BLOCK = 32
-};
+    const char *name;
+    size_t size;
+} MtComponentSpec;
 
-typedef struct MtEntityBlock
+typedef struct MtArchetypeSpec
 {
-    uint32_t entity_count;
-    void *data;
-} MtEntityBlock;
-
-typedef void (*MtEntityInitializer)(void *data, uint32_t index);
+    MtComponentSpec *components;
+    uint64_t component_count;
+} MtArchetypeSpec;
 
 typedef struct MtEntityArchetype
 {
-    uint64_t block_size;
+    uint64_t entity_count;
+    uint64_t entity_cap;
     MtEntityInitializer entity_init;
-    /*array*/ MtEntityBlock *blocks;
+
+    void **components;
+    MtArchetypeSpec spec;
 } MtEntityArchetype;
 
 typedef struct MtEntityManager
 {
     MtAllocator *alloc;
-    /*array*/ MtEntityArchetype *archetypes;
+    MtEntityArchetype archetypes[128];
+    uint64_t archetype_count;
 } MtEntityManager;
 
 void mt_entity_manager_init(MtEntityManager *em, MtAllocator *alloc);
 
 void mt_entity_manager_destroy(MtEntityManager *em);
 
-// Returns the index of the archetype
-uint32_t mt_entity_manager_register_archetype(
-    MtEntityManager *em, MtEntityInitializer entity_init, uint64_t block_size);
+MtEntityArchetype *mt_entity_manager_register_archetype(
+    MtEntityManager *em,
+    MtComponentSpec *components,
+    uint64_t component_count,
+    MtEntityInitializer initializer);
 
-void *
-mt_entity_manager_add_entity(MtEntityManager *em, uint32_t archetype_index, uint32_t *entity_index);
+uint64_t mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype);

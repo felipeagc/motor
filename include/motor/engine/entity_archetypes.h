@@ -6,30 +6,42 @@ typedef struct MtGltfAsset MtGltfAsset;
 
 typedef struct MtModelArchetype
 {
-    MtGltfAsset *model[MT_ENTITIES_PER_BLOCK];
-    Vec3 pos[MT_ENTITIES_PER_BLOCK];
-    Vec3 scale[MT_ENTITIES_PER_BLOCK];
-    Quat rot[MT_ENTITIES_PER_BLOCK];
+    MtGltfAsset **model;
+    Vec3 *pos;
+    Vec3 *scale;
+    Quat *rot;
 } MtModelArchetype;
 
-static inline void mt_model_archetype_init(void *data, uint32_t i)
+static MtComponentSpec mt_model_archetype_components[] = {
+    {"GLTF Model", sizeof(MtGltfAsset *)},
+    {"Position", sizeof(Vec3)},
+    {"Scale", sizeof(Vec3)},
+    {"Rotation", sizeof(Quat)},
+};
+
+static inline void mt_model_archetype_init(void *data, uint64_t e)
 {
-    MtModelArchetype *block = data;
-    block->model[i]         = NULL;
-    block->pos[i]           = V3(0, 0, 0);
-    block->scale[i]         = V3(1, 1, 1);
-    block->rot[i]           = (Quat){0, 0, 0, 1};
+    MtModelArchetype *comps = data;
+    comps->model[e] = NULL;
+    comps->pos[e] = V3(0, 0, 0);
+    comps->scale[e] = V3(1, 1, 1);
+    comps->rot[e] = (Quat){0, 0, 0, 1};
 }
 
 typedef struct MtPointLightArchetype
 {
-    Vec3 pos[MT_ENTITIES_PER_BLOCK];
-    Vec3 color[MT_ENTITIES_PER_BLOCK];
+    Vec3 *pos;
+    Vec3 *color;
 } MtPointLightArchetype;
 
-static inline void mt_point_light_archetype_init(void *data, uint32_t i)
+static MtComponentSpec mt_light_archetype_components[] = {
+    {"Position", sizeof(Vec3)},
+    {"Color", sizeof(Vec3)},
+};
+
+static inline void mt_point_light_archetype_init(void *data, uint64_t e)
 {
-    MtPointLightArchetype *block = data;
-    block->pos[i]                = V3(0, 0, 0);
-    block->color[i]              = V3(1, 1, 1);
+    MtPointLightArchetype *comps = data;
+    comps->pos[e] = V3(0, 0, 0);
+    comps->color[e] = V3(1, 1, 1);
 }

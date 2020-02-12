@@ -1,8 +1,10 @@
 #include <motor/engine/entities.h>
 
+#include <motor/base/log.h>
 #include <motor/base/array.h>
 #include <motor/base/allocator.h>
 #include <string.h>
+#include <assert.h>
 
 void mt_entity_manager_init(MtEntityManager *em, MtAllocator *alloc)
 {
@@ -12,59 +14,81 @@ void mt_entity_manager_init(MtEntityManager *em, MtAllocator *alloc)
 
 void mt_entity_manager_destroy(MtEntityManager *em)
 {
-    for (uint32_t i = 0; i < mt_array_size(em->archetypes); ++i)
+    for (MtEntityArchetype *archetype = em->archetypes;
+         archetype != em->archetypes + mt_array_size(em->archetypes);
+         archetype++)
     {
-        MtEntityArchetype *archetype = &em->archetypes[i];
-        for (uint32_t j = 0; j < mt_array_size(archetype->blocks); ++j)
+        for (uint64_t i = 0; i < archetype->spec.component_count; ++i)
         {
-            mt_free(em->alloc, archetype->blocks[j].data);
+            mt_free(em->alloc, archetype->components[i]);
         }
-        mt_array_free(em->alloc, archetype->blocks);
+        mt_free(em->alloc, archetype->spec.components);
+        mt_free(em->alloc, archetype->components);
     }
-    mt_array_free(em->alloc, em->archetypes);
 }
 
-uint32_t mt_entity_manager_register_archetype(
-    MtEntityManager *em, MtEntityInitializer entity_init, uint64_t block_size)
+MtEntityArchetype *mt_entity_manager_register_archetype(
+    MtEntityManager *em,
+    MtComponentSpec *components,
+    uint64_t component_count,
+    MtEntityInitializer initializer)
 {
-    MtEntityArchetype archetype = {0};
-    archetype.entity_init       = entity_init;
-    archetype.block_size        = block_size;
-    mt_array_push(em->alloc, em->archetypes, archetype);
-    return mt_array_size(em->archetypes) - 1;
+    uint64_t arch_index = em->archetype_count++;
+    MtEntityArchetype *archetype = &em->archetypes[arch_index];
+
+    archetype->spec.component_count = component_count;
+    archetype->spec.components = mt_alloc(em->alloc, sizeof(MtComponentSpec) * component_count);
+    memcpy(archetype->spec.components, components, sizeof(MtComponentSpec) * component_count);
+
+    archetype->components = mt_alloc(em->alloc, sizeof(void *) * component_count);
+    memset(archetype->components, 0, sizeof(void *) * component_count);
+
+    archetype->entity_init = initializer;
+
+    return archetype;
 }
 
-void *
-mt_entity_manager_add_entity(MtEntityManager *em, uint32_t archetype_index, uint32_t *entity_index)
+uint64_t mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype)
 {
-    if (mt_array_size(em->archetypes) <= archetype_index)
+    if ((archetype - em->archetypes) >= em->archetype_count)
     {
         // Archetype is not registered
-        return NULL;
+        mt_log_error("Tried to add entity to invalid archetype");
+        return UINT64_MAX;
     }
 
-    MtEntityArchetype *archetype = &em->archetypes[archetype_index];
-
-    while (1)
+    if (archetype->entity_count >= archetype->entity_cap)
     {
-        for (uint32_t i = 0; i < mt_array_size(archetype->blocks); ++i)
+        archetype->entity_cap *= 2;
+        if (archetype->entity_cap == 0)
         {
-            MtEntityBlock *block = &archetype->blocks[i];
-            if (block->entity_count < MT_ENTITIES_PER_BLOCK)
-            {
-                *entity_index = block->entity_count;
-                block->entity_count++;
-
-                archetype->entity_init(block->data, *entity_index);
-
-                return block->data;
-            }
+            archetype->entity_cap = 32; // Initial cap
         }
 
-        MtEntityBlock new_block = {0};
-        new_block.data          = mt_alloc(em->alloc, archetype->block_size);
-        mt_array_push(em->alloc, archetype->blocks, new_block);
+        for (uint64_t i = 0; i < archetype->spec.component_count; ++i)
+        {
+            assert(archetype->spec.components[i].size > 0);
+
+            archetype->components[i] = mt_realloc(
+                em->alloc,
+                archetype->components[i],
+                archetype->spec.components[i].size * archetype->entity_cap);
+        }
     }
 
-    return NULL;
+    uint64_t entity_index = archetype->entity_count++;
+
+    if (archetype->entity_init)
+    {
+        archetype->entity_init(archetype->components, entity_index);
+    }
+    else
+    {
+        for (uint64_t i = 0; i < archetype->spec.component_count; ++i)
+        {
+            memset(&archetype->components[i], 0, archetype->spec.components[i].size);
+        }
+    }
+
+    return entity_index;
 }
