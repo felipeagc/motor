@@ -135,7 +135,7 @@ typedef struct MtSwapchain
     float delta_time;
 
     VkQueue present_queue;
-    VkExtent2D swapchain_extent;
+    VkExtent2D extent;
 } MtSwapchain;
 
 typedef struct SubmitInfo

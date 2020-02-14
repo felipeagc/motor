@@ -217,7 +217,6 @@ static void graph_bake(MtRenderGraph *graph)
     //
     // Create resources
     //
-
     for (GraphResource *resource = graph->resources;
          resource != graph->resources + mt_array_size(graph->resources);
          ++resource)
@@ -226,13 +225,24 @@ static void graph_bake(MtRenderGraph *graph)
         {
             case GRAPH_RESOURCE_IMAGE:
             {
-                assert(resource->type == GRAPH_RESOURCE_IMAGE);
+                for (uint32_t *pass_index = resource->written_in_passes;
+                     pass_index !=
+                     resource->written_in_passes + mt_array_size(resource->written_in_passes);
+                     ++pass_index)
+                {
+                    MtRenderGraphPass *pass = &graph->passes[*pass_index];
+                    if (pass->present)
+                    {
+                        resource->image_info.width = graph->swapchain->extent.width;
+                        resource->image_info.height = graph->swapchain->extent.height;
+                    }
+                }
+
                 resource->image = mt_render.create_image(graph->dev, &resource->image_info);
                 break;
             }
             case GRAPH_RESOURCE_BUFFER:
             {
-                assert(resource->type == GRAPH_RESOURCE_BUFFER);
                 resource->buffer = mt_render.create_buffer(graph->dev, &resource->buffer_info);
                 break;
             }
@@ -399,7 +409,8 @@ static void graph_execute(MtRenderGraph *graph)
             swapchain_create_resizables(graph->swapchain);
 
             graph->framebuffer_resized = true;
-            return graph_execute(graph);
+            graph_execute(graph);
+            return;
         }
 
         VK_CHECK(res);
@@ -832,6 +843,7 @@ static void pass_write(MtRenderGraphPass *pass, MtRenderGraphPassWrite type, con
         case MT_PASS_WRITE_COLOR_ATTACHMENT:
         {
             assert(resource->type == GRAPH_RESOURCE_IMAGE);
+
             resource->image_info.usage |=
                 MT_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
             resource->image_info.aspect |= MT_IMAGE_ASPECT_COLOR_BIT;
@@ -1056,7 +1068,7 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
     //
     if (pass->present)
     {
-        pass->render_pass.extent = graph->swapchain->swapchain_extent;
+        pass->render_pass.extent = graph->swapchain->extent;
     }
     else
     {

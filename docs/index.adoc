@@ -51,5 +51,4 @@
 * Dynamic uniform buffers
 
 === Bug fixes
-* Fix resizing framebuffer
 * Fix IBL cubemap generation (images are grainy)

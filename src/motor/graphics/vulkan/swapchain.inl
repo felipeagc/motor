@@ -35,7 +35,7 @@ static const char **swapchain_get_required_instance_extensions(uint32_t *count)
     static const char *extensions[2];
     extensions[0] = "VK_KHR_surface";
     extensions[1] = "VK_KHR_win32_surface";
-    *count        = 2;
+    *count = 2;
     return extensions;
 #elif defined(__APPLE__)
 #error Apple not supported
@@ -43,7 +43,7 @@ static const char **swapchain_get_required_instance_extensions(uint32_t *count)
     static const char *extensions[2];
     extensions[0] = "VK_KHR_surface";
     extensions[1] = "VK_KHR_xcb_surface";
-    *count        = 2;
+    *count = 2;
     return extensions;
 #endif
 }
@@ -61,9 +61,9 @@ static void swapchain_create_surface(MtDevice *dev, MtWindow *window, VkSurfaceK
     }
 
     VkWin32SurfaceCreateInfoKHR sci = {0};
-    sci.sType                       = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-    sci.hinstance                   = GetModuleHandle(NULL);
-    sci.hwnd                        = mt_window.get_win32_window(window);
+    sci.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+    sci.hinstance = GetModuleHandle(NULL);
+    sci.hwnd = mt_window.get_win32_window(window);
     VK_CHECK(vkCreateWin32SurfaceKHR(dev->instance, &sci, NULL, surface));
 #elif defined(__APPLE__)
 #error Apple not supported
@@ -84,9 +84,9 @@ static void swapchain_create_surface(MtDevice *dev, MtWindow *window, VkSurfaceK
     }
 
     VkXcbSurfaceCreateInfoKHR sci = {0};
-    sci.sType                     = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
-    sci.connection                = connection;
-    sci.window                    = mt_window.get_x11_window(window);
+    sci.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
+    sci.connection = connection;
+    sci.window = mt_window.get_x11_window(window);
     VK_CHECK(vkCreateXcbSurfaceKHR(dev->instance, &sci, NULL, surface));
 #endif
 }
@@ -135,7 +135,7 @@ swapchain_choose_swapchain_surface_format(VkSurfaceFormatKHR *formats, uint32_t 
     if (count == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
     {
         VkSurfaceFormatKHR fmt = {
-            .format     = VK_FORMAT_B8G8R8A8_UNORM,
+            .format = VK_FORMAT_B8G8R8A8_UNORM,
             .colorSpace = formats[0].colorSpace,
         };
 
@@ -262,39 +262,39 @@ static void swapchain_create_swapchain(MtSwapchain *swapchain)
     }
 
     VkSwapchainCreateInfoKHR create_info = {
-        .sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-        .surface          = swapchain->surface,
-        .minImageCount    = image_count,
-        .imageFormat      = surface_format.format,
-        .imageColorSpace  = surface_format.colorSpace,
-        .imageExtent      = extent,
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = swapchain->surface,
+        .minImageCount = image_count,
+        .imageFormat = surface_format.format,
+        .imageColorSpace = surface_format.colorSpace,
+        .imageExtent = extent,
         .imageArrayLayers = 1,
-        .imageUsage       = image_usage,
+        .imageUsage = image_usage,
     };
 
     uint32_t queue_family_indices[2] = {dev->indices.graphics, swapchain->present_family_index};
 
     if (dev->indices.graphics != swapchain->present_family_index)
     {
-        create_info.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
+        create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         create_info.queueFamilyIndexCount = 2;
-        create_info.pQueueFamilyIndices   = queue_family_indices;
+        create_info.pQueueFamilyIndices = queue_family_indices;
     }
     else
     {
-        create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
+        create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         create_info.queueFamilyIndexCount = 0;
-        create_info.pQueueFamilyIndices   = NULL;
+        create_info.pQueueFamilyIndices = NULL;
     }
 
-    create_info.preTransform   = swapchain_support.capabilities.currentTransform;
+    create_info.preTransform = swapchain_support.capabilities.currentTransform;
     create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
     create_info.presentMode = present_mode;
-    create_info.clipped     = VK_TRUE;
+    create_info.clipped = VK_TRUE;
 
     VkSwapchainKHR old_swapchain = swapchain->swapchain;
-    create_info.oldSwapchain     = old_swapchain;
+    create_info.oldSwapchain = old_swapchain;
 
     VK_CHECK(vkCreateSwapchainKHR(dev->device, &create_info, NULL, &swapchain->swapchain));
 
@@ -309,9 +309,9 @@ static void swapchain_create_swapchain(MtSwapchain *swapchain)
     vkGetSwapchainImagesKHR(
         dev->device, swapchain->swapchain, &image_count, swapchain->swapchain_images);
 
-    swapchain->swapchain_image_count  = image_count;
+    swapchain->swapchain_image_count = image_count;
     swapchain->swapchain_image_format = surface_format.format;
-    swapchain->swapchain_extent       = extent;
+    swapchain->extent = extent;
 
     mt_free(swapchain->alloc, swapchain_support.formats);
     mt_free(swapchain->alloc, swapchain_support.present_modes);
@@ -329,19 +329,19 @@ static void swapchain_create_swapchain_image_views(MtSwapchain *swapchain)
     for (size_t i = 0; i < swapchain->swapchain_image_count; i++)
     {
         VkImageViewCreateInfo create_info = {
-            .sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image                           = swapchain->swapchain_images[i],
-            .viewType                        = VK_IMAGE_VIEW_TYPE_2D,
-            .format                          = swapchain->swapchain_image_format,
-            .components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY,
-            .subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-            .subresourceRange.baseMipLevel   = 0,
-            .subresourceRange.levelCount     = 1,
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = swapchain->swapchain_images[i],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = swapchain->swapchain_image_format,
+            .components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .components.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .subresourceRange.baseMipLevel = 0,
+            .subresourceRange.levelCount = 1,
             .subresourceRange.baseArrayLayer = 0,
-            .subresourceRange.layerCount     = 1,
+            .subresourceRange.layerCount = 1,
         };
 
         VK_CHECK(vkCreateImageView(
@@ -401,7 +401,7 @@ static void swapchain_destroy_resizables(MtSwapchain *swapchain)
 static void swapchain_end_frame(MtSwapchain *swapchain)
 {
     swapchain->delta_time = (float)(mt_time_ns() - swapchain->last_time) / 1.0e9;
-    swapchain->last_time  = mt_time_ns();
+    swapchain->last_time = mt_time_ns();
 }
 
 static MtSwapchain *create_swapchain(MtDevice *dev, MtWindow *window, MtAllocator *alloc)
@@ -409,8 +409,8 @@ static MtSwapchain *create_swapchain(MtDevice *dev, MtWindow *window, MtAllocato
     MtSwapchain *swapchain = mt_alloc(alloc, sizeof(MtSwapchain));
     memset(swapchain, 0, sizeof(*swapchain));
 
-    swapchain->alloc  = alloc;
-    swapchain->dev    = dev;
+    swapchain->alloc = alloc;
+    swapchain->dev = dev;
     swapchain->window = window;
 
     swapchain->present_family_index = UINT32_MAX;
