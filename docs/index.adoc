@@ -48,6 +48,8 @@
 
 === Performance
 * Descriptor indexing (does not work on haswell mobile though)
+* Dynamic uniform buffers
 
 === Bug fixes
+* Fix resizing framebuffer
 * Fix IBL cubemap generation (images are grainy)

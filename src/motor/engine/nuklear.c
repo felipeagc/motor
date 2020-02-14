@@ -11934,8 +11934,8 @@ nk_layout_reset_min_row_height(struct nk_context *ctx)
     win = ctx->current;
     layout = win->layout;
     layout->row.min_height = ctx->style.font->height / 2;
-    layout->row.min_height += ctx->style.text.padding.y;
-    layout->row.min_height += ctx->style.window.min_row_height_padding;
+    layout->row.min_height += ctx->style.text.padding.y * 2;
+    layout->row.min_height += ctx->style.window.min_row_height_padding * 2;
 }
 NK_LIB float
 nk_layout_row_calculate_usable_space(const struct nk_style *style, enum nk_panel_type type,

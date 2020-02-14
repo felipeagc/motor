@@ -1,3 +1,6 @@
+static void graph_bake(MtRenderGraph *graph);
+static void graph_unbake(MtRenderGraph *graph);
+
 static inline bool find_in_array(uint32_t *array, uint32_t to_find)
 {
     for (uint32_t i = 0; i < mt_array_size(array); ++i)
@@ -117,15 +120,6 @@ static MtRenderGraph *create_graph(MtDevice *dev, MtSwapchain *swapchain, void *
     return graph;
 }
 
-static void graph_bake(MtRenderGraph *graph);
-static void graph_unbake(MtRenderGraph *graph);
-
-static void graph_on_resize(MtRenderGraph *graph)
-{
-    graph_unbake(graph);
-    graph_bake(graph);
-}
-
 static void destroy_graph(MtRenderGraph *graph)
 {
     graph_unbake(graph);
@@ -242,6 +236,7 @@ static void graph_bake(MtRenderGraph *graph)
                 resource->buffer = mt_render.create_buffer(graph->dev, &resource->buffer_info);
                 break;
             }
+            case GRAPH_RESOURCE_EXTERNAL_BUFFER: break;
         }
     }
 
@@ -299,11 +294,11 @@ static void graph_unbake(MtRenderGraph *graph)
 
         mt_array_free(graph->dev->alloc, pass->color_outputs);
         mt_array_free(graph->dev->alloc, pass->image_transfer_outputs);
-        mt_array_free(graph->dev->alloc, pass->storage_outputs);
+        mt_array_free(graph->dev->alloc, pass->buffer_writes);
 
         mt_array_free(graph->dev->alloc, pass->image_transfer_inputs);
         mt_array_free(graph->dev->alloc, pass->image_sampled_inputs);
-        mt_array_free(graph->dev->alloc, pass->storage_inputs);
+        mt_array_free(graph->dev->alloc, pass->buffer_reads);
     }
 
     mt_array_free(graph->dev->alloc, graph->passes);
@@ -332,6 +327,7 @@ static void graph_unbake(MtRenderGraph *graph)
                 mt_render.destroy_buffer(graph->dev, resource->buffer);
                 break;
             }
+            case GRAPH_RESOURCE_EXTERNAL_BUFFER: break;
         }
         mt_array_free(graph->dev->alloc, resource->read_in_passes);
         mt_array_free(graph->dev->alloc, resource->written_in_passes);
@@ -346,6 +342,11 @@ static void graph_unbake(MtRenderGraph *graph)
 
     mt_hash_destroy(&graph->pass_indices);
     mt_hash_destroy(&graph->resource_indices);
+}
+
+static void graph_on_resize(MtRenderGraph *graph)
+{
+    graph->framebuffer_resized = true;
 }
 
 static void graph_wait_all(MtRenderGraph *graph)
@@ -363,12 +364,12 @@ static void graph_execute(MtRenderGraph *graph)
 {
     graph->current_frame = (graph->current_frame + 1) % graph->frame_count;
 
-    if (graph->swapchain && graph->swapchain->framebuffer_resized)
+    if (graph->framebuffer_resized)
     {
-        graph->swapchain->framebuffer_resized = false;
-        swapchain_destroy_resizables(graph->swapchain);
-        swapchain_create_resizables(graph->swapchain);
-        graph_on_resize(graph);
+        graph->framebuffer_resized = false;
+
+        graph_unbake(graph);
+        graph_bake(graph);
     }
 
     if (graph->swapchain)
@@ -394,7 +395,10 @@ static void graph_execute(MtRenderGraph *graph)
                 break;
             }
 
-            graph->swapchain->framebuffer_resized = true;
+            swapchain_destroy_resizables(graph->swapchain);
+            swapchain_create_resizables(graph->swapchain);
+
+            graph->framebuffer_resized = true;
             return graph_execute(graph);
         }
 
@@ -421,6 +425,11 @@ static void graph_execute(MtRenderGraph *graph)
             //
             // Apply some barriers
             //
+
+            VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+            VkPipelineStageFlags dst_stage_mask = pass->stage;
+            if (pass->prev)
+                src_stage_mask = pass->prev->stage;
 
             mt_array_set_size(graph->buffer_barriers, 0);
             mt_array_set_size(graph->image_barriers, 0);
@@ -452,29 +461,32 @@ static void graph_execute(MtRenderGraph *graph)
                 mt_array_push(graph->dev->alloc, graph->image_barriers, barrier);
             }
 
-            for (uint32_t *res = pass->storage_outputs;
-                 res != pass->storage_outputs + mt_array_size(pass->storage_outputs);
+            for (uint32_t *res = pass->buffer_writes;
+                 res != pass->buffer_writes + mt_array_size(pass->buffer_writes);
                  ++res)
             {
                 VkBufferMemoryBarrier barrier = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
                     .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                     .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
-                    .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+                    .srcAccessMask = 0,
+                    .dstAccessMask = 0,
                     .buffer = graph->resources[*res].buffer->buffer,
                     .offset = 0,
                     .size = VK_WHOLE_SIZE,
                 };
+
+                if (src_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+                {
+                    barrier.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+                }
+
+                if (dst_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+                {
+                    barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+                }
+
                 mt_array_push(graph->dev->alloc, graph->buffer_barriers, barrier);
-            }
-
-            VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-            VkPipelineStageFlags dst_stage_mask = pass->stage;
-
-            if (pass->prev)
-            {
-                src_stage_mask = pass->prev->stage;
             }
 
             vkCmdPipelineBarrier(
@@ -530,6 +542,11 @@ static void graph_execute(MtRenderGraph *graph)
             // Apply more barriers
             //
 
+            src_stage_mask = pass->stage;
+            dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+            if (pass->next)
+                dst_stage_mask = pass->next->stage;
+
             mt_array_set_size(graph->buffer_barriers, 0);
             mt_array_set_size(graph->image_barriers, 0);
 
@@ -560,29 +577,32 @@ static void graph_execute(MtRenderGraph *graph)
                 mt_array_push(graph->dev->alloc, graph->image_barriers, barrier);
             }
 
-            for (uint32_t *res = pass->storage_outputs;
-                 res != pass->storage_outputs + mt_array_size(pass->storage_outputs);
+            for (uint32_t *res = pass->buffer_writes;
+                 res != pass->buffer_writes + mt_array_size(pass->buffer_writes);
                  ++res)
             {
                 VkBufferMemoryBarrier barrier = {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
                     .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                     .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-                    .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+                    .srcAccessMask = 0,
+                    .dstAccessMask = 0,
                     .buffer = graph->resources[*res].buffer->buffer,
                     .offset = 0,
                     .size = VK_WHOLE_SIZE,
                 };
+
+                if (src_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+                {
+                    barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+                }
+
+                if (dst_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+                {
+                    barrier.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+                }
+
                 mt_array_push(graph->dev->alloc, graph->buffer_barriers, barrier);
-            }
-
-            src_stage_mask = pass->stage;
-            dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-
-            if (pass->next)
-            {
-                dst_stage_mask = pass->next->stage;
             }
 
             vkCmdPipelineBarrier(
@@ -642,7 +662,10 @@ static void graph_execute(MtRenderGraph *graph)
         VkResult res = vkQueuePresentKHR(graph->swapchain->present_queue, &present_info);
         if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
         {
-            graph->swapchain->framebuffer_resized = true;
+            swapchain_destroy_resizables(graph->swapchain);
+            swapchain_create_resizables(graph->swapchain);
+
+            graph->framebuffer_resized = true;
         }
         else
         {
@@ -676,9 +699,16 @@ static void graph_add_image(MtRenderGraph *graph, const char *name, MtImageCreat
 
 static void graph_add_buffer(MtRenderGraph *graph, const char *name, MtBufferCreateInfo *info)
 {
-    uintptr_t index = mt_hash_get_uint(&graph->resource_indices, mt_hash_str(name));
+    uint32_t index = add_graph_resource(graph, name, GRAPH_RESOURCE_BUFFER);
     GraphResource *resource = &graph->resources[index];
     resource->buffer_info = *info;
+}
+
+static void graph_add_external_buffer(MtRenderGraph *graph, const char *name, MtBuffer *buffer)
+{
+    uint32_t index = add_graph_resource(graph, name, GRAPH_RESOURCE_EXTERNAL_BUFFER);
+    GraphResource *resource = &graph->resources[index];
+    resource->buffer = buffer;
 }
 
 static MtImage *graph_get_image(MtRenderGraph *graph, const char *name)
@@ -777,10 +807,12 @@ static void pass_read(MtRenderGraphPass *pass, MtRenderGraphPassRead type, const
             mt_array_push(pass->graph->dev->alloc, pass->image_sampled_inputs, (uint32_t)index);
             break;
         }
-        case MT_PASS_READ_STORAGE_BUFFER:
+        case MT_PASS_READ_BUFFER:
         {
-            assert(resource->type == GRAPH_RESOURCE_BUFFER);
-            mt_array_push(pass->graph->dev->alloc, pass->storage_inputs, (uint32_t)index);
+            assert(
+                resource->type == GRAPH_RESOURCE_BUFFER ||
+                resource->type == GRAPH_RESOURCE_EXTERNAL_BUFFER);
+            mt_array_push(pass->graph->dev->alloc, pass->buffer_reads, (uint32_t)index);
             break;
         }
         default: assert(0);
@@ -836,10 +868,12 @@ static void pass_write(MtRenderGraphPass *pass, MtRenderGraphPassWrite type, con
             pass->depth_output = (uint32_t)index;
             break;
         }
-        case MT_PASS_WRITE_STORAGE_BUFFER:
+        case MT_PASS_WRITE_BUFFER:
         {
-            assert(resource->type == GRAPH_RESOURCE_BUFFER);
-            mt_array_push(pass->graph->dev->alloc, pass->storage_outputs, (uint32_t)index);
+            assert(
+                resource->type == GRAPH_RESOURCE_BUFFER ||
+                resource->type == GRAPH_RESOURCE_EXTERNAL_BUFFER);
+            mt_array_push(pass->graph->dev->alloc, pass->buffer_writes, (uint32_t)index);
             break;
         }
         case MT_PASS_WRITE_IMAGE_TRANSFER:

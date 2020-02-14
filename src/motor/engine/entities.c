@@ -18,7 +18,7 @@ void mt_entity_manager_destroy(MtEntityManager *em)
          archetype != em->archetypes + mt_array_size(em->archetypes);
          archetype++)
     {
-        for (uint64_t i = 0; i < archetype->spec.component_count; ++i)
+        for (uint32_t i = 0; i < archetype->spec.component_count; ++i)
         {
             mt_free(em->alloc, archetype->components[i]);
         }
@@ -30,10 +30,10 @@ void mt_entity_manager_destroy(MtEntityManager *em)
 MtEntityArchetype *mt_entity_manager_register_archetype(
     MtEntityManager *em,
     MtComponentSpec *components,
-    uint64_t component_count,
+    uint32_t component_count,
     MtEntityInitializer initializer)
 {
-    uint64_t arch_index = em->archetype_count++;
+    uint32_t arch_index = em->archetype_count++;
     MtEntityArchetype *archetype = &em->archetypes[arch_index];
 
     archetype->spec.component_count = component_count;
@@ -45,16 +45,18 @@ MtEntityArchetype *mt_entity_manager_register_archetype(
 
     archetype->entity_init = initializer;
 
+    archetype->selected_entity = MT_ENTITY_INVALID;
+
     return archetype;
 }
 
-uint64_t mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype)
+MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype)
 {
     if ((archetype - em->archetypes) >= em->archetype_count)
     {
         // Archetype is not registered
         mt_log_error("Tried to add entity to invalid archetype");
-        return UINT64_MAX;
+        return MT_ENTITY_INVALID;
     }
 
     if (archetype->entity_count >= archetype->entity_cap)
@@ -65,7 +67,7 @@ uint64_t mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *ar
             archetype->entity_cap = 32; // Initial cap
         }
 
-        for (uint64_t i = 0; i < archetype->spec.component_count; ++i)
+        for (uint32_t i = 0; i < archetype->spec.component_count; ++i)
         {
             assert(archetype->spec.components[i].size > 0);
 
@@ -76,7 +78,7 @@ uint64_t mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *ar
         }
     }
 
-    uint64_t entity_index = archetype->entity_count++;
+    MtEntity entity_index = archetype->entity_count++;
 
     if (archetype->entity_init)
     {
@@ -84,7 +86,7 @@ uint64_t mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *ar
     }
     else
     {
-        for (uint64_t i = 0; i < archetype->spec.component_count; ++i)
+        for (uint32_t i = 0; i < archetype->spec.component_count; ++i)
         {
             memset(&archetype->components[i], 0, archetype->spec.components[i].size);
         }

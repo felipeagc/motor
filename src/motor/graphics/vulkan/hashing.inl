@@ -9,6 +9,8 @@ static uint64_t vulkan_hash_render_pass(VkRenderPassCreateInfo *ci)
     if (XXH64_reset(&state, seed) == XXH_ERROR)
         abort();
 
+    assert(ci->attachmentCount > 0);
+
     if (XXH64_update(&state, ci->pAttachments, ci->attachmentCount * sizeof(*ci->pAttachments)) ==
         XXH_ERROR)
     {

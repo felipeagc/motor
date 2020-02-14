@@ -14,12 +14,12 @@ typedef struct MtModelArchetype
 
 static MtComponentSpec mt_model_archetype_components[] = {
     {"GLTF Model", sizeof(MtGltfAsset *)},
-    {"Position", sizeof(Vec3)},
-    {"Scale", sizeof(Vec3)},
-    {"Rotation", sizeof(Quat)},
+    {"Position", sizeof(Vec3), MT_COMPONENT_TYPE_VEC3},
+    {"Scale", sizeof(Vec3), MT_COMPONENT_TYPE_VEC3},
+    {"Rotation", sizeof(Quat), MT_COMPONENT_TYPE_QUAT},
 };
 
-static inline void mt_model_archetype_init(void *data, uint64_t e)
+static inline void mt_model_archetype_init(void *data, MtEntity e)
 {
     MtModelArchetype *comps = data;
     comps->model[e] = NULL;
@@ -35,11 +35,11 @@ typedef struct MtPointLightArchetype
 } MtPointLightArchetype;
 
 static MtComponentSpec mt_light_archetype_components[] = {
-    {"Position", sizeof(Vec3)},
-    {"Color", sizeof(Vec3)},
+    {"Position", sizeof(Vec3), MT_COMPONENT_TYPE_VEC3},
+    {"Color", sizeof(Vec3), MT_COMPONENT_TYPE_VEC3},
 };
 
-static inline void mt_point_light_archetype_init(void *data, uint64_t e)
+static inline void mt_point_light_archetype_init(void *data, MtEntity e)
 {
     MtPointLightArchetype *comps = data;
     comps->pos[e] = V3(0, 0, 0);

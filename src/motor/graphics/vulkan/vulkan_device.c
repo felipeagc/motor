@@ -939,10 +939,12 @@ static MtRenderer g_vulkan_renderer = {
     .graph_bake = graph_bake,
     .graph_execute = graph_execute,
     .graph_wait_all = graph_wait_all,
+    .graph_on_resize = graph_on_resize,
 
     .graph_set_builder = graph_set_builder,
     .graph_add_image = graph_add_image,
     .graph_add_buffer = graph_add_buffer,
+    .graph_add_external_buffer = graph_add_external_buffer,
 
     .graph_get_image = graph_get_image,
     .graph_consume_image = graph_consume_image,

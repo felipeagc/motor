@@ -3,32 +3,45 @@
 #include <stdint.h>
 #include <stddef.h>
 
+typedef struct MtAllocator MtAllocator;
+typedef struct MtEntityManager MtEntityManager;
+
 #ifndef MT_COMP_INDEX
 #define MT_COMP_INDEX(archetype, component) (offsetof(archetype, component) / sizeof(void *))
 #endif
 
-typedef struct MtAllocator MtAllocator;
-typedef struct MtEntityManager MtEntityManager;
+#define MT_ENTITY_INVALID UINT32_MAX
 
-typedef void (*MtEntityInitializer)(void *data, uint64_t index);
+typedef int32_t MtEntity;
+typedef void (*MtEntityInitializer)(void *data, MtEntity entity);
+
+typedef enum MtComponentType
+{
+    MT_COMPONENT_TYPE_UNKNOWN = 0,
+    MT_COMPONENT_TYPE_VEC3,
+    MT_COMPONENT_TYPE_QUAT,
+} MtComponentType;
 
 typedef struct MtComponentSpec
 {
     const char *name;
     size_t size;
+    MtComponentType type;
 } MtComponentSpec;
 
 typedef struct MtArchetypeSpec
 {
     MtComponentSpec *components;
-    uint64_t component_count;
+    uint32_t component_count;
 } MtArchetypeSpec;
 
 typedef struct MtEntityArchetype
 {
-    uint64_t entity_count;
-    uint64_t entity_cap;
+    uint32_t entity_count;
+    uint32_t entity_cap;
     MtEntityInitializer entity_init;
+
+    MtEntity selected_entity;
 
     void **components;
     MtArchetypeSpec spec;
@@ -38,7 +51,7 @@ typedef struct MtEntityManager
 {
     MtAllocator *alloc;
     MtEntityArchetype archetypes[128];
-    uint64_t archetype_count;
+    uint32_t archetype_count;
 } MtEntityManager;
 
 void mt_entity_manager_init(MtEntityManager *em, MtAllocator *alloc);
@@ -48,7 +61,7 @@ void mt_entity_manager_destroy(MtEntityManager *em);
 MtEntityArchetype *mt_entity_manager_register_archetype(
     MtEntityManager *em,
     MtComponentSpec *components,
-    uint64_t component_count,
+    uint32_t component_count,
     MtEntityInitializer initializer);
 
-uint64_t mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype);
+MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype);

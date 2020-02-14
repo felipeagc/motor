@@ -122,7 +122,6 @@ typedef struct MtSwapchain
 
     uint32_t swapchain_image_count;
     uint32_t current_image_index;
-    bool framebuffer_resized;
 
     VkFormat swapchain_image_format;
     VkImage *swapchain_images;
@@ -304,6 +303,7 @@ typedef enum GraphResourceType
 {
     GRAPH_RESOURCE_IMAGE,
     GRAPH_RESOURCE_BUFFER,
+    GRAPH_RESOURCE_EXTERNAL_BUFFER,
 } GraphResourceType;
 
 typedef struct GraphResource
@@ -353,6 +353,7 @@ typedef struct MtRenderGraph
 
     uint32_t current_frame;
     uint32_t frame_count;
+    bool framebuffer_resized;
 
     /*array*/ MtRenderGraphPass *passes;
     /*array*/ GraphResource *resources;
@@ -382,11 +383,11 @@ typedef struct MtRenderGraphPass
     uint32_t depth_output;
     /*array*/ uint32_t *color_outputs;
     /*array*/ uint32_t *image_transfer_outputs;
-    /*array*/ uint32_t *storage_outputs;
+    /*array*/ uint32_t *buffer_writes;
 
     /*array*/ uint32_t *image_transfer_inputs;
     /*array*/ uint32_t *image_sampled_inputs;
-    /*array*/ uint32_t *storage_inputs;
+    /*array*/ uint32_t *buffer_reads;
 
     MtRenderPass render_pass;
     /*array*/ VkFramebuffer *framebuffers;

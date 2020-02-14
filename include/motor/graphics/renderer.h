@@ -250,14 +250,14 @@ typedef enum MtRenderGraphPassRead
 {
     MT_PASS_READ_IMAGE_TRANSFER,
     MT_PASS_READ_SAMPLED_IMAGE,
-    MT_PASS_READ_STORAGE_BUFFER,
+    MT_PASS_READ_BUFFER,
 } MtRenderGraphPassRead;
 
 typedef enum MtRenderGraphPassWrite
 {
     MT_PASS_WRITE_COLOR_ATTACHMENT,
     MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT,
-    MT_PASS_WRITE_STORAGE_BUFFER,
+    MT_PASS_WRITE_BUFFER,
     MT_PASS_WRITE_IMAGE_TRANSFER,
 } MtRenderGraphPassWrite;
 
@@ -359,10 +359,12 @@ typedef struct MtRenderer
     void (*graph_set_builder)(MtRenderGraph *, MtRenderGraphBuilder);
     void (*graph_add_image)(MtRenderGraph *, const char *name, MtImageCreateInfo *info);
     void (*graph_add_buffer)(MtRenderGraph *, const char *name, MtBufferCreateInfo *info);
+    void (*graph_add_external_buffer)(MtRenderGraph *, const char *name, MtBuffer *buffer);
 
     void (*graph_bake)(MtRenderGraph *);
     void (*graph_execute)(MtRenderGraph *);
     void (*graph_wait_all)(MtRenderGraph *);
+    void (*graph_on_resize)(MtRenderGraph *);
 
     MtImage *(*graph_get_image)(MtRenderGraph *, const char *name);
     MtImage *(*graph_consume_image)(MtRenderGraph *, const char *name);
