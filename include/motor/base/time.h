@@ -1,5 +1,5 @@
 #pragma once
 
-#include <stdint.h>
+#include "api_types.h"
 
 uint64_t mt_time_ns();

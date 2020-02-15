@@ -2,17 +2,20 @@
 
 #include <string.h>
 #include <assert.h>
-#include <motor/base/util.h>
+
+#include <motor/base/api_types.h>
+#include <motor/base/filesystem.h>
 #include <motor/base/allocator.h>
 #include <motor/graphics/renderer.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/asset_manager.h>
+
 #include "../stb_image.h"
 #include "../tinyktx.h"
 
 static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path)
 {
-    MtImageAsset *asset  = (MtImageAsset *)asset_;
+    MtImageAsset *asset = (MtImageAsset *)asset_;
     asset->asset_manager = asset_manager;
 
     const char *ext = mt_path_ext(path);
@@ -24,7 +27,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
         asset->image = mt_render.create_image(
             asset_manager->engine->device,
             &(MtImageCreateInfo){
-                .width  = (uint32_t)w,
+                .width = (uint32_t)w,
                 .height = (uint32_t)h,
                 .format = MT_FORMAT_RGBA8_UNORM,
             });
@@ -42,15 +45,15 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
     if (strcmp(ext, ".ktx") == 0)
     {
-        ktx_data_t data     = {0};
-        uint8_t *raw_data   = NULL;
+        ktx_data_t data = {0};
+        uint8_t *raw_data = NULL;
         ktx_result_t result = ktx_read_from_file(path, &raw_data, &data);
         if (result != KTX_SUCCESS)
         {
             return false;
         }
 
-        uint32_t texel_width  = data.pixel_width;
+        uint32_t texel_width = data.pixel_width;
         uint32_t texel_height = data.pixel_height;
 
         uint32_t block_size = 0;
@@ -58,21 +61,21 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
         switch (data.internal_format)
         {
             case KTX_RGBA8:
-                format     = MT_FORMAT_RGBA8_UNORM;
+                format = MT_FORMAT_RGBA8_UNORM;
                 block_size = sizeof(uint32_t);
                 break;
             case KTX_RGBA16F:
-                format     = MT_FORMAT_RGBA16_SFLOAT;
+                format = MT_FORMAT_RGBA16_SFLOAT;
                 block_size = 2 * sizeof(uint32_t);
                 break;
             case KTX_COMPRESSED_RGBA_BPTC_UNORM:
-                format     = MT_FORMAT_BC7_UNORM_BLOCK;
+                format = MT_FORMAT_BC7_UNORM_BLOCK;
                 block_size = 16;
                 texel_width >>= 2;
                 texel_height >>= 2;
                 break;
             case KTX_COMPRESSED_SRGB_ALPHA_BPTC_UNORM:
-                format     = MT_FORMAT_BC7_SRGB_BLOCK;
+                format = MT_FORMAT_BC7_SRGB_BLOCK;
                 block_size = 16;
                 texel_width >>= 2;
                 texel_height >>= 2;
@@ -83,12 +86,12 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
         asset->image = mt_render.create_image(
             asset_manager->engine->device,
             &(MtImageCreateInfo){
-                .width       = data.pixel_width,
-                .height      = data.pixel_height,
-                .depth       = data.pixel_depth,
-                .mip_count   = data.mipmap_level_count,
+                .width = data.pixel_width,
+                .height = data.pixel_height,
+                .depth = data.pixel_depth,
+                .mip_count = data.mipmap_level_count,
                 .layer_count = data.face_count,
-                .format      = format,
+                .format = format,
             });
 
         for (uint32_t li = 0; li < data.mipmap_level_count; li++)
@@ -97,7 +100,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             {
                 for (uint32_t si = 0; si < data.pixel_depth; si++)
                 {
-                    uint32_t mip_width  = texel_width >> li;
+                    uint32_t mip_width = texel_width >> li;
                     uint32_t mip_height = texel_height >> li;
 
                     ktx_slice_t *slice =
@@ -105,10 +108,10 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
                     mt_render.transfer_to_image(
                         asset_manager->engine->device,
-                        &(MtImageCopyView){.image       = asset->image,
-                                           .mip_level   = li,
+                        &(MtImageCopyView){.image = asset->image,
+                                           .mip_level = li,
                                            .array_layer = fi,
-                                           .offset      = {.z = si}},
+                                           .offset = {.z = si}},
                         mip_width * mip_height * block_size,
                         slice->data);
                 }
@@ -143,11 +146,11 @@ static const char *g_extensions[] = {
 };
 
 static MtAssetVT g_asset_vt = {
-    .name            = "Image",
-    .extensions      = g_extensions,
+    .name = "Image",
+    .extensions = g_extensions,
     .extension_count = MT_LENGTH(g_extensions),
-    .size            = sizeof(MtImageAsset),
-    .init            = asset_init,
-    .destroy         = asset_destroy,
+    .size = sizeof(MtImageAsset),
+    .init = asset_init,
+    .destroy = asset_destroy,
 };
 MtAssetVT *mt_image_asset_vt = &g_asset_vt;

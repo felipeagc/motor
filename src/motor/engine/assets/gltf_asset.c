@@ -3,7 +3,7 @@
 #include "../stb_image.h"
 #include "../tinyktx.h"
 #include "../cgltf.h"
-#include <motor/base/util.h>
+#include <motor/base/api_types.h>
 #include <motor/base/array.h>
 #include <motor/base/allocator.h>
 #include <motor/base/math.h>

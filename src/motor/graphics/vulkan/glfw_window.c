@@ -14,7 +14,7 @@
 #include "internal.h"
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
-#include <motor/base/util.h>
+#include <motor/base/api_types.h>
 #include <motor/base/allocator.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/window.h>

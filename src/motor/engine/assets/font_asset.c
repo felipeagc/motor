@@ -1,6 +1,6 @@
 #include <motor/engine/assets/font_asset.h>
 
-#include <motor/base/util.h>
+#include <motor/base/api_types.h>
 #include <motor/engine/asset_manager.h>
 #include "font_asset.inl"
 #include <stdio.h>
@@ -67,11 +67,11 @@ static const char *g_extensions[] = {
 };
 
 static MtAssetVT g_asset_vt = {
-    .name            = "Font",
-    .extensions      = g_extensions,
+    .name = "Font",
+    .extensions = g_extensions,
     .extension_count = MT_LENGTH(g_extensions),
-    .size            = sizeof(MtFontAsset),
-    .init            = asset_init,
-    .destroy         = asset_destroy,
+    .size = sizeof(MtFontAsset),
+    .init = asset_init,
+    .destroy = asset_destroy,
 };
 MtAssetVT *mt_font_asset_vt = &g_asset_vt;

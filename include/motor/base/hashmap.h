@@ -1,7 +1,6 @@
 #pragma once
 
-#include <inttypes.h>
-#include <stddef.h>
+#include "api_types.h"
 
 #define MT_HASH_UNUSED UINTPTR_MAX
 #define MT_HASH_NOT_FOUND UINTPTR_MAX

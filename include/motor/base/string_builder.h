@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-#include <stddef.h>
+#include "api_types.h"
 
 typedef struct MtAllocator MtAllocator;
 

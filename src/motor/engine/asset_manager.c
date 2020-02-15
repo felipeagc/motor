@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <motor/base/api_types.h>
+#include <motor/base/filesystem.h>
 #include <motor/base/log.h>
-#include <motor/base/util.h>
 #include <motor/base/allocator.h>
 #include <motor/base/array.h>
 #include <motor/base/thread_pool.h>
@@ -21,7 +22,7 @@ void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine)
 {
     memset(am, 0, sizeof(*am));
     am->engine = engine;
-    am->alloc  = engine->alloc;
+    am->alloc = engine->alloc;
 
     mt_mutex_init(&am->mutex);
 
@@ -43,7 +44,7 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
 
         for (uint32_t j = 0; j < vt->extension_count; j++)
         {
-            const char *ext      = vt->extensions[j];
+            const char *ext = vt->extensions[j];
             const char *path_ext = mt_path_ext(path);
 
             if (strcmp(ext, path_ext) == 0)
@@ -88,7 +89,7 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
                         mt_mutex_lock(&am->mutex);
 
                         MtIAsset iasset = {
-                            .vt   = vt,
+                            .vt = vt,
                             .inst = temp_asset_ptr,
                         };
                         mt_array_push(am->alloc, am->assets, iasset);
@@ -122,7 +123,7 @@ typedef struct AssetLoadInfo
 static int32_t asset_load(void *arg)
 {
     AssetLoadInfo *info = arg;
-    MtAssetManager *am  = info->asset_manager;
+    MtAssetManager *am = info->asset_manager;
 
     MtAsset *asset = mt_asset_manager_load(am, info->path);
 
@@ -140,8 +141,8 @@ void mt_asset_manager_queue_load(MtAssetManager *am, const char *path, MtAsset *
     AssetLoadInfo *info = mt_alloc(am->engine->alloc, sizeof(AssetLoadInfo));
 
     info->asset_manager = am;
-    info->path          = path;
-    info->out_asset     = out_asset;
+    info->path = path;
+    info->out_asset = out_asset;
 
     mt_thread_pool_enqueue(&am->engine->thread_pool, asset_load, info);
 }

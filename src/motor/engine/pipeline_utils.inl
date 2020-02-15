@@ -4,6 +4,7 @@
 #include <motor/base/string_builder.h>
 #include <motor/base/log.h>
 #include <motor/base/array.h>
+#include <motor/base/filesystem.h>
 #include <motor/engine/config.h>
 
 typedef struct PipelinePragma

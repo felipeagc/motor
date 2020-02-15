@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <motor/base/util.h>
+#include <motor/base/api_types.h>
 #include <motor/base/array.h>
 
 #define KTX_UNSIGNED_BYTE 0x1401
@@ -44,8 +44,8 @@ static void write_bytes(ByteWriter *bw, const void *bytes, uint64_t size)
     {
         bw->capacity = 1 << 14;
         bw->capacity = bw->capacity < size ? size : bw->capacity;
-        bw->buffer   = realloc(bw->buffer, bw->capacity);
-        bw->count    = 0;
+        bw->buffer = realloc(bw->buffer, bw->capacity);
+        bw->count = 0;
     }
     if (bw->capacity - bw->count < size)
     {
@@ -96,24 +96,6 @@ typedef struct ktx_header_t
     uint32_t bytes_of_key_value_data;
 } ktx_header_t;
 
-static inline void get_block(
-    ColorQuadU8 *image,
-    uint32_t image_width,
-    uint32_t bx,
-    uint32_t by,
-    uint32_t width,
-    uint32_t height,
-    ColorQuadU8 *pixels)
-{
-    for (uint32_t y = 0; y < height; y++)
-    {
-        memcpy(
-            pixels + y * width,
-            &image[((bx * width) + image_width * (by * height + y))],
-            width * sizeof(ColorQuadU8));
-    }
-}
-
 int main(int argc, const char *argv[])
 {
     if (argc <= 2)
@@ -123,13 +105,13 @@ int main(int argc, const char *argv[])
     }
 
     const char *gltf_path = argv[1];
-    const char *out_path  = argv[2];
+    const char *out_path = argv[2];
 
     bc7enc16_compress_block_init();
 
     cgltf_options gltf_options = {0};
-    cgltf_data *data           = NULL;
-    cgltf_result result        = cgltf_parse_file(&gltf_options, gltf_path, &data);
+    cgltf_data *data = NULL;
+    cgltf_result result = cgltf_parse_file(&gltf_options, gltf_path, &data);
 
     if (result != cgltf_result_success)
     {
@@ -150,14 +132,14 @@ int main(int argc, const char *argv[])
 
     for (uint32_t i = 0; i < data->images_count; i++)
     {
-        cgltf_image *image             = &data->images[i];
+        cgltf_image *image = &data->images[i];
         cgltf_buffer_view *buffer_view = image->buffer_view;
 
         if (strcmp(image->mime_type, "image/png") == 0 ||
             strcmp(image->mime_type, "image/jpeg") == 0)
         {
             uint8_t *buffer_data = ((uint8_t *)buffer_view->buffer->data) + buffer_view->offset;
-            size_t buffer_size   = buffer_view->size;
+            size_t buffer_size = buffer_view->size;
 
             int width, height, n_channels;
             ColorQuadU8 *image_pixels = (ColorQuadU8 *)stbi_load_from_memory(
@@ -184,7 +166,7 @@ int main(int argc, const char *argv[])
             if (!srgb)
                 bc7enc16_compress_block_params_init_linear_weights(&pack_params);
             pack_params.m_max_partitions_mode1 = BC7ENC16_MAX_PARTITIONS1;
-            pack_params.m_uber_level           = 0;
+            pack_params.m_uber_level = 0;
 
             for (uint32_t by = 0; by < blocks_y; by++)
             {
@@ -221,10 +203,10 @@ int main(int argc, const char *argv[])
             memcpy(&header.identifier, ktx_identifier, sizeof(ktx_identifier));
             header.endianness = 0x04030201;
 
-            header.gl_type      = KTX_UNSIGNED_BYTE;
+            header.gl_type = KTX_UNSIGNED_BYTE;
             header.gl_type_size = 1;
 
-            header.gl_format               = KTX_RGBA;
+            header.gl_format = KTX_RGBA;
             header.gl_base_internal_format = header.gl_format;
             if (srgb)
             {
@@ -235,14 +217,14 @@ int main(int argc, const char *argv[])
                 header.gl_internal_format = KTX_COMPRESSED_RGBA_BPTC_UNORM;
             }
 
-            header.pixel_width  = (uint32_t)width;
+            header.pixel_width = (uint32_t)width;
             header.pixel_height = (uint32_t)height;
-            header.pixel_depth  = 1;
+            header.pixel_depth = 1;
 
             header.number_of_array_elements = 1;
-            header.number_of_faces          = 1;
-            header.number_of_mipmap_levels  = 1;
-            header.bytes_of_key_value_data  = 0;
+            header.number_of_faces = 1;
+            header.number_of_mipmap_levels = 1;
+            header.bytes_of_key_value_data = 0;
 
             write_bytes(&bw, &header, sizeof(header));
 
@@ -256,7 +238,7 @@ int main(int argc, const char *argv[])
             assert(bw.count % 4 == 0);
 
             buffer_view->offset = offset;
-            buffer_view->size   = bw.count - offset;
+            buffer_view->size = bw.count - offset;
             mt_array_push(NULL, visited_buffer_views, buffer_view);
 
             image->mime_type = "image/ktx";
@@ -272,7 +254,7 @@ int main(int argc, const char *argv[])
 
     for (uint32_t i = 0; i < data->buffer_views_count; i++)
     {
-        bool visited                   = false;
+        bool visited = false;
         cgltf_buffer_view *buffer_view = &data->buffer_views[i];
         for (uint32_t j = 0; j < mt_array_size(visited_buffer_views); j++)
         {
@@ -289,14 +271,14 @@ int main(int argc, const char *argv[])
         }
 
         uint8_t *buffer_data = (uint8_t *)buffer_view->buffer->data;
-        uint64_t offset      = bw.count;
+        uint64_t offset = bw.count;
         write_bytes(&bw, buffer_data + buffer_view->offset, buffer_view->size);
         byte_writer_pad(&bw);
         buffer_view->offset = offset;
     }
 
     data->buffers_count = 1;
-    data->buffers       = malloc(sizeof(cgltf_buffer));
+    data->buffers = malloc(sizeof(cgltf_buffer));
     memset(data->buffers, 0, sizeof(*data->buffers));
     data->buffers[0].size = bw.count;
     data->buffers[0].data = bw.buffer;
@@ -304,7 +286,7 @@ int main(int argc, const char *argv[])
     for (uint32_t i = 0; i < data->buffer_views_count; i++)
     {
         cgltf_buffer_view *buffer_view = &data->buffer_views[i];
-        buffer_view->buffer            = &data->buffers[0];
+        buffer_view->buffer = &data->buffers[0];
     }
 
     ByteWriter fw = {0};
@@ -324,9 +306,9 @@ int main(int argc, const char *argv[])
 
     uint64_t json_size = cgltf_write(NULL, NULL, 0, data);
 
-    gltf_header.magic   = 0x46546C67;
+    gltf_header.magic = 0x46546C67;
     gltf_header.version = 2;
-    gltf_header.length  = sizeof(gltf_header) + sizeof(GltfChunkHeader) + json_size +
+    gltf_header.length = sizeof(gltf_header) + sizeof(GltfChunkHeader) + json_size +
                          sizeof(GltfChunkHeader) + bw.count;
 
     write_bytes(&fw, &gltf_header, sizeof(gltf_header));
@@ -335,13 +317,13 @@ int main(int argc, const char *argv[])
     cgltf_write(NULL, json_bytes, json_size, data);
     GltfChunkHeader json_header;
     json_header.chunk_length = json_size;
-    json_header.chunk_type   = 0x4E4F534A;
+    json_header.chunk_type = 0x4E4F534A;
     write_bytes(&fw, &json_header, sizeof(json_header));
     write_bytes(&fw, json_bytes, json_size);
 
     GltfChunkHeader bin_header;
     bin_header.chunk_length = bw.count;
-    bin_header.chunk_type   = 0x004E4942;
+    bin_header.chunk_type = 0x004E4942;
     write_bytes(&fw, &bin_header, sizeof(bin_header));
     write_bytes(&fw, bw.buffer, bw.count);
 

@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdlib.h>
+#include "api_types.h"
 
 // The size of this is important to keep things aligned properly (16-byte alignment)
 typedef struct MtArrayHeader
@@ -27,7 +26,7 @@ void *mt_array_grow(MtAllocator *alloc, void *a, uint64_t item_size, uint64_t ca
 #define mt_array_last(a) (&a[mt_array_size(a) - 1])
 
 #define mt_array_push(alloc, a, item)                                                              \
-    (mt_array_full(a) ? (a)          = mt_array_grow(alloc, a, sizeof(*a), 0) : 0,                 \
+    (mt_array_full(a) ? (a) = mt_array_grow(alloc, a, sizeof(*a), 0) : 0,                          \
      (a)[mt_array_header(a)->size++] = (item))
 
 #define mt_array_pop(a)                                                                            \

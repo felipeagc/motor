@@ -1,6 +1,6 @@
 #include <motor/base/allocator.h>
 #include <motor/base/arena.h>
-#include <motor/base/util.h>
+#include <motor/base/api_types.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -163,7 +163,7 @@ void test_alloc_multi_block()
     MtAllocator alloc;
 
     uint32_t per_block = 3;
-    size_t alloc_size  = sizeof(MtAllocHeader) * 2;
+    size_t alloc_size = sizeof(MtAllocHeader) * 2;
 
     mt_arena_init(&alloc, (sizeof(MtAllocHeader) + alloc_size) * per_block);
 

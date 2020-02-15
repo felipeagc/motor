@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-#include <motor/base/util.h>
+#include "api_types.h"
 
 typedef enum MtLogLevel
 {

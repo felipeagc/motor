@@ -1,6 +1,6 @@
 #include <motor/base/arena.h>
 
-#include <motor/base/util.h>
+#include <motor/base/api_types.h>
 #include <motor/base/allocator.h>
 #include <assert.h>
 #include <stdbool.h>
@@ -65,7 +65,7 @@ static void header_merge_if_necessary(AllocHeader *header)
 static void block_init(ArenaBlock *block, uint64_t block_size, ArenaBlock *prev)
 {
     assert(block_size > sizeof(AllocHeader));
-    block->storage      = (uint8_t *)malloc(block_size);
+    block->storage = (uint8_t *)malloc(block_size);
     block->first_header = (AllocHeader *)block->storage;
     header_init(block->first_header, block_size - sizeof(AllocHeader), NULL, NULL);
     block->next = NULL;
@@ -105,8 +105,8 @@ static void *arena_realloc(Arena *arena, void *ptr, uint64_t size)
             return arena_realloc(arena, NULL, size);
         }
 
-        AllocHeader *best_header   = NULL;
-        ArenaBlock *block          = arena->last_block;
+        AllocHeader *best_header = NULL;
+        ArenaBlock *block = arena->last_block;
         bool can_insert_new_header = false;
 
         while (block != NULL)
@@ -118,7 +118,7 @@ static void *arena_realloc(Arena *arena, void *ptr, uint64_t size)
                 {
                     best_header = header;
 
-                    uint64_t padding       = 0;
+                    uint64_t padding = 0;
                     uint64_t uint64_to_pad = ((uintptr_t)header) + sizeof(AllocHeader) + size;
                     if (uint64_to_pad % MT_ARENA_ALIGNMENT != 0)
                     {
@@ -151,7 +151,7 @@ static void *arena_realloc(Arena *arena, void *ptr, uint64_t size)
 
         if (can_insert_new_header)
         {
-            uint64_t padding       = 0;
+            uint64_t padding = 0;
             uint64_t uint64_to_pad = ((uintptr_t)best_header) + sizeof(AllocHeader) + size;
             if (uint64_to_pad % MT_ARENA_ALIGNMENT != 0)
             {
@@ -190,7 +190,7 @@ static void *arena_realloc(Arena *arena, void *ptr, uint64_t size)
         }
 
         AllocHeader *next_header = header->next;
-        uint64_t next_sizes      = header->size;
+        uint64_t next_sizes = header->size;
         while (next_header != NULL && !next_header->used)
         {
             if (next_sizes >= size)
@@ -253,7 +253,7 @@ void mt_arena_init(MtAllocator *alloc, uint64_t base_block_size)
 
     *alloc = (MtAllocator){
         .realloc = (void *)arena_realloc,
-        .inst    = arena,
+        .inst = arena,
     };
 }
 

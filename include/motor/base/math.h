@@ -1,7 +1,6 @@
 #pragma once
 
 #include "math_types.h"
-#include <assert.h>
 
 #define MT_MATH_INLINE static inline
 
@@ -214,7 +213,7 @@ MT_MATH_INLINE Vec3 v3_cross(Vec3 left, Vec3 right)
 MT_MATH_INLINE Vec3 v3_normalize(Vec3 vec)
 {
     Vec3 result = vec;
-    float norm  = sqrtf(v3_dot(vec, vec));
+    float norm = sqrtf(v3_dot(vec, vec));
     if (norm != 0.0f)
     {
         result = v3_muls(vec, 1.0f / norm);
@@ -280,12 +279,12 @@ MT_MATH_INLINE float v4_dot(Vec4 left, Vec4 right)
 #ifdef MT_MATH_USE_SSE
     __m128 rone = _mm_mul_ps(*((__m128 *)&left), *((__m128 *)&right));
     __m128 rtwo = _mm_shuffle_ps(rone, rone, _MM_SHUFFLE(2, 3, 0, 1));
-    rone        = _mm_add_ps(rone, rtwo);
-    rtwo        = _mm_shuffle_ps(rone, rone, _MM_SHUFFLE(0, 1, 2, 3));
-    rone        = _mm_add_ps(rone, rtwo);
+    rone = _mm_add_ps(rone, rtwo);
+    rtwo = _mm_shuffle_ps(rone, rone, _MM_SHUFFLE(0, 1, 2, 3));
+    rone = _mm_add_ps(rone, rtwo);
     _mm_store_ss(&result, rone);
 #else
-    result   = (left.x * right.x) + (left.y * right.y) + (left.z * right.z) + (left.w * right.w);
+    result = (left.x * right.x) + (left.y * right.y) + (left.z * right.z) + (left.w * right.w);
 #endif
     return result;
 }
@@ -390,7 +389,7 @@ MT_MATH_INLINE Mat4 mat4_muls(Mat4 left, float right)
 {
     Mat4 result;
 #ifdef MT_MATH_USE_SSE
-    __m128 sse_scalar  = _mm_load_ps1(&right);
+    __m128 sse_scalar = _mm_load_ps1(&right);
     result.sse_cols[0] = _mm_mul_ps(left.sse_cols[0], sse_scalar);
     result.sse_cols[1] = _mm_mul_ps(left.sse_cols[1], sse_scalar);
     result.sse_cols[2] = _mm_mul_ps(left.sse_cols[2], sse_scalar);
@@ -409,7 +408,7 @@ MT_MATH_INLINE Mat4 mat4_divs(Mat4 left, float right)
 {
     Mat4 result;
 #ifdef MT_MATH_USE_SSE
-    __m128 sse_scalar  = _mm_load_ps1(&right);
+    __m128 sse_scalar = _mm_load_ps1(&right);
     result.sse_cols[0] = _mm_div_ps(left.sse_cols[0], sse_scalar);
     result.sse_cols[1] = _mm_div_ps(left.sse_cols[1], sse_scalar);
     result.sse_cols[2] = _mm_div_ps(left.sse_cols[2], sse_scalar);
@@ -434,7 +433,7 @@ MT_MATH_INLINE Mat4 mat4_mul(Mat4 left, Mat4 right)
         __m128 brod2 = _mm_set1_ps(left.elems[4 * i + 1]);
         __m128 brod3 = _mm_set1_ps(left.elems[4 * i + 2]);
         __m128 brod4 = _mm_set1_ps(left.elems[4 * i + 3]);
-        __m128 row   = _mm_add_ps(
+        __m128 row = _mm_add_ps(
             _mm_add_ps(_mm_mul_ps(brod1, right.sse_cols[0]), _mm_mul_ps(brod2, right.sse_cols[1])),
             _mm_add_ps(_mm_mul_ps(brod3, right.sse_cols[2]), _mm_mul_ps(brod4, right.sse_cols[3])));
         _mm_store_ps(&result.elems[4 * i], row);
@@ -598,7 +597,7 @@ MT_MATH_INLINE Quat mat4_to_quat(Mat4 mat)
     float trace = mat.cols[0][0] + mat.cols[1][1] + mat.cols[2][2];
     if (trace > 0.0f)
     {
-        float s  = sqrtf(1.0f + trace) * 2.0f;
+        float s = sqrtf(1.0f + trace) * 2.0f;
         result.w = 0.25f * s;
         result.x = (mat.cols[1][2] - mat.cols[2][1]) / s;
         result.y = (mat.cols[2][0] - mat.cols[0][2]) / s;
@@ -606,7 +605,7 @@ MT_MATH_INLINE Quat mat4_to_quat(Mat4 mat)
     }
     else if (mat.cols[0][0] > mat.cols[1][1] && mat.cols[0][0] > mat.cols[2][2])
     {
-        float s  = sqrtf(1.0f + mat.cols[0][0] - mat.cols[1][1] - mat.cols[2][2]) * 2.0f;
+        float s = sqrtf(1.0f + mat.cols[0][0] - mat.cols[1][1] - mat.cols[2][2]) * 2.0f;
         result.w = (mat.cols[1][2] - mat.cols[2][1]) / s;
         result.x = 0.25f * s;
         result.y = (mat.cols[1][0] + mat.cols[0][1]) / s;
@@ -614,7 +613,7 @@ MT_MATH_INLINE Quat mat4_to_quat(Mat4 mat)
     }
     else if (mat.cols[1][1] > mat.cols[2][2])
     {
-        float s  = sqrtf(1.0f + mat.cols[1][1] - mat.cols[0][0] - mat.cols[2][2]) * 2.0f;
+        float s = sqrtf(1.0f + mat.cols[1][1] - mat.cols[0][0] - mat.cols[2][2]) * 2.0f;
         result.w = (mat.cols[2][0] - mat.cols[0][2]) / s;
         result.x = (mat.cols[1][0] + mat.cols[0][1]) / s;
         result.y = 0.25f * s;
@@ -622,7 +621,7 @@ MT_MATH_INLINE Quat mat4_to_quat(Mat4 mat)
     }
     else
     {
-        float s  = sqrtf(1.0f + mat.cols[2][2] - mat.cols[0][0] - mat.cols[1][1]) * 2.0f;
+        float s = sqrtf(1.0f + mat.cols[2][2] - mat.cols[0][0] - mat.cols[1][1]) * 2.0f;
         result.w = (mat.cols[0][1] - mat.cols[1][0]) / s;
         result.x = (mat.cols[2][0] + mat.cols[0][2]) / s;
         result.y = (mat.cols[2][1] + mat.cols[1][2]) / s;
@@ -657,7 +656,7 @@ MT_MATH_INLINE Mat4 mat4_rotate(Mat4 mat, float angle, Vec3 axis)
     float c = cosf(angle);
     float s = sinf(angle);
 
-    axis      = v3_normalize(axis);
+    axis = v3_normalize(axis);
     Vec3 temp = v3_muls(axis, (1.0f - c));
 
     Mat4 rotate;
@@ -727,8 +726,8 @@ MT_MATH_INLINE Quat quat_from_axis_angle(Vec3 axis, float angle)
 // TESTED: compatible with glm
 MT_MATH_INLINE void quat_to_axis_angle(Quat quat, Vec3 *axis, float *angle)
 {
-    quat    = quat_normalize(quat);
-    *angle  = 2.0f * acosf(quat.w);
+    quat = quat_normalize(quat);
+    *angle = 2.0f * acosf(quat.w);
     float s = sqrtf(1.0f - quat.w * quat.w);
     if (s < 0.001)
     {
@@ -795,19 +794,19 @@ MT_MATH_INLINE Quat quat_look_at(Vec3 direction, Vec3 up)
     };
 
     Vec3 col2 = v3_muls(direction, -1.0f);
-    m[2][0]   = col2.x;
-    m[2][1]   = col2.y;
-    m[2][2]   = col2.z;
+    m[2][0] = col2.x;
+    m[2][1] = col2.y;
+    m[2][2] = col2.z;
 
     Vec3 col0 = v3_normalize(v3_cross(up, col2));
-    m[0][0]   = col0.x;
-    m[0][1]   = col0.y;
-    m[0][2]   = col0.z;
+    m[0][0] = col0.x;
+    m[0][1] = col0.y;
+    m[0][2] = col0.z;
 
     Vec3 col1 = v3_cross(col2, col0);
-    m[1][0]   = col1.x;
-    m[1][1]   = col1.y;
-    m[1][2]   = col1.z;
+    m[1][0] = col1.x;
+    m[1][1] = col1.y;
+    m[1][2] = col1.z;
 
     float x = m[0][0] - m[1][1] - m[2][2];
     float y = m[1][1] - m[0][0] - m[2][2];
@@ -815,25 +814,25 @@ MT_MATH_INLINE Quat quat_look_at(Vec3 direction, Vec3 up)
     float w = m[0][0] + m[1][1] + m[2][2];
 
     int biggest_index = 0;
-    float biggest     = w;
+    float biggest = w;
     if (x > biggest)
     {
-        biggest       = x;
+        biggest = x;
         biggest_index = 1;
     }
     if (y > biggest)
     {
-        biggest       = y;
+        biggest = y;
         biggest_index = 2;
     }
     if (z > biggest)
     {
-        biggest       = z;
+        biggest = z;
         biggest_index = 3;
     }
 
     float biggest_val = sqrtf(biggest + 1.0f) * 0.5f;
-    float mult        = 0.25f / biggest_val;
+    float mult = 0.25f / biggest_val;
 
     switch (biggest_index)
     {
@@ -865,7 +864,7 @@ MT_MATH_INLINE Quat quat_look_at(Vec3 direction, Vec3 up)
                 biggest_val,
                 (m[0][1] - m[1][0]) * mult,
             }};
-        default: assert(0);
+        default: break;
     }
 
     return (Quat){0};

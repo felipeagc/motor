@@ -1,7 +1,6 @@
 #pragma once
 
-#include <inttypes.h>
-#include <string.h>
+#include "api_types.h"
 
 typedef struct MtAllocator MtAllocator;
 
@@ -23,7 +22,7 @@ typedef struct MtAllocator MtAllocator;
 
 typedef struct MtDynamicBitset
 {
-    unsigned char *bytes;
+    uint8_t *bytes;
     uint32_t nbits;
 } MtDynamicBitset;
 

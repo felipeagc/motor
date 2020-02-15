@@ -1,6 +1,9 @@
 #pragma once
 
+#include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
+#include <string.h>
 
 // clang-format off
 #if defined(_MSC_VER)
@@ -24,17 +27,3 @@
 #define MT_MIN(a, b) (a > b) ? b : a
 
 #define MT_INLINE static inline
-
-// Returns the path's file extension, including the '.'
-MT_INLINE const char *mt_path_ext(const char *path)
-{
-    const char *ret = "";
-    do
-    {
-        if (*path == '.')
-        {
-            ret = path;
-        }
-    } while (*path++);
-    return ret;
-}
