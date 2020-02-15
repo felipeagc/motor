@@ -15,7 +15,7 @@
 
 #define MT_THREAD_LOCAL _Thread_local
 
-uint32_t mt_cpu_count(void);
+MT_BASE_API uint32_t mt_cpu_count(void);
 
 typedef struct MtThread
 {
@@ -24,19 +24,19 @@ typedef struct MtThread
 
 typedef int32_t (*MtThreadStart)(void *);
 
-int32_t mt_thread_init(MtThread *thread, MtThreadStart func, void *arg);
+MT_BASE_API int32_t mt_thread_init(MtThread *thread, MtThreadStart func, void *arg);
 
-MtThread mt_thread_current(void);
+MT_BASE_API MtThread mt_thread_current(void);
 
-void mt_thread_sleep(uint32_t milliseconds);
+MT_BASE_API void mt_thread_sleep(uint32_t milliseconds);
 
-int32_t mt_thread_detach(MtThread thread);
+MT_BASE_API int32_t mt_thread_detach(MtThread thread);
 
-bool mt_thread_equal(MtThread thread1, MtThread thread2);
+MT_BASE_API bool mt_thread_equal(MtThread thread1, MtThread thread2);
 
-void mt_thread_exit(int32_t res);
+MT_BASE_API void mt_thread_exit(int32_t res);
 
-int32_t mt_thread_wait(MtThread thread, int32_t *res);
+MT_BASE_API int32_t mt_thread_wait(MtThread thread, int32_t *res);
 
 typedef struct MtMutex
 {
@@ -46,15 +46,15 @@ typedef struct MtMutex
     };
 } MtMutex;
 
-int32_t mt_mutex_init(MtMutex *mtx);
+MT_BASE_API int32_t mt_mutex_init(MtMutex *mtx);
 
-void mt_mutex_destroy(MtMutex *mtx);
+MT_BASE_API void mt_mutex_destroy(MtMutex *mtx);
 
-int32_t mt_mutex_lock(MtMutex *mtx);
+MT_BASE_API int32_t mt_mutex_lock(MtMutex *mtx);
 
-int32_t mt_mutex_trylock(MtMutex *mtx);
+MT_BASE_API int32_t mt_mutex_trylock(MtMutex *mtx);
 
-int32_t mt_mutex_unlock(MtMutex *mtx);
+MT_BASE_API int32_t mt_mutex_unlock(MtMutex *mtx);
 
 typedef struct MtCond
 {
@@ -64,12 +64,12 @@ typedef struct MtCond
     };
 } MtCond;
 
-int32_t mt_cond_init(MtCond *cond);
+MT_BASE_API int32_t mt_cond_init(MtCond *cond);
 
-void mt_cond_destroy(MtCond *cond);
+MT_BASE_API void mt_cond_destroy(MtCond *cond);
 
-int32_t mt_cond_wake_one(MtCond *cond);
+MT_BASE_API int32_t mt_cond_wake_one(MtCond *cond);
 
-int32_t mt_cond_wake_all(MtCond *cond);
+MT_BASE_API int32_t mt_cond_wake_all(MtCond *cond);
 
-int32_t mt_cond_wait(MtCond *cond, MtMutex *mtx);
+MT_BASE_API int32_t mt_cond_wait(MtCond *cond, MtMutex *mtx);

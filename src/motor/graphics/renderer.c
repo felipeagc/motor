@@ -1,3 +1,3 @@
 #include <motor/graphics/renderer.h>
 
-MtRenderer mt_render;
+MT_GRAPHICS_API MtRenderer mt_render;

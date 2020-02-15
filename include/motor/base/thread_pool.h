@@ -4,8 +4,6 @@
 
 typedef struct MtAllocator MtAllocator;
 
-extern MT_THREAD_LOCAL uint32_t mt_thread_pool_task_id;
-
 typedef struct MtThreadPoolTask
 {
     void *arg;
@@ -39,14 +37,16 @@ typedef struct MtThreadPool
     MtCond done_cond;
 } MtThreadPool;
 
-void mt_thread_pool_init(MtThreadPool *pool, uint32_t num_threads, MtAllocator *alloc);
+MT_BASE_API uint32_t mt_thread_pool_get_task_id();
 
-void mt_thread_pool_destroy(MtThreadPool *pool);
+MT_BASE_API void mt_thread_pool_init(MtThreadPool *pool, uint32_t num_threads, MtAllocator *alloc);
 
-void mt_thread_pool_enqueue(MtThreadPool *pool, MtThreadStart routine, void *arg);
+MT_BASE_API void mt_thread_pool_destroy(MtThreadPool *pool);
 
-bool mt_thread_pool_is_busy(MtThreadPool *pool);
+MT_BASE_API void mt_thread_pool_enqueue(MtThreadPool *pool, MtThreadStart routine, void *arg);
 
-void mt_thread_pool_wait_all(MtThreadPool *pool);
+MT_BASE_API bool mt_thread_pool_is_busy(MtThreadPool *pool);
 
-uint32_t mt_thread_pool_queue_size(MtThreadPool *pool);
+MT_BASE_API void mt_thread_pool_wait_all(MtThreadPool *pool);
+
+MT_BASE_API uint32_t mt_thread_pool_queue_size(MtThreadPool *pool);

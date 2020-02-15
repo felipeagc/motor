@@ -36,7 +36,7 @@ void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine)
 
 MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
 {
-    mt_render.set_thread_id(mt_thread_pool_task_id);
+    mt_render.set_thread_id(mt_thread_pool_get_task_id());
 
     for (uint32_t i = 0; i < mt_array_size(am->asset_types); i++)
     {

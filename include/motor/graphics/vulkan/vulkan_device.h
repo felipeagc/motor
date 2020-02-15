@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
+#include <motor/graphics/api_types.h>
 
 typedef struct MtAllocator MtAllocator;
 typedef struct MtDevice MtDevice;
@@ -17,4 +16,4 @@ typedef struct MtVulkanDeviceCreateInfo
     uint32_t num_threads;
 } MtVulkanDeviceCreateInfo;
 
-MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc);
+MT_GRAPHICS_API MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc);

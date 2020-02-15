@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include "api_types.h"
 #include <motor/base/math_types.h>
 
 typedef struct MtCmdBuffer MtCmdBuffer;
@@ -60,11 +60,11 @@ typedef struct MtEnvironment
     float radiance_mip_levels;
 } MtEnvironment;
 
-void mt_environment_init(
-    MtEnvironment *env, MtAssetManager *asset_manager, MtImageAsset *skybox_asset);
+MT_ENGINE_API void
+mt_environment_init(MtEnvironment *env, MtAssetManager *asset_manager, MtImageAsset *skybox_asset);
 
-void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb);
+MT_ENGINE_API void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb);
 
-void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set);
+MT_ENGINE_API void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set);
 
-void mt_environment_destroy(MtEnvironment *env);
+MT_ENGINE_API void mt_environment_destroy(MtEnvironment *env);

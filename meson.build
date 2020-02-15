@@ -8,6 +8,10 @@ threads_dep = dependency('threads')
 
 add_project_arguments(cc.get_supported_arguments(['-Wno-missing-braces']), language: 'c')
 
+if get_option('default_library') == 'shared'
+  add_project_arguments('-DMT_SHARED', language: 'c')
+endif
+
 subdir('thirdparty')
 
 motor_base_sources = [
@@ -31,11 +35,17 @@ motor_base_sources = [
 
 motor_base_deps = [m_dep, dl_dep, threads_dep]
 
+motor_base_c_args = []
+if get_option('default_library') == 'shared'
+  motor_base_c_args += ['-DMT_BASE_BUILD_SHARED']
+endif
+
 motor_base_lib = library(
   'motor_base',
   motor_base_sources,
   dependencies: motor_base_deps,
-  include_directories: ['include']
+  include_directories: ['include'],
+  c_args: motor_base_c_args
   )
 
 motor_base_dep = declare_dependency(
@@ -63,11 +73,17 @@ else
    error('OS not supported')
 endif
 
+motor_graphics_c_args = []
+if get_option('default_library') == 'shared'
+  motor_graphics_c_args += ['-DMT_GRAPHICS_BUILD_SHARED']
+endif
+
 motor_graphics_lib = library(
   'motor_graphics',
   motor_graphics_sources,
   dependencies: motor_graphics_deps,
-  include_directories: ['include', 'thirdparty/vulkan-headers']
+  include_directories: ['include', 'thirdparty/vulkan-headers'],
+  c_args: motor_graphics_c_args
   )
 
 motor_graphics_dep = declare_dependency(
@@ -97,26 +113,19 @@ motor_engine_sources = [
   'src/motor/engine/stb_truetype.c',
 ]
 
-if target_machine.system() == 'windows'
-  shaderc_dep = cc.find_library('shaderc_shared', 
-	dirs: [join_paths(meson.source_root(), 'thirdparty/shaderc/windows')],
-	static: false)
-  configure_file(
-    input: 'thirdparty/shaderc/windows/shaderc_shared.dll',
-    output: 'shaderc_shared.dll',
-    copy: true)
-else
-  shaderc_dep = cc.find_library('shaderc', 
-	dirs: [join_paths(meson.source_root(), 'thirdparty/shaderc/linux')],
-	static: true)
-endif
 motor_engine_deps = [motor_base_dep, motor_graphics_dep, shaderc_dep]
+
+motor_engine_c_args = []
+if get_option('default_library') == 'shared'
+  motor_engine_c_args += ['-DMT_ENGINE_BUILD_SHARED']
+endif
 
 motor_engine_lib = library(
   'motor_engine',
   motor_engine_sources,
   dependencies: motor_engine_deps,
-  include_directories: ['include', 'thirdparty/shaderc']
+  include_directories: ['include', shaderc_include_dir],
+  c_args: motor_engine_c_args
   )
 
 motor_engine_dep = declare_dependency(

@@ -15,10 +15,11 @@ spirv_cross_sources = [
 
 spirv_cross_include_dirs = ['.']
 
-spirv_cross_lib = library(
+spirv_cross_lib = static_library(
   'spirv_cross',
   spirv_cross_sources,
   include_directories: spirv_cross_include_dirs)
+
 spirv_cross_dep = declare_dependency(
   link_with: spirv_cross_lib,
   include_directories: spirv_cross_include_dirs)

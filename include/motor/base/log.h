@@ -24,7 +24,7 @@ typedef enum MtLogLevel
 
 #define mt_log mt_log_info
 
-void mt_log_init();
+MT_BASE_API void mt_log_init();
 
 MT_PRINTF_FORMATTING(4, 5)
-void mt_log_log(MtLogLevel level, const char *filename, uint32_t line, const char *fmt, ...);
+MT_BASE_API void mt_log_log(MtLogLevel level, const char *filename, uint32_t line, const char *fmt, ...);

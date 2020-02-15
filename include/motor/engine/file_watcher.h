@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdbool.h>
+#include "api_types.h"
 
 typedef struct MtAllocator MtAllocator;
 typedef struct MtFileWatcher MtFileWatcher;
@@ -29,12 +29,12 @@ typedef struct MtFileWatcherEvent
 
 typedef void (*MtFileWatcherHandler)(MtFileWatcherEvent *event, void *user_data);
 
-MtFileWatcher *mt_file_watcher_create(
+MT_ENGINE_API MtFileWatcher *mt_file_watcher_create(
     MtAllocator *alloc,
     MtFileWatcherEventType types,
     MtFileWatcherHandler handler,
     const char *dir);
 
-void mt_file_watcher_poll(MtFileWatcher *watcher, void *user_data);
+MT_ENGINE_API void mt_file_watcher_poll(MtFileWatcher *watcher, void *user_data);
 
-void mt_file_watcher_destroy(MtFileWatcher *watcher);
+MT_ENGINE_API void mt_file_watcher_destroy(MtFileWatcher *watcher);

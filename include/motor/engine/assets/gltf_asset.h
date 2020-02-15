@@ -1,6 +1,6 @@
 #pragma once
 
-#include <stdint.h>
+#include "../api_types.h"
 #include <motor/base/math_types.h>
 
 typedef struct MtAssetVT MtAssetVT;
@@ -10,7 +10,7 @@ extern MtAssetVT *mt_gltf_asset_vt;
 
 typedef struct MtGltfAsset MtGltfAsset;
 
-void mt_gltf_asset_draw(
+MT_ENGINE_API void mt_gltf_asset_draw(
     MtGltfAsset *asset,
     MtCmdBuffer *cb,
     Mat4 *transform,

@@ -15,22 +15,22 @@ typedef struct MtHashMap
     uint32_t size;
 } MtHashMap;
 
-uint64_t mt_hash_str(const char *str);
+MT_BASE_API uint64_t mt_hash_str(const char *str);
 
-uint64_t mt_hash_strn(const char *str, size_t length);
+MT_BASE_API uint64_t mt_hash_strn(const char *str, size_t length);
 
-void mt_hash_init(MtHashMap *map, uint32_t size, MtAllocator *alloc);
+MT_BASE_API void mt_hash_init(MtHashMap *map, uint32_t size, MtAllocator *alloc);
 
-void mt_hash_clear(MtHashMap *map);
+MT_BASE_API void mt_hash_clear(MtHashMap *map);
 
-uintptr_t mt_hash_set_uint(MtHashMap *map, uint64_t key, uintptr_t value);
+MT_BASE_API uintptr_t mt_hash_set_uint(MtHashMap *map, uint64_t key, uintptr_t value);
 
-uintptr_t mt_hash_get_uint(MtHashMap *map, uint64_t key);
+MT_BASE_API uintptr_t mt_hash_get_uint(MtHashMap *map, uint64_t key);
 
-void *mt_hash_set_ptr(MtHashMap *map, uint64_t key, void *value);
+MT_BASE_API void *mt_hash_set_ptr(MtHashMap *map, uint64_t key, void *value);
 
-void *mt_hash_get_ptr(MtHashMap *map, uint64_t key);
+MT_BASE_API void *mt_hash_get_ptr(MtHashMap *map, uint64_t key);
 
-void mt_hash_remove(MtHashMap *map, uint64_t key);
+MT_BASE_API void mt_hash_remove(MtHashMap *map, uint64_t key);
 
-void mt_hash_destroy(MtHashMap *map);
+MT_BASE_API void mt_hash_destroy(MtHashMap *map);

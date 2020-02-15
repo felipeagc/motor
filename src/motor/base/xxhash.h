@@ -67,7 +67,7 @@ XXH64       13.8 GB/s            1.9 GB/s
 XXH32        6.8 GB/s            6.0 GB/s
 */
 
-#define XXH_STATIC_LINKING_ONLY
+#define XXH_INLINE_ALL
 
 #ifndef XXHASH_H_5627135585666179
 #define XXHASH_H_5627135585666179 1

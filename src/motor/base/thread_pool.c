@@ -8,7 +8,7 @@
 
 // TODO: handle queue resizing
 
-MT_THREAD_LOCAL uint32_t mt_thread_pool_task_id = 0;
+MT_THREAD_LOCAL uint32_t g_task_id = 0;
 
 static inline uint32_t thread_pool_queue_size_no_lock(MtThreadPool *pool)
 {
@@ -28,8 +28,8 @@ static inline uint32_t thread_pool_queue_size_no_lock(MtThreadPool *pool)
 static int32_t work(void *arg)
 {
     MtThreadPoolWorker *worker = arg;
-    MtThreadPool *pool         = worker->pool;
-    mt_thread_pool_task_id     = worker->id;
+    MtThreadPool *pool = worker->pool;
+    g_task_id = worker->id;
 
     for (;;)
     {
@@ -69,6 +69,11 @@ static int32_t work(void *arg)
     return 0;
 }
 
+uint32_t mt_thread_pool_get_task_id()
+{
+    return g_task_id;
+}
+
 void mt_thread_pool_init(MtThreadPool *pool, uint32_t num_threads, MtAllocator *alloc)
 {
     memset(pool, 0, sizeof(*pool));
@@ -89,7 +94,7 @@ void mt_thread_pool_init(MtThreadPool *pool, uint32_t num_threads, MtAllocator *
         MtThreadPoolWorker *worker = &pool->workers[i];
 
         worker->pool = pool;
-        worker->id   = i + 1;
+        worker->id = i + 1;
 
         mt_thread_init(&worker->thread, work, worker);
     }
@@ -121,7 +126,7 @@ void mt_thread_pool_enqueue(MtThreadPool *pool, MtThreadStart routine, void *arg
     mt_mutex_lock(&pool->queue_mutex);
     pool->num_working++;
     pool->queue[pool->queue_back].routine = routine;
-    pool->queue[pool->queue_back].arg     = arg;
+    pool->queue[pool->queue_back].arg = arg;
 
     pool->queue_back = (pool->queue_back + 1) % mt_array_size(pool->queue);
 

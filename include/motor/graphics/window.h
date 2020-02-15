@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "api_types.h"
 
 // clang-format off
 #if defined(_WIN32)
@@ -303,4 +302,4 @@ typedef struct MtWindowSystem
 #endif
 } MtWindowSystem;
 
-extern MtWindowSystem mt_window;
+MT_GRAPHICS_API extern MtWindowSystem mt_window;

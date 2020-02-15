@@ -1,5 +1,6 @@
 #pragma once
 
+#include "api_types.h"
 #include "asset_manager.h"
 #include "entities.h"
 #include "nuklear_impl.h"
@@ -35,6 +36,6 @@ typedef struct MtEngine
     MtSampler *default_sampler;
 } MtEngine;
 
-void mt_engine_init(MtEngine *engine);
+MT_ENGINE_API void mt_engine_init(MtEngine *engine);
 
-void mt_engine_destroy(MtEngine *engine);
+MT_ENGINE_API void mt_engine_destroy(MtEngine *engine);

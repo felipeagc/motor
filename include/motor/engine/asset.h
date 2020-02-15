@@ -1,8 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
+#include "api_types.h"
 
 typedef struct MtAsset MtAsset;
 typedef struct MtAssetManager MtAssetManager;

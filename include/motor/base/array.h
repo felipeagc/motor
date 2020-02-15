@@ -11,7 +11,7 @@ typedef struct MtArrayHeader
 
 typedef struct MtAllocator MtAllocator;
 
-void *mt_array_grow(MtAllocator *alloc, void *a, uint64_t item_size, uint64_t cap);
+MT_BASE_API void *mt_array_grow(MtAllocator *alloc, void *a, uint64_t item_size, uint64_t cap);
 
 #define mt_array_header(a) ((MtArrayHeader *)((char *)(a) - sizeof(MtArrayHeader)))
 

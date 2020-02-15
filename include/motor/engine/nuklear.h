@@ -6,6 +6,7 @@
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 
+#include "api_types.h"
 #include <stdarg.h>
 
 #ifndef NK_NUKLEAR_H_
@@ -43,21 +44,21 @@ extern "C" {
 #ifndef NK_API
   #ifdef NK_PRIVATE
     #if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199409L))
-      #define NK_API static inline
+      #define NK_API MT_ENGINE_API static inline
     #elif defined(__cplusplus)
-      #define NK_API static inline
+      #define NK_API MT_ENGINE_API static inline
     #else
-      #define NK_API static
+      #define NK_API MT_ENGINE_API static
     #endif
   #else
-    #define NK_API extern
+    #define NK_API MT_ENGINE_API extern
   #endif
 #endif
 #ifndef NK_LIB
   #ifdef NK_SINGLE_FILE
-    #define NK_LIB static
+    #define NK_LIB MT_ENGINE_API static
   #else
-    #define NK_LIB extern
+    #define NK_LIB MT_ENGINE_API extern
   #endif
 #endif
 

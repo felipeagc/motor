@@ -1,8 +1,6 @@
 #pragma once
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdbool.h>
+#include "api_types.h"
 
 typedef struct MtAllocator MtAllocator;
 typedef struct MtDevice MtDevice;
@@ -377,4 +375,4 @@ typedef struct MtRenderer
     void (*pass_write)(MtRenderGraphPass *, MtRenderGraphPassWrite, const char *name);
 } MtRenderer;
 
-extern MtRenderer mt_render;
+MT_GRAPHICS_API extern MtRenderer mt_render;

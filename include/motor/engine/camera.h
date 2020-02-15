@@ -1,5 +1,6 @@
 #pragma once
 
+#include "api_types.h"
 #include <motor/base/math_types.h>
 
 typedef struct MtWindow MtWindow;
@@ -32,9 +33,9 @@ typedef struct MtPerspectiveCamera
     float sensitivity;
 } MtPerspectiveCamera;
 
-void mt_perspective_camera_init(MtPerspectiveCamera *c);
+MT_ENGINE_API void mt_perspective_camera_init(MtPerspectiveCamera *c);
 
-void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event);
+MT_ENGINE_API void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event);
 
-void mt_perspective_camera_update(
-    MtPerspectiveCamera *c, MtWindow *win, float aspect, float delta_time);
+MT_ENGINE_API void
+mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float aspect, float delta_time);

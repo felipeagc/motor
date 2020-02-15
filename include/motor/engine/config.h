@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
+#include "api_types.h"
 #include <motor/base/hashmap.h>
 
 typedef struct MtAllocator MtAllocator;
@@ -47,8 +46,8 @@ typedef struct MtConfigEntry
 
 typedef struct MtConfig MtConfig;
 
-MtConfig *mt_config_parse(MtAllocator *alloc, const char *input, uint64_t input_size);
+MT_ENGINE_API MtConfig *mt_config_parse(MtAllocator *alloc, const char *input, uint64_t input_size);
 
-MtConfigObject *mt_config_get_root(MtConfig *config);
+MT_ENGINE_API MtConfigObject *mt_config_get_root(MtConfig *config);
 
-void mt_config_destroy(MtConfig *config);
+MT_ENGINE_API void mt_config_destroy(MtConfig *config);

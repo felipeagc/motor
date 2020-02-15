@@ -6,7 +6,7 @@
 
 int32_t thread_start(void *arg)
 {
-    printf("Hello from thread %u\n", mt_thread_pool_task_id);
+    printf("Hello from thread %u\n", mt_thread_pool_get_task_id());
     mt_thread_sleep(20);
     return 0;
 }

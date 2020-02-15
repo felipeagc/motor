@@ -152,16 +152,16 @@ static void light_system(MtEntityArchetype *arch, MtEnvironment *env, float delt
     static float acc = 0.0f;
     acc += delta;
 
-    float x = sin(acc * 2.0f) * 2.0f;
-    float z = cos(acc * 2.0f) * 2.0f;
+    float x = sinf(acc * 2.0f) * 2.0f;
+    float z = cosf(acc * 2.0f) * 2.0f;
 
-    const float constant = 1.0;
-    const float linear = 0.7;
-    const float quadratic = 1.8;
+    const float constant = 1.0f;
+    const float linear = 0.7f;
+    const float quadratic = 1.8f;
     float light_max = 10.0f;
     float radius =
         (-linear +
-         sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 5.0) * light_max))) /
+         sqrtf(linear * linear - 4.0f * quadratic * (constant - (256.0f / 5.0f) * light_max))) /
         (2 * quadratic);
 
     env->uniform.point_light_count = 0;

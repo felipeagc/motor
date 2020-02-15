@@ -26,6 +26,6 @@ typedef struct MtDynamicBitset
     uint32_t nbits;
 } MtDynamicBitset;
 
-void mt_dynamic_bitset_init(MtDynamicBitset *bitset, uint32_t nbits, MtAllocator *alloc);
+MT_BASE_API void mt_dynamic_bitset_init(MtDynamicBitset *bitset, uint32_t nbits, MtAllocator *alloc);
 
-void mt_dynamic_bitset_destroy(MtDynamicBitset *bitset, MtAllocator *alloc);
+MT_BASE_API void mt_dynamic_bitset_destroy(MtDynamicBitset *bitset, MtAllocator *alloc);

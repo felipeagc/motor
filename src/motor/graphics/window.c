@@ -1,3 +1,3 @@
 #include <motor/graphics/window.h>
 
-MtWindowSystem mt_window;
+MT_GRAPHICS_API MtWindowSystem mt_window;

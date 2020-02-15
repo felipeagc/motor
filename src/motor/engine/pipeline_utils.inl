@@ -47,7 +47,7 @@ static PipelinePragma *parse_pragmas(MtAllocator *alloc, const char *input, size
 
                 pragma.value_len = 0;
                 pragma.value = c;
-                while (*c && *c != '\n' && (c - input) < input_size)
+                while (*c && *c != '\r' && *c != '\n' && (c - input) < input_size)
                 {
                     pragma.value_len++;
                     c++;

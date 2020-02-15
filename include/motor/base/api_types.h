@@ -19,6 +19,18 @@
 #else
     #define MT_PRINTF_FORMATTING(x, y)
 #endif
+
+#if defined(_WIN32) && defined(_MSC_VER)
+    #if defined(MT_BASE_BUILD_SHARED)
+        #define MT_BASE_API __declspec(dllexport)
+    #elif defined(MT_SHARED)
+        #define MT_BASE_API __declspec(dllimport)
+    #else
+        #define MT_BASE_API 
+    #endif
+#else
+    #define MT_BASE_API 
+#endif
 // clang-format on
 
 #define MT_LENGTH(array) (sizeof(array) / sizeof((array)[0]))

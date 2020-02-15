@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-#include <stddef.h>
+#include "api_types.h"
 
 typedef struct MtAllocator MtAllocator;
 typedef struct MtEntityManager MtEntityManager;
@@ -54,14 +53,15 @@ typedef struct MtEntityManager
     uint32_t archetype_count;
 } MtEntityManager;
 
-void mt_entity_manager_init(MtEntityManager *em, MtAllocator *alloc);
+MT_ENGINE_API void mt_entity_manager_init(MtEntityManager *em, MtAllocator *alloc);
 
-void mt_entity_manager_destroy(MtEntityManager *em);
+MT_ENGINE_API void mt_entity_manager_destroy(MtEntityManager *em);
 
-MtEntityArchetype *mt_entity_manager_register_archetype(
+MT_ENGINE_API MtEntityArchetype *mt_entity_manager_register_archetype(
     MtEntityManager *em,
     MtComponentSpec *components,
     uint32_t component_count,
     MtEntityInitializer initializer);
 
-MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype);
+MT_ENGINE_API MtEntity
+mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype);

@@ -63,7 +63,7 @@ endif
 
 conf_file = configure_file(configuration: conf_data, output: 'glfw_config.h')
 
-glfw_lib = library('glfw', glfw_core_src + glfw_platform_src,
+glfw_lib = static_library('glfw', glfw_core_src + glfw_platform_src,
   include_directories: ['src', 'include'],
   dependencies: glfw_deps,
   c_args: ['-D_GLFW_USE_CONFIG_H'])
