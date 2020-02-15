@@ -73,6 +73,18 @@ static VkFrontFace front_face_to_vulkan(MtFrontFace front_face)
     return 0;
 }
 
+static VkPolygonMode polygon_mode_to_vulkan(MtPolygonMode polygon_mode)
+{
+    switch (polygon_mode)
+    {
+        case MT_POLYGON_MODE_FILL: return VK_POLYGON_MODE_FILL;
+        case MT_POLYGON_MODE_LINE: return VK_POLYGON_MODE_LINE;
+        case MT_POLYGON_MODE_POINT: return VK_POLYGON_MODE_POINT;
+        default: assert(0);
+    }
+    return 0;
+}
+
 static VkFilter filter_to_vulkan(MtFilter value)
 {
     switch (value)

@@ -362,9 +362,15 @@ static void create_device(MtDevice *dev)
         queue_create_infos[queue_create_info_count - 1].pQueuePriorities = &queue_priority;
     }
 
-    VkPhysicalDeviceFeatures device_features = {
-        .samplerAnisotropy = VK_TRUE,
-    };
+    VkPhysicalDeviceFeatures device_features = {0};
+    vkGetPhysicalDeviceFeatures(dev->physical_device, &device_features);
+
+    if (!device_features.fillModeNonSolid || !device_features.wideLines ||
+        !device_features.samplerAnisotropy || !device_features.textureCompressionBC)
+    {
+        mt_log_fatal("Vulkan physical device missing required features");
+        abort();
+    }
 
     VkDeviceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

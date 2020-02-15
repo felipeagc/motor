@@ -142,6 +142,7 @@ static MtPipeline *create_graphics_pipeline_hlsl(
         .depth_test = true,
         .depth_write = true,
         .depth_bias = false,
+        .polygon_mode = MT_POLYGON_MODE_FILL,
         .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
         .cull_mode = MT_CULL_MODE_NONE,
         .line_width = 1.0f,
@@ -183,6 +184,22 @@ static MtPipeline *create_graphics_pipeline_hlsl(
         {
             pipeline_create_info.depth_bias =
                 strncmp(pragma->value, "true", pragma->value_len) == 0;
+        }
+
+        if (strncmp(pragma->key, "polygon_mode", pragma->key_len) == 0)
+        {
+            if (strncmp(pragma->value, "fill", pragma->value_len) == 0)
+            {
+                pipeline_create_info.polygon_mode = MT_POLYGON_MODE_FILL;
+            }
+            else if (strncmp(pragma->value, "line", pragma->value_len) == 0)
+            {
+                pipeline_create_info.polygon_mode = MT_POLYGON_MODE_LINE;
+            }
+            else if (strncmp(pragma->value, "point", pragma->value_len) == 0)
+            {
+                pipeline_create_info.polygon_mode = MT_POLYGON_MODE_POINT;
+            }
         }
 
         if (strncmp(pragma->key, "front_face", pragma->key_len) == 0)

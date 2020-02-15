@@ -97,12 +97,20 @@ typedef enum MtFrontFace
     MT_FRONT_FACE_COUNTER_CLOCKWISE,
 } MtFrontFace;
 
+typedef enum MtPolygonMode
+{
+    MT_POLYGON_MODE_FILL,
+    MT_POLYGON_MODE_LINE,
+    MT_POLYGON_MODE_POINT,
+} MtPolygonMode;
+
 typedef struct MtGraphicsPipelineCreateInfo
 {
     bool blending;
     bool depth_test;
     bool depth_write;
     bool depth_bias;
+    MtPolygonMode polygon_mode;
     MtCullMode cull_mode;
     MtFrontFace front_face;
     float line_width;

@@ -32,6 +32,7 @@ typedef struct Game
 
     MtImageAsset *image;
     MtPipelineAsset *pbr_pipeline;
+    MtPipelineAsset *selected_pipeline;
     MtPipelineAsset *picking_pipeline;
     MtPipelineAsset *fullscreen_pipeline;
 
@@ -58,6 +59,8 @@ static void game_init(Game *g)
         am, "../assets/papermill_hdr16f_cube.ktx", (MtAsset **)&skybox_asset);
     mt_asset_manager_queue_load(am, "../assets/test.png", (MtAsset **)&g->image);
     mt_asset_manager_queue_load(am, "../assets/shaders/pbr.hlsl", (MtAsset **)&g->pbr_pipeline);
+    mt_asset_manager_queue_load(
+        am, "../assets/shaders/selected.hlsl", (MtAsset **)&g->selected_pipeline);
     mt_asset_manager_queue_load(
         am, "../assets/shaders/picking.hlsl", (MtAsset **)&g->picking_pipeline);
     mt_asset_manager_queue_load(
@@ -184,10 +187,14 @@ static void light_system(MtEntityArchetype *arch, MtEnvironment *env, float delt
 // }}}
 
 // Model system {{{
-static void model_system(MtCmdBuffer *cb, MtEntityArchetype *arch)
+static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
 {
+    mt_render.cmd_bind_pipeline(cb, g->pbr_pipeline->pipeline);
+    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+    mt_environment_bind(&g->env, cb, 3);
+
     MtModelArchetype *comps = (MtModelArchetype *)arch->components;
-    for (uint32_t e = 0; e < arch->entity_count; ++e)
+    for (MtEntity e = 0; e < arch->entity_count; ++e)
     {
         Mat4 transform = mat4_identity();
         transform = mat4_scale(transform, comps->scale[e]);
@@ -195,6 +202,21 @@ static void model_system(MtCmdBuffer *cb, MtEntityArchetype *arch)
         transform = mat4_translate(transform, comps->pos[e]);
 
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, 2);
+    }
+
+    if (arch->selected_entity != MT_ENTITY_INVALID)
+    {
+        MtEntity e = arch->selected_entity;
+
+        Mat4 transform = mat4_identity();
+        transform = mat4_scale(transform, comps->scale[e]);
+        transform = mat4_mul(quat_to_mat4(comps->rot[e]), transform);
+        transform = mat4_translate(transform, comps->pos[e]);
+
+        // Draw wireframe
+        mt_render.cmd_bind_pipeline(cb, g->selected_pipeline->pipeline);
+        mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+        mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, UINT32_MAX);
     }
 }
 // }}}
@@ -315,10 +337,7 @@ static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user
     mt_environment_draw_skybox(&g->env, cb);
 
     // Draw models
-    mt_render.cmd_bind_pipeline(cb, g->pbr_pipeline->pipeline);
-    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
-    mt_environment_bind(&g->env, cb, 3);
-    model_system(cb, g->model_archetype);
+    model_system(cb, g, g->model_archetype);
 
     // Draw UI
     mt_nuklear_render(nk_ctx, cb);

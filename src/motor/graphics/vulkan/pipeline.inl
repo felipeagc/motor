@@ -386,7 +386,7 @@ static void create_graphics_pipeline_instance(
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .depthClampEnable = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = VK_POLYGON_MODE_FILL,
+        .polygonMode = polygon_mode_to_vulkan(options->polygon_mode),
         .lineWidth = options->line_width,
         .cullMode = cull_mode_to_vulkan(options->cull_mode),
         .frontFace = front_face_to_vulkan(options->front_face),
@@ -462,10 +462,9 @@ static void create_graphics_pipeline_instance(
         .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f},
     };
 
-    VkDynamicState dynamic_states[4] = {
+    VkDynamicState dynamic_states[3] = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_LINE_WIDTH,
         VK_DYNAMIC_STATE_DEPTH_BIAS,
     };
 

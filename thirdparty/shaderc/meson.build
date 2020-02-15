@@ -1,4 +1,4 @@
-shaderc_include_dir = meson.source_root() / 'thirdparty/shaderc'
+shaderc_include_dir = include_directories('shaderc')
 
 if target_machine.system() == 'windows'
   shaderc_dep = cc.find_library('shaderc_shared', 
