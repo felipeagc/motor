@@ -10,6 +10,12 @@ add_project_arguments(cc.get_supported_arguments(['-Wno-missing-braces']), langu
 
 if get_option('default_library') == 'shared'
   add_project_arguments('-DMT_SHARED', language: 'c')
+  add_project_arguments('-DMT_SHARED', language: 'cpp')
+endif
+
+if get_option('debug') == true
+  add_project_arguments('-D_DEBUG', language: 'c')
+  add_project_arguments('-D_DEBUG', language: 'cpp')
 endif
 
 subdir('thirdparty')
@@ -35,9 +41,9 @@ motor_base_sources = [
 
 motor_base_deps = [m_dep, dl_dep, threads_dep]
 
-motor_base_c_args = []
+motor_base_args = []
 if get_option('default_library') == 'shared'
-  motor_base_c_args += ['-DMT_BASE_BUILD_SHARED']
+  motor_base_args += ['-DMT_BASE_BUILD_SHARED']
 endif
 
 motor_base_lib = library(
@@ -45,7 +51,8 @@ motor_base_lib = library(
   motor_base_sources,
   dependencies: motor_base_deps,
   include_directories: ['include'],
-  c_args: motor_base_c_args
+  c_args: motor_base_args,
+  cpp_args: motor_base_args
   )
 
 motor_base_dep = declare_dependency(
@@ -73,9 +80,9 @@ else
    error('OS not supported')
 endif
 
-motor_graphics_c_args = []
+motor_graphics_args = []
 if get_option('default_library') == 'shared'
-  motor_graphics_c_args += ['-DMT_GRAPHICS_BUILD_SHARED']
+  motor_graphics_args += ['-DMT_GRAPHICS_BUILD_SHARED']
 endif
 
 motor_graphics_lib = library(
@@ -83,7 +90,8 @@ motor_graphics_lib = library(
   motor_graphics_sources,
   dependencies: motor_graphics_deps,
   include_directories: ['include', 'thirdparty/vulkan-headers'],
-  c_args: motor_graphics_c_args
+  c_args: motor_graphics_args,
+  cpp_args: motor_graphics_args
   )
 
 motor_graphics_dep = declare_dependency(
@@ -114,24 +122,26 @@ motor_engine_sources = [
 ]
 
 motor_engine_deps = [motor_base_dep, motor_graphics_dep, shaderc_dep]
+motor_engine_deps += physx_deps
 
-motor_engine_c_args = []
+motor_engine_args = []
 if get_option('default_library') == 'shared'
-  motor_engine_c_args += ['-DMT_ENGINE_BUILD_SHARED']
+  motor_engine_args += ['-DMT_ENGINE_BUILD_SHARED']
 endif
 
 motor_engine_lib = library(
   'motor_engine',
   motor_engine_sources,
   dependencies: motor_engine_deps,
-  include_directories: ['include', shaderc_include_dir],
-  c_args: motor_engine_c_args
+  include_directories: ['include', shaderc_include_dir, physx_include_dirs],
+  c_args: motor_engine_args,
+  cpp_args: motor_engine_args
   )
 
 motor_engine_dep = declare_dependency(
   link_with: motor_engine_lib,
   dependencies: motor_engine_deps,
-  include_directories: ['include']
+  include_directories: ['include', shaderc_include_dir, physx_include_dirs]
   )
 
 executable('gltf_ktx', ['tools/gltf_ktx.c', 'tools/bc7enc16.c'], dependencies: [motor_base_dep])
@@ -140,6 +150,7 @@ executable('simple', 'examples/simple.c', dependencies: [motor_engine_dep])
 executable('watcher', 'examples/watcher.c', dependencies: [motor_engine_dep])
 executable('read_config', 'examples/read_config.c', dependencies: [motor_engine_dep])
 executable('tokenizer', 'examples/tokenizer.c', dependencies: [motor_base_dep])
+executable('physx', 'examples/physx.cpp', dependencies: [motor_base_dep, motor_engine_dep])
 
 arena_tests = executable('arena_tests', 'tests/arena_tests.c', dependencies: [motor_base_dep])
 test('arena', arena_tests)
