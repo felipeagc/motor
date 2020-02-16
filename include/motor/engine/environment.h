@@ -3,7 +3,7 @@
 #include "api_types.h"
 #include <motor/base/math_types.h>
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -73,6 +73,6 @@ MT_ENGINE_API void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint
 
 MT_ENGINE_API void mt_environment_destroy(MtEnvironment *env);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

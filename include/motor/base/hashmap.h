@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -39,6 +39,6 @@ MT_BASE_API void mt_hash_remove(MtHashMap *map, uint64_t key);
 
 MT_BASE_API void mt_hash_destroy(MtHashMap *map);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

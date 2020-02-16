@@ -2,7 +2,7 @@
 
 #include <motor/graphics/api_types.h>
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -22,6 +22,6 @@ typedef struct MtVulkanDeviceCreateInfo
 MT_GRAPHICS_API MtDevice *
 mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -49,6 +49,6 @@ typedef struct MtToken
 MT_BASE_API MtToken *
 mt_lexer_scan(const char *input, uint64_t input_size, MtAllocator *alloc, uint64_t *token_count);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

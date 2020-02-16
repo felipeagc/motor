@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -13,6 +13,6 @@ mt_bump_alloc_init(MtAllocator *alloc, uint64_t base_block_size, MtAllocator *pa
 
 MT_BASE_API void mt_bump_alloc_destroy(MtAllocator *alloc);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

@@ -6,7 +6,7 @@
 #include "nuklear_impl.h"
 #include <motor/base/thread_pool.h>
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -44,6 +44,6 @@ MT_ENGINE_API void mt_engine_init(MtEngine *engine);
 
 MT_ENGINE_API void mt_engine_destroy(MtEngine *engine);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

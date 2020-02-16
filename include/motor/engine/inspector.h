@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -13,6 +13,6 @@ struct nk_context;
 MT_ENGINE_API void
 mt_inspect_archetype(MtWindow *window, struct nk_context *nk, MtEntityArchetype *archetype);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

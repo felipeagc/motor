@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -33,6 +33,6 @@ MT_PRINTF_FORMATTING(4, 5)
 MT_BASE_API void
 mt_log_log(MtLogLevel level, const char *filename, uint32_t line, const char *fmt, ...);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

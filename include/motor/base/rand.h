@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -17,6 +17,6 @@ MT_BASE_API uint64_t mt_xor_shift(MtXorShift *xs);
 
 MT_BASE_API float mt_xor_shift_float(MtXorShift *xs, float min, float max);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

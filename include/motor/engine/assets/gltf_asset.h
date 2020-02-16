@@ -3,7 +3,7 @@
 #include "../api_types.h"
 #include <motor/base/math_types.h>
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -21,6 +21,6 @@ MT_ENGINE_API void mt_gltf_asset_draw(
     uint32_t model_set,
     uint32_t material_set);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

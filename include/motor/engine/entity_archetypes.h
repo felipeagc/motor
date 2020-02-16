@@ -2,7 +2,7 @@
 
 #include <motor/base/math.h>
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -50,6 +50,6 @@ static inline void mt_point_light_archetype_init(void *data, MtEntity e)
     comps->color[e] = V3(1, 1, 1);
 }
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

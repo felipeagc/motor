@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -58,6 +58,6 @@ MT_BASE_API void *mt_array_grow(MtAllocator *alloc, void *a, uint64_t item_size,
 
 #define mt_array_foreach(item, a) for (item = (a); item != (a) + mt_array_size(a); ++item)
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

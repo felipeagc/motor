@@ -2,7 +2,7 @@
 
 #include "threads.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -55,6 +55,6 @@ MT_BASE_API void mt_thread_pool_wait_all(MtThreadPool *pool);
 
 MT_BASE_API uint32_t mt_thread_pool_queue_size(MtThreadPool *pool);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

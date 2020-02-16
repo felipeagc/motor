@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -30,6 +30,6 @@ MT_BASE_API char *mt_str_builder_build(MtStringBuilder *sb, MtAllocator *allocat
 
 MT_BASE_API void mt_str_builder_destroy(MtStringBuilder *sb);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

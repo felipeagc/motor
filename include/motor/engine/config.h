@@ -3,7 +3,7 @@
 #include "api_types.h"
 #include <motor/base/hashmap.h>
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -56,6 +56,6 @@ MT_ENGINE_API MtConfigObject *mt_config_get_root(MtConfig *config);
 
 MT_ENGINE_API void mt_config_destroy(MtConfig *config);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

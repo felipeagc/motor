@@ -5,7 +5,7 @@
 #include <motor/base/hashmap.h>
 #include <motor/base/threads.h>
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -37,6 +37,6 @@ MT_ENGINE_API MtAsset *mt_asset_manager_get(MtAssetManager *am, const char *path
 
 MT_ENGINE_API void mt_asset_manager_destroy(MtAssetManager *am);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

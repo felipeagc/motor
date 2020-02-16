@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -10,6 +10,6 @@ extern MtAssetVT *mt_font_asset_vt;
 
 typedef struct MtFontAsset MtFontAsset;
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

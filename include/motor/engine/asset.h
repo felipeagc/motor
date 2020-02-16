@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -28,6 +28,6 @@ typedef struct MtIAsset
     MtAssetVT *vt;
 } MtIAsset;
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

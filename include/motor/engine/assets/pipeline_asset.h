@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -18,6 +18,6 @@ typedef struct MtPipelineAsset
     MtPipeline *pipeline;
 } MtPipelineAsset;
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

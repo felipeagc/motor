@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -21,6 +21,6 @@ MT_ENGINE_API struct nk_context *mt_nuklear_get_context(MtNuklearContext *ctx);
 
 MT_ENGINE_API void mt_nuklear_destroy(MtNuklearContext *ctx);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

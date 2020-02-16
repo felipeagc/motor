@@ -2,7 +2,7 @@
 
 #include "math_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -898,6 +898,6 @@ MT_MATH_INLINE float clamp(float value, float min_val, float max_val)
     return fminf(fmaxf(value, min_val), max_val);
 }
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif
