@@ -68,6 +68,7 @@ static void game_init(Game *g)
 
     mt_asset_manager_queue_load(am, "../assets/helmet_ktx.glb", NULL);
     mt_asset_manager_queue_load(am, "../assets/boombox_ktx.glb", NULL);
+    mt_asset_manager_queue_load(am, "../assets/lantern_ktx.glb", NULL);
     mt_asset_manager_queue_load(am, "../assets/sponza_ktx.glb", NULL);
 
     // Wait for assets to load
@@ -108,6 +109,12 @@ static void game_init(Game *g)
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
         comps->scale[e] = V3(100, 100, 100);
         comps->pos[e] = V3(1.5, 1, 0);
+        comps->rot[e] = (Quat){0, 0, 0, 1};
+
+        e = mt_entity_manager_add_entity(em, g->model_archetype);
+        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/lantern_ktx.glb");
+        comps->scale[e] = V3(0.2f, 0.2f, 0.2f);
+        comps->pos[e] = V3(4, 0, 0);
         comps->rot[e] = (Quat){0, 0, 0, 1};
 
         e = mt_entity_manager_add_entity(em, g->model_archetype);
