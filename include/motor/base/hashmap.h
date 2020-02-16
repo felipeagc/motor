@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 #define MT_HASH_UNUSED UINTPTR_MAX
 #define MT_HASH_NOT_FOUND UINTPTR_MAX
 
@@ -34,3 +38,7 @@ MT_BASE_API void *mt_hash_get_ptr(MtHashMap *map, uint64_t key);
 MT_BASE_API void mt_hash_remove(MtHashMap *map, uint64_t key);
 
 MT_BASE_API void mt_hash_destroy(MtHashMap *map);
+
+#ifdef __cpluspus
+}
+#endif

@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtAllocator MtAllocator;
 typedef struct MtDevice MtDevice;
 typedef struct MtWindow MtWindow;
@@ -18,7 +22,8 @@ typedef struct MtRenderGraphPass MtRenderGraphPass;
 typedef void (*MtRenderGraphBuilder)(MtRenderGraph *, void *user_data);
 typedef void (*MtRenderGraphPassBuilder)(MtRenderGraph *, MtCmdBuffer *, void *user_data);
 
-typedef union MtClearColorValue {
+typedef union MtClearColorValue
+{
     float float32[4];
     int32_t int32[4];
     uint32_t uint32[4];
@@ -30,20 +35,19 @@ typedef struct MtClearDepthStencilValue
     uint32_t stencil;
 } MtClearDepthStencilValue;
 
-typedef union MtClearValue {
+typedef union MtClearValue
+{
     MtClearColorValue color;
     MtClearDepthStencilValue depth_stencil;
 } MtClearValue;
 
-typedef enum MtQueueType
-{
+typedef enum MtQueueType {
     MT_QUEUE_GRAPHICS,
     MT_QUEUE_COMPUTE,
     MT_QUEUE_TRANSFER,
 } MtQueueType;
 
-typedef enum MtFormat
-{
+typedef enum MtFormat {
     MT_FORMAT_UNDEFINED,
 
     MT_FORMAT_R8_UINT,
@@ -77,28 +81,24 @@ typedef enum MtFormat
     MT_FORMAT_BC7_SRGB_BLOCK,
 } MtFormat;
 
-typedef enum MtIndexType
-{
+typedef enum MtIndexType {
     MT_INDEX_TYPE_UINT32,
     MT_INDEX_TYPE_UINT16,
 } MtIndexType;
 
-typedef enum MtCullMode
-{
+typedef enum MtCullMode {
     MT_CULL_MODE_NONE,
     MT_CULL_MODE_BACK,
     MT_CULL_MODE_FRONT,
     MT_CULL_MODE_FRONT_AND_BACK,
 } MtCullMode;
 
-typedef enum MtFrontFace
-{
+typedef enum MtFrontFace {
     MT_FRONT_FACE_CLOCKWISE,
     MT_FRONT_FACE_COUNTER_CLOCKWISE,
 } MtFrontFace;
 
-typedef enum MtPolygonMode
-{
+typedef enum MtPolygonMode {
     MT_POLYGON_MODE_FILL,
     MT_POLYGON_MODE_LINE,
     MT_POLYGON_MODE_POINT,
@@ -126,8 +126,7 @@ typedef struct MtViewport
     float max_depth;
 } MtViewport;
 
-typedef enum MtBufferUsage
-{
+typedef enum MtBufferUsage {
     MT_BUFFER_USAGE_VERTEX,
     MT_BUFFER_USAGE_INDEX,
     MT_BUFFER_USAGE_UNIFORM,
@@ -135,8 +134,7 @@ typedef enum MtBufferUsage
     MT_BUFFER_USAGE_TRANSFER,
 } MtBufferUsage;
 
-typedef enum MtBufferMemory
-{
+typedef enum MtBufferMemory {
     MT_BUFFER_MEMORY_HOST,
     MT_BUFFER_MEMORY_DEVICE,
 } MtBufferMemory;
@@ -148,8 +146,7 @@ typedef struct MtBufferCreateInfo
     size_t size;
 } MtBufferCreateInfo;
 
-typedef enum MtImageUsage
-{
+typedef enum MtImageUsage {
     MT_IMAGE_USAGE_SAMPLED_BIT = 1 << 0,
     MT_IMAGE_USAGE_STORAGE_BIT = 1 << 1,
     MT_IMAGE_USAGE_TRANSFER_SRC_BIT = 1 << 2,
@@ -158,8 +155,7 @@ typedef enum MtImageUsage
     MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT = 1 << 5,
 } MtImageUsage;
 
-typedef enum MtImageAspect
-{
+typedef enum MtImageAspect {
     MT_IMAGE_ASPECT_COLOR_BIT = 1 << 0,
     MT_IMAGE_ASPECT_DEPTH_BIT = 1 << 1,
     MT_IMAGE_ASPECT_STENCIL_BIT = 1 << 2,
@@ -178,14 +174,12 @@ typedef struct MtImageCreateInfo
     MtImageAspect aspect;
 } MtImageCreateInfo;
 
-typedef enum MtFilter
-{
+typedef enum MtFilter {
     MT_FILTER_LINEAR,
     MT_FILTER_NEAREST,
 } MtFilter;
 
-typedef enum MtSamplerAddressMode
-{
+typedef enum MtSamplerAddressMode {
     MT_SAMPLER_ADDRESS_MODE_REPEAT,
     MT_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
     MT_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -193,8 +187,7 @@ typedef enum MtSamplerAddressMode
     MT_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
 } MtSamplerAddressMode;
 
-typedef enum MtBorderColor
-{
+typedef enum MtBorderColor {
     MT_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
     MT_BORDER_COLOR_INT_TRANSPARENT_BLACK,
     MT_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
@@ -243,8 +236,7 @@ typedef struct MtImageCopyView
     MtOffset3D offset;
 } MtImageCopyView;
 
-typedef enum MtPipelineStage
-{
+typedef enum MtPipelineStage {
     MT_PIPELINE_STAGE_FRAGMENT_SHADER,
     MT_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT,
     MT_PIPELINE_STAGE_ALL_GRAPHICS,
@@ -252,15 +244,13 @@ typedef enum MtPipelineStage
     MT_PIPELINE_STAGE_TRANSFER,
 } MtPipelineStage;
 
-typedef enum MtRenderGraphPassRead
-{
+typedef enum MtRenderGraphPassRead {
     MT_PASS_READ_IMAGE_TRANSFER,
     MT_PASS_READ_SAMPLED_IMAGE,
     MT_PASS_READ_BUFFER,
 } MtRenderGraphPassRead;
 
-typedef enum MtRenderGraphPassWrite
-{
+typedef enum MtRenderGraphPassWrite {
     MT_PASS_WRITE_COLOR_ATTACHMENT,
     MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT,
     MT_PASS_WRITE_BUFFER,
@@ -384,3 +374,7 @@ typedef struct MtRenderer
 } MtRenderer;
 
 MT_GRAPHICS_API extern MtRenderer mt_render;
+
+#ifdef __cpluspus
+}
+#endif

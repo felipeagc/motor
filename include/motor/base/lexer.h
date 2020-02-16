@@ -2,10 +2,13 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtAllocator MtAllocator;
 
-typedef enum MtTokenType
-{
+typedef enum MtTokenType {
     MT_TOKEN_UNKNOWN,
 
     MT_TOKEN_NEWLINE,
@@ -36,7 +39,8 @@ typedef struct MtToken
     MtTokenType type;
     uint32_t length;
     const char *string;
-    union {
+    union
+    {
         int64_t i64;
         double f64;
     };
@@ -44,3 +48,7 @@ typedef struct MtToken
 
 MT_BASE_API MtToken *
 mt_lexer_scan(const char *input, uint64_t input_size, MtAllocator *alloc, uint64_t *token_count);
+
+#ifdef __cpluspus
+}
+#endif

@@ -3,6 +3,10 @@
 #include "../api_types.h"
 #include <motor/base/math_types.h>
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtAssetVT MtAssetVT;
 typedef struct MtCmdBuffer MtCmdBuffer;
 
@@ -16,3 +20,7 @@ MT_ENGINE_API void mt_gltf_asset_draw(
     Mat4 *transform,
     uint32_t model_set,
     uint32_t material_set);
+
+#ifdef __cpluspus
+}
+#endif

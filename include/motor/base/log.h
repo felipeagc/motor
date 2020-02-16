@@ -2,8 +2,11 @@
 
 #include "api_types.h"
 
-typedef enum MtLogLevel
-{
+#ifdef __cpluspus
+extern "C" {
+#endif
+
+typedef enum MtLogLevel {
     MT_LOG_INFO,
     MT_LOG_DEBUG,
     MT_LOG_WARN,
@@ -27,4 +30,9 @@ typedef enum MtLogLevel
 MT_BASE_API void mt_log_init();
 
 MT_PRINTF_FORMATTING(4, 5)
-MT_BASE_API void mt_log_log(MtLogLevel level, const char *filename, uint32_t line, const char *fmt, ...);
+MT_BASE_API void
+mt_log_log(MtLogLevel level, const char *filename, uint32_t line, const char *fmt, ...);
+
+#ifdef __cpluspus
+}
+#endif

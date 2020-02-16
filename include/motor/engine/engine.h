@@ -6,6 +6,10 @@
 #include "nuklear_impl.h"
 #include <motor/base/thread_pool.h>
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtDevice MtDevice;
 typedef struct MtWindow MtWindow;
 typedef struct MtSwapchain MtSwapchain;
@@ -39,3 +43,7 @@ typedef struct MtEngine
 MT_ENGINE_API void mt_engine_init(MtEngine *engine);
 
 MT_ENGINE_API void mt_engine_destroy(MtEngine *engine);
+
+#ifdef __cpluspus
+}
+#endif

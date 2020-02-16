@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtAllocator MtAllocator;
 
 typedef struct MtStringBuilder
@@ -25,3 +29,7 @@ MT_BASE_API void mt_str_builder_append_char(MtStringBuilder *sb, char c);
 MT_BASE_API char *mt_str_builder_build(MtStringBuilder *sb, MtAllocator *allocator);
 
 MT_BASE_API void mt_str_builder_destroy(MtStringBuilder *sb);
+
+#ifdef __cpluspus
+}
+#endif

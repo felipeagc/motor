@@ -3,6 +3,10 @@
 #include "api_types.h"
 #include <motor/base/math_types.h>
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtCmdBuffer MtCmdBuffer;
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
@@ -68,3 +72,7 @@ MT_ENGINE_API void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *c
 MT_ENGINE_API void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set);
 
 MT_ENGINE_API void mt_environment_destroy(MtEnvironment *env);
+
+#ifdef __cpluspus
+}
+#endif

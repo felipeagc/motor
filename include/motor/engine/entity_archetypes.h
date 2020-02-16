@@ -2,6 +2,10 @@
 
 #include <motor/base/math.h>
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtGltfAsset MtGltfAsset;
 
 typedef struct MtModelArchetype
@@ -45,3 +49,7 @@ static inline void mt_point_light_archetype_init(void *data, MtEntity e)
     comps->pos[e] = V3(0, 0, 0);
     comps->color[e] = V3(1, 1, 1);
 }
+
+#ifdef __cpluspus
+}
+#endif

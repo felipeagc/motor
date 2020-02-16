@@ -2,6 +2,10 @@
 
 #include "threads.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtAllocator MtAllocator;
 
 typedef struct MtThreadPoolTask
@@ -50,3 +54,7 @@ MT_BASE_API bool mt_thread_pool_is_busy(MtThreadPool *pool);
 MT_BASE_API void mt_thread_pool_wait_all(MtThreadPool *pool);
 
 MT_BASE_API uint32_t mt_thread_pool_queue_size(MtThreadPool *pool);
+
+#ifdef __cpluspus
+}
+#endif

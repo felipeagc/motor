@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtAllocator MtAllocator;
 typedef struct MtEntityManager MtEntityManager;
 
@@ -14,8 +18,7 @@ typedef struct MtEntityManager MtEntityManager;
 typedef int32_t MtEntity;
 typedef void (*MtEntityInitializer)(void *data, MtEntity entity);
 
-typedef enum MtComponentType
-{
+typedef enum MtComponentType {
     MT_COMPONENT_TYPE_UNKNOWN = 0,
     MT_COMPONENT_TYPE_VEC3,
     MT_COMPONENT_TYPE_QUAT,
@@ -65,3 +68,7 @@ MT_ENGINE_API MtEntityArchetype *mt_entity_manager_register_archetype(
 
 MT_ENGINE_API MtEntity
 mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype);
+
+#ifdef __cpluspus
+}
+#endif

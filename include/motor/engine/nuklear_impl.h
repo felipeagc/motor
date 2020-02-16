@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtNuklearContext MtNuklearContext;
 typedef struct MtEngine MtEngine;
 typedef struct MtEvent MtEvent;
@@ -16,3 +20,7 @@ MT_ENGINE_API void mt_nuklear_render(MtNuklearContext *ctx, MtCmdBuffer *cb);
 MT_ENGINE_API struct nk_context *mt_nuklear_get_context(MtNuklearContext *ctx);
 
 MT_ENGINE_API void mt_nuklear_destroy(MtNuklearContext *ctx);
+
+#ifdef __cpluspus
+}
+#endif

@@ -3,6 +3,10 @@
 #include "api_types.h"
 #include <motor/base/hashmap.h>
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtAllocator MtAllocator;
 typedef struct MtConfigEntry MtConfigEntry;
 
@@ -12,8 +16,7 @@ typedef struct MtConfigObject
     MtHashMap map;
 } MtConfigObject;
 
-typedef enum MtConfigValueType
-{
+typedef enum MtConfigValueType {
     MT_CONFIG_VALUE_STRING,
     MT_CONFIG_VALUE_INT,
     MT_CONFIG_VALUE_FLOAT,
@@ -24,7 +27,8 @@ typedef enum MtConfigValueType
 typedef struct MtConfigValue
 {
     MtConfigValueType type;
-    union {
+    union
+    {
         struct
         {
             const char *string;
@@ -51,3 +55,7 @@ MT_ENGINE_API MtConfig *mt_config_parse(MtAllocator *alloc, const char *input, u
 MT_ENGINE_API MtConfigObject *mt_config_get_root(MtConfig *config);
 
 MT_ENGINE_API void mt_config_destroy(MtConfig *config);
+
+#ifdef __cpluspus
+}
+#endif

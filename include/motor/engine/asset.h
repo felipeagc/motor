@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtAsset MtAsset;
 typedef struct MtAssetManager MtAssetManager;
 
@@ -23,3 +27,7 @@ typedef struct MtIAsset
     MtAsset *inst;
     MtAssetVT *vt;
 } MtIAsset;
+
+#ifdef __cpluspus
+}
+#endif

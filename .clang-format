@@ -5,7 +5,16 @@ IndentWidth: 4
 ColumnLimit: 100
 
 IndentCaseLabels: true
-BreakBeforeBraces: Allman
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterStruct: true
+  SplitEmptyFunction: true
+  AfterFunction: true
+  AfterUnion: true
+  BeforeElse: true
+  AfterControlStatement: true
+  AfterEnum: false
+  AfterExternBlock: false
 
 BinPackParameters: false
 BinPackArguments: false 

@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 // clang-format off
 #if defined(_WIN32)
 #elif defined(__APPLE__)
@@ -19,15 +23,13 @@ typedef struct MtWindow MtWindow;
 typedef struct MtRenderPass MtRenderPass;
 typedef struct MtCmdBuffer MtCmdBuffer;
 
-typedef enum MtCursorMode
-{
+typedef enum MtCursorMode {
     MT_CURSOR_MODE_NORMAL,
     MT_CURSOR_MODE_HIDDEN,
     MT_CURSOR_MODE_DISABLED,
 } MtCursorMode;
 
-typedef enum MtCursorType
-{
+typedef enum MtCursorType {
     MT_CURSOR_TYPE_ARROW,
     MT_CURSOR_TYPE_IBEAM,
     MT_CURSOR_TYPE_CROSSHAIR,
@@ -37,15 +39,13 @@ typedef enum MtCursorType
     MT_CURSOR_TYPE_MAX,
 } MtCursorType;
 
-typedef enum MtInputState
-{
+typedef enum MtInputState {
     MT_INPUT_STATE_RELEASE = 0,
     MT_INPUT_STATE_PRESS = 1,
     MT_INPUT_STATE_REPEAT = 2,
 } MtInputState;
 
-typedef enum MtMouseButton
-{
+typedef enum MtMouseButton {
     MT_MOUSE_BUTTON1 = 0,
     MT_MOUSE_BUTTON2 = 1,
     MT_MOUSE_BUTTON3 = 2,
@@ -59,8 +59,7 @@ typedef enum MtMouseButton
     MT_MOUSE_BUTTON_MIDDLE = MT_MOUSE_BUTTON3,
 } MtMouseButton;
 
-typedef enum MtKey
-{
+typedef enum MtKey {
     MT_KEY_UNKNOWN = -1,
 
     /* Printable keys */
@@ -190,8 +189,7 @@ typedef enum MtKey
     MT_KEY_LAST = MT_KEY_MENU,
 } MtKey;
 
-typedef enum MtEventType
-{
+typedef enum MtEventType {
     MT_EVENT_NONE,
     MT_EVENT_WINDOW_MOVED,
     MT_EVENT_WINDOW_RESIZED,
@@ -224,12 +222,14 @@ typedef enum MtEventType
 typedef struct MtEvent
 {
     MtEventType type;
-    union {
+    union
+    {
         MtWindow *window;
         void *monitor;
         int32_t joystick;
     };
-    union {
+    union
+    {
         struct
         {
             int32_t x;
@@ -303,3 +303,7 @@ typedef struct MtWindowSystem
 } MtWindowSystem;
 
 MT_GRAPHICS_API extern MtWindowSystem mt_window;
+
+#ifdef __cpluspus
+}
+#endif

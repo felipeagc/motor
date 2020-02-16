@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 #if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) && !defined(_Thread_local)
 #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
 #define _Thread_local __thread
@@ -40,7 +44,8 @@ MT_BASE_API int32_t mt_thread_wait(MtThread thread, int32_t *res);
 
 typedef struct MtMutex
 {
-    union {
+    union
+    {
         void *align;
         uint8_t data[64];
     };
@@ -58,7 +63,8 @@ MT_BASE_API int32_t mt_mutex_unlock(MtMutex *mtx);
 
 typedef struct MtCond
 {
-    union {
+    union
+    {
         void *align;
         uint8_t data[64];
     };
@@ -73,3 +79,7 @@ MT_BASE_API int32_t mt_cond_wake_one(MtCond *cond);
 MT_BASE_API int32_t mt_cond_wake_all(MtCond *cond);
 
 MT_BASE_API int32_t mt_cond_wait(MtCond *cond, MtMutex *mtx);
+
+#ifdef __cpluspus
+}
+#endif

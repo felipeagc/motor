@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtPipeline MtPipeline;
 
 typedef struct MtAssetManager MtAssetManager;
@@ -13,3 +17,7 @@ typedef struct MtPipelineAsset
     MtAssetManager *asset_manager;
     MtPipeline *pipeline;
 } MtPipelineAsset;
+
+#ifdef __cpluspus
+}
+#endif

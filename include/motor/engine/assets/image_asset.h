@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
 
@@ -13,3 +17,7 @@ typedef struct MtImageAsset
     MtAssetManager *asset_manager;
     MtImage *image;
 } MtImageAsset;
+
+#ifdef __cpluspus
+}
+#endif

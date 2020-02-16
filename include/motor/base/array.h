@@ -2,6 +2,10 @@
 
 #include "api_types.h"
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 // The size of this is important to keep things aligned properly (16-byte alignment)
 typedef struct MtArrayHeader
 {
@@ -53,3 +57,7 @@ MT_BASE_API void *mt_array_grow(MtAllocator *alloc, void *a, uint64_t item_size,
 #define mt_array_free(alloc, a) ((a) ? mt_free(alloc, mt_array_header(a)) : 0)
 
 #define mt_array_foreach(item, a) for (item = (a); item != (a) + mt_array_size(a); ++item)
+
+#ifdef __cpluspus
+}
+#endif

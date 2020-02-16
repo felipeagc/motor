@@ -3,6 +3,10 @@
 #include "api_types.h"
 #include <motor/base/math_types.h>
 
+#ifdef __cpluspus
+extern "C" {
+#endif
+
 typedef struct MtWindow MtWindow;
 typedef struct MtEvent MtEvent;
 
@@ -39,3 +43,7 @@ MT_ENGINE_API void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEven
 
 MT_ENGINE_API void
 mt_perspective_camera_update(MtPerspectiveCamera *c, MtWindow *win, float aspect, float delta_time);
+
+#ifdef __cpluspus
+}
+#endif
