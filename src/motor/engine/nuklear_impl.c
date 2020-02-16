@@ -78,8 +78,8 @@ MtNuklearContext *mt_nuklear_create(MtEngine *engine)
 
     nk_init_default(&ctx->ctx, 0);
 
-    ctx->pipeline = (MtPipelineAsset *)mt_asset_manager_load(
-        &engine->asset_manager, "../assets/shaders/ui.hlsl");
+    ctx->pipeline =
+        (MtPipelineAsset *)mt_asset_manager_load(&engine->asset_manager, "../shaders/ui.hlsl");
     assert(ctx->pipeline);
 
     ctx->sampler = mt_render.create_sampler(
@@ -87,8 +87,8 @@ MtNuklearContext *mt_nuklear_create(MtEngine *engine)
         &(MtSamplerCreateInfo){.mag_filter = MT_FILTER_NEAREST, .min_filter = MT_FILTER_NEAREST});
 
     font_stash_begin(ctx);
-    struct nk_font *font =
-        nk_font_atlas_add_from_file(&ctx->atlas, "../assets/fonts/SourceSansPro-Regular.ttf", 18, 0);
+    struct nk_font *font = nk_font_atlas_add_from_file(
+        &ctx->atlas, "../assets/fonts/SourceSansPro-Regular.ttf", 18, 0);
     font_stash_end(ctx);
 
     nk_style_set_font(&ctx->ctx, &font->handle);

@@ -58,13 +58,11 @@ static void game_init(Game *g)
     mt_asset_manager_queue_load(
         am, "../assets/papermill_hdr16f_cube.ktx", (MtAsset **)&skybox_asset);
     mt_asset_manager_queue_load(am, "../assets/test.png", (MtAsset **)&g->image);
-    mt_asset_manager_queue_load(am, "../assets/shaders/pbr.hlsl", (MtAsset **)&g->pbr_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/pbr.hlsl", (MtAsset **)&g->pbr_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/selected.hlsl", (MtAsset **)&g->selected_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/picking.hlsl", (MtAsset **)&g->picking_pipeline);
     mt_asset_manager_queue_load(
-        am, "../assets/shaders/selected.hlsl", (MtAsset **)&g->selected_pipeline);
-    mt_asset_manager_queue_load(
-        am, "../assets/shaders/picking.hlsl", (MtAsset **)&g->picking_pipeline);
-    mt_asset_manager_queue_load(
-        am, "../assets/shaders/fullscreen.hlsl", (MtAsset **)&g->fullscreen_pipeline);
+        am, "../shaders/fullscreen.hlsl", (MtAsset **)&g->fullscreen_pipeline);
 
     mt_asset_manager_queue_load(am, "../assets/helmet_ktx.glb", NULL);
     mt_asset_manager_queue_load(am, "../assets/boombox_ktx.glb", NULL);

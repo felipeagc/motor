@@ -110,7 +110,7 @@ static void brdf_graph_builder(MtRenderGraph *graph, void *user_data)
 static MtImage *generate_brdf_lut(MtEngine *engine)
 {
     // Create pipeline
-    const char *path = "../assets/shaders/brdf.hlsl";
+    const char *path = "../shaders/brdf.hlsl";
 
     FILE *f = fopen(path, "rb");
     if (!f)
@@ -271,8 +271,8 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
     const char *path = NULL;
     switch (type)
     {
-        case CUBEMAP_IRRADIANCE: path = "../assets/shaders/irradiance_cube.hlsl"; break;
-        case CUBEMAP_RADIANCE: path = "../assets/shaders/prefilter_env_map.hlsl"; break;
+        case CUBEMAP_IRRADIANCE: path = "../shaders/irradiance_cube.hlsl"; break;
+        case CUBEMAP_RADIANCE: path = "../shaders/prefilter_env_map.hlsl"; break;
     }
 
     FILE *f = fopen(path, "rb");
@@ -420,7 +420,7 @@ void mt_environment_init(
     env->radiance_mip_levels = 1.0f;
 
     env->skybox_pipeline =
-        (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../assets/shaders/skybox.hlsl");
+        (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../shaders/skybox.hlsl");
 
     env->skybox_asset = skybox_asset;
 
