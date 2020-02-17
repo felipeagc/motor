@@ -7,13 +7,17 @@ static uint64_t vulkan_hash_render_pass(VkRenderPassCreateInfo *ci)
 
     XXH64_hash_t const seed = 0; /* or any other value */
     if (XXH64_reset(&state, seed) == XXH_ERROR)
+    {
+        mt_log_fatal("Hashing failed");
         abort();
+    }
 
     assert(ci->attachmentCount > 0);
 
     if (XXH64_update(&state, ci->pAttachments, ci->attachmentCount * sizeof(*ci->pAttachments)) ==
         XXH_ERROR)
     {
+        mt_log_fatal("Hashing failed");
         abort();
     }
 
@@ -23,6 +27,7 @@ static uint64_t vulkan_hash_render_pass(VkRenderPassCreateInfo *ci)
         if (XXH64_update(&state, &subpass->pipelineBindPoint, sizeof(subpass->pipelineBindPoint)) ==
             XXH_ERROR)
         {
+            mt_log_fatal("Hashing failed");
             abort();
         }
 
@@ -34,6 +39,7 @@ static uint64_t vulkan_hash_render_pass(VkRenderPassCreateInfo *ci)
                     subpass->colorAttachmentCount * sizeof(*subpass->pColorAttachments)) ==
                 XXH_ERROR)
             {
+                mt_log_fatal("Hashing failed");
                 abort();
             }
         }
@@ -42,6 +48,7 @@ static uint64_t vulkan_hash_render_pass(VkRenderPassCreateInfo *ci)
     if (XXH64_update(&state, ci->pDependencies, ci->dependencyCount * sizeof(*ci->pDependencies)) ==
         XXH_ERROR)
     {
+        mt_log_fatal("Hashing failed");
         abort();
     }
 

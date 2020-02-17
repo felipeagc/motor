@@ -2,6 +2,7 @@
 
 #include <motor/base/array.h>
 #include <motor/base/allocator.h>
+#include <motor/base/log.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
@@ -153,7 +154,6 @@ void mt_thread_pool_wait_all(MtThreadPool *pool)
     }
 
     mt_mutex_unlock(&pool->queue_mutex);
-    return;
 }
 
 uint32_t mt_thread_pool_queue_size(MtThreadPool *pool)

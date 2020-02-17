@@ -9,10 +9,7 @@
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/vulkan/vulkan_device.h>
 
-enum
-{
-    FRAMES_IN_FLIGHT = 2
-};
+enum { FRAMES_IN_FLIGHT = 2 };
 
 #define VK_CHECK(exp)                                                                              \
     do                                                                                             \
@@ -20,7 +17,7 @@ enum
         VkResult result = exp;                                                                     \
         if (result != VK_SUCCESS)                                                                  \
         {                                                                                          \
-            printf("Vulkan result: %u\n", result);                                                 \
+            mt_log_error("Vulkan result: %u\n", result);                                           \
         }                                                                                          \
         assert(result == VK_SUCCESS);                                                              \
     } while (0)
@@ -152,8 +149,7 @@ typedef struct SubmitInfo
     VkFence fence;
 } SubmitInfo;
 
-enum
-{
+enum {
     MAX_DESCRIPTOR_BINDINGS = 8,
     MAX_DESCRIPTOR_SETS = 8,
     MAX_VERTEX_ATTRIBUTES = 8,
@@ -185,15 +181,13 @@ typedef struct Shader
     VertexAttribute vertex_attributes[MAX_VERTEX_ATTRIBUTES];
 } Shader;
 
-typedef union Descriptor {
+typedef union Descriptor
+{
     VkDescriptorImageInfo image;
     VkDescriptorBufferInfo buffer;
 } Descriptor;
 
-enum
-{
-    SETS_PER_PAGE = 16
-};
+enum { SETS_PER_PAGE = 16 };
 
 typedef struct DescriptorPool
 {
@@ -299,8 +293,7 @@ typedef struct MtSampler
     VkSampler sampler;
 } MtSampler;
 
-typedef enum GraphResourceType
-{
+typedef enum GraphResourceType {
     GRAPH_RESOURCE_IMAGE,
     GRAPH_RESOURCE_BUFFER,
     GRAPH_RESOURCE_EXTERNAL_BUFFER,
@@ -314,7 +307,8 @@ typedef struct GraphResource
     uint32_t *read_in_passes;
     uint32_t *written_in_passes;
 
-    union {
+    union
+    {
         struct
         {
             MtImageCreateInfo image_info;

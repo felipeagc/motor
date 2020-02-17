@@ -100,9 +100,11 @@ MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
                         return iasset_ptr->inst;
                     }
 
+                    mt_log_error("Failed to load asset: %s", path);
                     return NULL;
                 }
 
+                mt_log_error("Failed to load asset: %s", path);
                 return NULL;
             }
         }

@@ -64,8 +64,8 @@ static const char *INSTANCE_EXTENSIONS[1] = {
     VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 };
 #else
-static const char *VALIDATION_LAYERS[0] = {};
-static const char *INSTANCE_EXTENSIONS[0] = {};
+/* static const char *VALIDATION_LAYERS[0] = {}; */
+/* static const char *INSTANCE_EXTENSIONS[0] = {}; */
 #endif
 
 static const char *DEVICE_EXTENSIONS[1] = {
@@ -81,7 +81,7 @@ static VkBool32 debug_callback(
 {
     if (message_severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
     {
-        printf("Validation layer: %s\n", p_callback_data->pMessage);
+        mt_log("Validation layer: %s\n", p_callback_data->pMessage);
     }
     return VK_FALSE;
 }
@@ -92,6 +92,7 @@ static bool are_indices_complete(MtDevice *dev, QueueFamilyIndices *indices)
            indices->compute != UINT32_MAX;
 }
 
+#ifdef MT_ENABLE_VALIDATION
 static bool check_validation_layer_support(MtDevice *device)
 {
     uint32_t layer_count;
@@ -126,15 +127,16 @@ static bool check_validation_layer_support(MtDevice *device)
     mt_free(device->alloc, available_layers);
     return true;
 }
+#endif
 
 static void create_instance(MtDevice *dev)
 {
 #ifdef MT_ENABLE_VALIDATION
     if (!check_validation_layer_support(dev))
     {
-        printf("Application wants to enable validation layers but does not "
-               "support "
-               "them\n");
+        mt_log_fatal("Application wants to enable validation layers but does not "
+                     "support "
+                     "them\n");
         exit(1);
     }
 #endif
@@ -160,12 +162,15 @@ static void create_instance(MtDevice *dev)
 
     const char **extensions = NULL;
     uint32_t extension_count = 0;
+
+#ifdef MT_ENABLE_VALIDATION
     if (MT_LENGTH(INSTANCE_EXTENSIONS) > 0)
     {
         extension_count = MT_LENGTH(INSTANCE_EXTENSIONS);
         extensions = mt_alloc(dev->alloc, sizeof(char *) * extension_count);
         memcpy(extensions, INSTANCE_EXTENSIONS, sizeof(char *) * MT_LENGTH(INSTANCE_EXTENSIONS));
     }
+#endif
 
     if (!(dev->flags & MT_DEVICE_HEADLESS))
     {
@@ -301,7 +306,7 @@ static void pick_physical_device(MtDevice *dev)
 
     if (device_count == 0)
     {
-        printf("No vulkan capable devices found\n");
+        mt_log_fatal("No vulkan capable devices found\n");
         exit(1);
     }
 
@@ -319,8 +324,8 @@ static void pick_physical_device(MtDevice *dev)
 
     if (dev->physical_device == VK_NULL_HANDLE)
     {
-        printf("Could not find a physical device that suits the application "
-               "requirements\n");
+        mt_log_fatal("Could not find a physical device that suits the application "
+                     "requirements\n");
         exit(1);
     }
 
@@ -526,18 +531,15 @@ static void allocate_cmd_buffers(
 
     switch (queue_type)
     {
-        case MT_QUEUE_GRAPHICS:
-        {
+        case MT_QUEUE_GRAPHICS: {
             pool = dev->graphics_cmd_pools[renderer_thread_id];
             break;
         }
-        case MT_QUEUE_COMPUTE:
-        {
+        case MT_QUEUE_COMPUTE: {
             pool = dev->compute_cmd_pools[renderer_thread_id];
             break;
         }
-        case MT_QUEUE_TRANSFER:
-        {
+        case MT_QUEUE_TRANSFER: {
             pool = dev->transfer_cmd_pools[renderer_thread_id];
             break;
         }
@@ -577,18 +579,15 @@ free_cmd_buffers(MtDevice *dev, MtQueueType queue_type, uint32_t count, MtCmdBuf
 
     switch (queue_type)
     {
-        case MT_QUEUE_GRAPHICS:
-        {
+        case MT_QUEUE_GRAPHICS: {
             pool = dev->graphics_cmd_pools[renderer_thread_id];
             break;
         }
-        case MT_QUEUE_COMPUTE:
-        {
+        case MT_QUEUE_COMPUTE: {
             pool = dev->compute_cmd_pools[renderer_thread_id];
             break;
         }
-        case MT_QUEUE_TRANSFER:
-        {
+        case MT_QUEUE_TRANSFER: {
             pool = dev->transfer_cmd_pools[renderer_thread_id];
             break;
         }

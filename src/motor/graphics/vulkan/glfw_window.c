@@ -16,6 +16,7 @@
 #include <GLFW/glfw3native.h>
 #include <motor/base/api_types.h>
 #include <motor/base/allocator.h>
+#include <motor/base/log.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/window.h>
 
@@ -325,7 +326,7 @@ void mt_glfw_vulkan_window_system_init(void)
 
     if (!glfwVulkanSupported())
     {
-        printf("Vulkan is not supported\n");
+        mt_log_fatal("Vulkan is not supported\n");
         exit(1);
     }
 

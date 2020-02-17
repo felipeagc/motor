@@ -1,5 +1,6 @@
 #include <motor/base/threads.h>
 
+#include <motor/base/log.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -66,8 +67,8 @@ static void *thread_wrapper_function(void *_arg)
 #endif
 {
     ThreadStartInfo *info = (ThreadStartInfo *)_arg;
-    MtThreadStart fun     = info->func;
-    void *arg             = info->arg;
+    MtThreadStart fun = info->func;
+    void *arg = info->arg;
     free(info);
 
     int32_t res = fun(arg);
@@ -82,14 +83,14 @@ static void *thread_wrapper_function(void *_arg)
 int32_t mt_thread_init(MtThread *thread, MtThreadStart func, void *arg)
 {
     ThreadStartInfo *start_info = malloc(sizeof(ThreadStartInfo));
-    *start_info                 = (ThreadStartInfo){
+    *start_info = (ThreadStartInfo){
         .func = func,
-        .arg  = arg,
+        .arg = arg,
     };
 
 #if defined(MT_THREADS_WIN32)
     HANDLE _thread = CreateThread(NULL, 0, thread_wrapper_function, (LPVOID)start_info, 0, NULL);
-    int32_t res    = (_thread != NULL);
+    int32_t res = (_thread != NULL);
     memcpy(thread, &_thread, sizeof(_thread));
     return res;
 #elif defined(MT_THREADS_POSIX)
@@ -305,7 +306,11 @@ int32_t mt_cond_wait(MtCond *cond, MtMutex *mtx)
 #if defined(MT_THREADS_WIN32)
     WindowsCond *_cond = (WindowsCond *)cond;
     WindowsMutex *_mtx = (WindowsMutex *)mtx;
-    return !!SleepConditionVariableCS(&_cond->cv, &_mtx->cs, INFINITE);
+    if (!SleepConditionVariableCS(&_cond->cv, &_mtx->cs, INFINITE))
+    {
+        return 1;
+    }
+    return 0;
 #elif defined(MT_THREADS_POSIX)
     return pthread_cond_wait((pthread_cond_t *)cond, (pthread_mutex_t *)mtx) == 0;
 #endif

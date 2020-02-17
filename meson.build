@@ -16,6 +16,9 @@ endif
 if get_option('debug')
   add_project_arguments('-D_DEBUG', language: 'c')
   add_project_arguments('-D_DEBUG', language: 'cpp')
+else
+  add_project_arguments('-DNDEBUG', language: 'c')
+  add_project_arguments('-DNDEBUG', language: 'cpp')
 endif
 
 subdir('thirdparty')
