@@ -16,6 +16,7 @@ typedef struct MtSwapchain MtSwapchain;
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
 typedef struct MtFileWatcher MtFileWatcher;
+typedef struct MtPhysics MtPhysics;
 typedef struct shaderc_compiler *shaderc_compiler_t;
 
 typedef struct MtEngine
@@ -23,6 +24,8 @@ typedef struct MtEngine
     MtDevice *device;
     MtWindow *window;
     MtSwapchain *swapchain;
+
+    MtPhysics *physics;
 
     MtAllocator *alloc;
     MtThreadPool thread_pool;

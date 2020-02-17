@@ -104,6 +104,7 @@ motor_engine_sources = [
   'src/motor/engine/config.c',
   'src/motor/engine/engine.c',
   'src/motor/engine/nuklear_impl.c',
+  'src/motor/engine/physics.cpp',
   'src/motor/engine/camera.c',
   'src/motor/engine/environment.c',
   'src/motor/engine/entities.c',
@@ -133,7 +134,7 @@ motor_engine_lib = library(
   'motor_engine',
   motor_engine_sources,
   dependencies: motor_engine_deps,
-  include_directories: ['include', shaderc_include_dir, physx_include_dirs],
+  include_directories: [include_directories('include'), shaderc_include_dir, physx_include_dirs],
   c_args: motor_engine_args,
   cpp_args: motor_engine_args
   )
@@ -141,7 +142,7 @@ motor_engine_lib = library(
 motor_engine_dep = declare_dependency(
   link_with: motor_engine_lib,
   dependencies: motor_engine_deps,
-  include_directories: ['include', shaderc_include_dir, physx_include_dirs]
+  include_directories: include_directories('include')
   )
 
 executable('gltf_ktx', ['tools/gltf_ktx.c', 'tools/bc7enc16.c'], dependencies: [motor_base_dep])
@@ -150,7 +151,6 @@ executable('simple', 'examples/simple.c', dependencies: [motor_engine_dep])
 executable('watcher', 'examples/watcher.c', dependencies: [motor_engine_dep])
 executable('read_config', 'examples/read_config.c', dependencies: [motor_engine_dep])
 executable('tokenizer', 'examples/tokenizer.c', dependencies: [motor_base_dep])
-executable('physx', 'examples/physx.cpp', dependencies: [motor_base_dep, motor_engine_dep])
 
 arena_tests = executable('arena_tests', 'tests/arena_tests.c', dependencies: [motor_base_dep])
 test('arena', arena_tests)

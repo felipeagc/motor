@@ -35,6 +35,6 @@ mt_dynamic_bitset_init(MtDynamicBitset *bitset, uint32_t nbits, MtAllocator *all
 
 MT_BASE_API void mt_dynamic_bitset_destroy(MtDynamicBitset *bitset, MtAllocator *alloc);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

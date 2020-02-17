@@ -33,6 +33,6 @@ MT_BASE_API char *mt_strndup(MtAllocator *alloc, const char *str, uint64_t num_b
 
 MT_BASE_API char *mt_strcat(MtAllocator *alloc, char *dest, const char *src);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

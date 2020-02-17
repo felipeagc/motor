@@ -80,6 +80,6 @@ MT_BASE_API int32_t mt_cond_wake_all(MtCond *cond);
 
 MT_BASE_API int32_t mt_cond_wait(MtCond *cond, MtMutex *mtx);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

@@ -69,6 +69,6 @@ MT_ENGINE_API MtEntityArchetype *mt_entity_manager_register_archetype(
 MT_ENGINE_API MtEntity
 mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

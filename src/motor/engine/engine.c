@@ -8,6 +8,7 @@
 #include <motor/graphics/vulkan/vulkan_device.h>
 #include <motor/graphics/vulkan/glfw_window.h>
 #include <motor/engine/file_watcher.h>
+#include <motor/engine/physics.h>
 #include <shaderc/shaderc.h>
 #include <string.h>
 #include <stdio.h>
@@ -18,8 +19,7 @@ void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data)
 
     switch (e->type)
     {
-        case MT_FILE_WATCHER_EVENT_MODIFY:
-        {
+        case MT_FILE_WATCHER_EVENT_MODIFY: {
             mt_asset_manager_load(&engine->asset_manager, e->src);
             break;
         }
@@ -119,10 +119,14 @@ void mt_engine_init(MtEngine *engine)
 
     engine->watcher = mt_file_watcher_create(
         engine->alloc, MT_FILE_WATCHER_EVENT_MODIFY, asset_watcher_handler, "../assets");
+
+    engine->physics = mt_physics_create(engine->alloc);
 }
 
 void mt_engine_destroy(MtEngine *engine)
 {
+    mt_physics_destroy(engine->physics);
+
     mt_entity_manager_destroy(&engine->entity_manager);
     mt_asset_manager_destroy(&engine->asset_manager);
     mt_thread_pool_destroy(&engine->thread_pool);

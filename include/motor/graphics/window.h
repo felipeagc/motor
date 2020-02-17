@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -304,6 +304,6 @@ typedef struct MtWindowSystem
 
 MT_GRAPHICS_API extern MtWindowSystem mt_window;
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

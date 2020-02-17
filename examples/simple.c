@@ -15,6 +15,7 @@
 #include <motor/engine/entities.h>
 #include <motor/engine/entity_archetypes.h>
 #include <motor/engine/inspector.h>
+#include <motor/engine/physics.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/image_asset.h>
 #include <motor/engine/assets/gltf_asset.h>
@@ -41,6 +42,8 @@ typedef struct Game
 
     MtEntityArchetype *model_archetype;
     MtEntityArchetype *light_archetype;
+
+    MtPhysicsScene *scene;
 } Game;
 
 static void game_init(Game *g)
@@ -53,6 +56,8 @@ static void game_init(Game *g)
     MtAssetManager *am = &g->engine.asset_manager;
     MtSwapchain *swapchain = g->engine.swapchain;
     MtDevice *dev = g->engine.device;
+
+    g->scene = mt_physics_scene_create(g->engine.physics);
 
     MtImageAsset *skybox_asset = NULL;
     mt_asset_manager_queue_load(
@@ -97,29 +102,60 @@ static void game_init(Game *g)
         MtEntityArchetype *arch = g->model_archetype;
         MtModelArchetype *comps = (MtModelArchetype *)arch->components;
 
+        MtPhysicsShape sphere_shape = {.type = MT_PHYSICS_SHAPE_SPHERE, .radius = 1.0f};
+        MtPhysicsShape floor_shape = {.type = MT_PHYSICS_SHAPE_PLANE, .plane = V4(0, 1, 0, 0)};
+
         e = mt_entity_manager_add_entity(em, g->model_archetype);
-        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
         comps->scale[e] = V3(1, 1, 1);
-        comps->pos[e] = V3(-1.5, 1, 0);
+        comps->pos[e] = V3(-1.5, 1000, 0);
         comps->rot[e] = (Quat){0, 0, 0, 1};
+        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
+        mt_rigid_actor_init(
+            g->scene,
+            &comps->actor[e],
+            MT_RIGID_ACTOR_DYNAMIC,
+            &sphere_shape,
+            comps->pos[e],
+            comps->rot[e]);
 
         e = mt_entity_manager_add_entity(em, g->model_archetype);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
         comps->scale[e] = V3(100, 100, 100);
-        comps->pos[e] = V3(1.5, 1, 0);
+        comps->pos[e] = V3(1.5, 5, 0);
         comps->rot[e] = (Quat){0, 0, 0, 1};
+        mt_rigid_actor_init(
+            g->scene,
+            &comps->actor[e],
+            MT_RIGID_ACTOR_DYNAMIC,
+            &sphere_shape,
+            comps->pos[e],
+            comps->rot[e]);
 
         e = mt_entity_manager_add_entity(em, g->model_archetype);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/lantern_ktx.glb");
         comps->scale[e] = V3(0.2f, 0.2f, 0.2f);
-        comps->pos[e] = V3(4, 0, 0);
+        comps->pos[e] = V3(4, 5, 0);
         comps->rot[e] = (Quat){0, 0, 0, 1};
+        mt_rigid_actor_init(
+            g->scene,
+            &comps->actor[e],
+            MT_RIGID_ACTOR_DYNAMIC,
+            &sphere_shape,
+            comps->pos[e],
+            comps->rot[e]);
 
         e = mt_entity_manager_add_entity(em, g->model_archetype);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
         comps->pos[e] = V3(0, 0, 0);
         comps->scale[e] = V3(3, 3, 3);
         comps->rot[e] = (Quat){0, 0, 0, 1};
+        mt_rigid_actor_init(
+            g->scene,
+            &comps->actor[e],
+            MT_RIGID_ACTOR_STATIC,
+            &floor_shape,
+            comps->pos[e],
+            comps->rot[e]);
     }
 
     MtXorShift xs;
@@ -145,6 +181,7 @@ static void game_init(Game *g)
 
 static void game_destroy(Game *g)
 {
+    mt_physics_scene_destroy(g->scene);
     mt_render.destroy_graph(g->picking_graph);
     mt_render.destroy_graph(g->graph);
     mt_environment_destroy(&g->env);
@@ -201,6 +238,8 @@ static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
     MtModelArchetype *comps = (MtModelArchetype *)arch->components;
     for (MtEntity e = 0; e < arch->entity_count; ++e)
     {
+        mt_rigid_actor_get_transform(&comps->actor[e], &comps->pos[e], &comps->rot[e]);
+
         Mat4 transform = mat4_identity();
         transform = mat4_scale(transform, comps->scale[e]);
         transform = mat4_mul(quat_to_mat4(comps->rot[e]), transform);
@@ -222,6 +261,17 @@ static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
         mt_render.cmd_bind_pipeline(cb, g->selected_pipeline->pipeline);
         mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, UINT32_MAX);
+    }
+}
+// }}}
+
+// Physics transform mirroring {{{
+static void mirror_physics_transforms_system(MtEntityArchetype *arch)
+{
+    MtModelArchetype *comps = (MtModelArchetype *)arch->components;
+    for (MtEntity e = 0; e < arch->entity_count; ++e)
+    {
+        mt_rigid_actor_set_transform(&comps->actor[e], comps->pos[e], comps->rot[e]);
     }
 }
 // }}}
@@ -405,19 +455,16 @@ int main(int argc, char *argv[])
             mt_perspective_camera_on_event(&game.cam, &event);
             switch (event.type)
             {
-                case MT_EVENT_WINDOW_CLOSED:
-                {
+                case MT_EVENT_WINDOW_CLOSED: {
                     mt_log("Closed");
                     break;
                 }
-                case MT_EVENT_FRAMEBUFFER_RESIZED:
-                {
+                case MT_EVENT_FRAMEBUFFER_RESIZED: {
                     mt_render.graph_on_resize(game.graph);
                     mt_render.graph_on_resize(game.picking_graph);
                     break;
                 }
-                case MT_EVENT_BUTTON_PRESSED:
-                {
+                case MT_EVENT_BUTTON_PRESSED: {
                     if (event.mouse.button == MT_MOUSE_BUTTON_LEFT)
                     {
                         mt_render.graph_execute(game.picking_graph);
@@ -483,12 +530,15 @@ int main(int argc, char *argv[])
 
         mt_inspect_archetype(win, nk, game.model_archetype);
 
+        mirror_physics_transforms_system(game.model_archetype);
+
         // Update cam
         mt_window.get_size(win, &width, &height);
         float aspect = (float)width / (float)height;
         mt_perspective_camera_update(&game.cam, win, aspect, delta_time);
 
         light_system(game.light_archetype, &game.env, delta_time);
+        mt_physics_scene_step(game.scene, delta_time);
 
         // Execute render graph
         mt_render.graph_execute(game.graph);

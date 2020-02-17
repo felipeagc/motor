@@ -2,7 +2,7 @@
 
 #include "api_types.h"
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -375,6 +375,6 @@ typedef struct MtRenderer
 
 MT_GRAPHICS_API extern MtRenderer mt_render;
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif

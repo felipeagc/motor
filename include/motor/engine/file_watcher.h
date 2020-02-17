@@ -42,6 +42,6 @@ MT_ENGINE_API void mt_file_watcher_poll(MtFileWatcher *watcher, void *user_data)
 
 MT_ENGINE_API void mt_file_watcher_destroy(MtFileWatcher *watcher);
 
-#ifdef __cpluspus
+#ifdef __cplusplus
 }
 #endif
