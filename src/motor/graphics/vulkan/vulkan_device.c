@@ -956,6 +956,8 @@ static MtRenderer g_vulkan_renderer = {
     .graph_get_buffer = graph_get_buffer,
 
     .graph_add_pass = graph_add_pass,
+    .pass_set_color_clearer = pass_set_color_clearer,
+    .pass_set_depth_stencil_clearer = pass_set_depth_stencil_clearer,
     .pass_set_builder = pass_set_builder,
 
     .pass_read = pass_read,

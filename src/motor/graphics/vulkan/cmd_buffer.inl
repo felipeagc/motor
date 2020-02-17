@@ -235,8 +235,7 @@ static void cmd_bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline)
 {
     switch (pipeline->bind_point)
     {
-        case VK_PIPELINE_BIND_POINT_GRAPHICS:
-        {
+        case VK_PIPELINE_BIND_POINT_GRAPHICS: {
             cb->bound_pipeline_instance =
                 request_graphics_pipeline_instance(cb->dev, pipeline, &cb->current_renderpass);
 
@@ -247,8 +246,7 @@ static void cmd_bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline)
             break;
         }
 
-        case VK_PIPELINE_BIND_POINT_COMPUTE:
-        {
+        case VK_PIPELINE_BIND_POINT_COMPUTE: {
             cb->bound_pipeline_instance = request_compute_pipeline_instance(cb->dev, pipeline);
 
             vkCmdBindPipeline(
@@ -262,37 +260,31 @@ static void cmd_bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline)
     }
 }
 
-static void cmd_begin_render_pass(
-    MtCmdBuffer *cmd_buffer,
-    MtRenderPass *render_pass,
-    MtClearValue *color_clear_value,
-    MtClearValue *depth_clear_value)
+static void cmd_begin_render_pass(MtCmdBuffer *cmd_buffer, MtRenderGraphPass *pass)
 {
-    cmd_buffer->current_renderpass = *render_pass;
-
-    VkClearValue color_value = {.color = {{0.0f, 0.0f, 0.0f, 1.0f}}};
-    VkClearValue depth_value = {.depthStencil = {1.0f, 0}};
-
-    if (color_clear_value)
-    {
-        memcpy(&color_value, color_clear_value, sizeof(color_value));
-    }
-    if (depth_clear_value)
-    {
-        memcpy(&depth_value, depth_clear_value, sizeof(depth_value));
-    }
+    cmd_buffer->current_renderpass = pass->render_pass;
+    MtRenderPass *render_pass = &cmd_buffer->current_renderpass;
 
     VkClearValue clear_values[8] = {0};
     uint32_t clear_value_count = 0;
 
     for (uint32_t i = 0; i < render_pass->color_attachment_count; ++i)
     {
-        clear_values[clear_value_count++] = color_value;
+        MtClearColorValue color_value;
+        pass->color_clearer(i, &color_value);
+
+        VkClearColorValue *vk_color_value = &clear_values[clear_value_count++].color;
+        memcpy(vk_color_value, &color_value, sizeof(*vk_color_value));
     }
 
     if (render_pass->has_depth_attachment)
     {
-        clear_values[clear_value_count++] = depth_value;
+        MtClearDepthStencilValue depth_stencil_value;
+        pass->depth_stencil_clearer(&depth_stencil_value);
+
+        VkClearDepthStencilValue *vk_depth_stencil_value =
+            &clear_values[clear_value_count++].depthStencil;
+        memcpy(vk_depth_stencil_value, &depth_stencil_value, sizeof(*vk_depth_stencil_value));
     }
 
     VkRenderPassBeginInfo render_pass_info = {

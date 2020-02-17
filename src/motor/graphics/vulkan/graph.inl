@@ -14,6 +14,28 @@ static inline bool find_in_array(uint32_t *array, uint32_t to_find)
     return false;
 }
 
+static bool default_color_clearer(uint32_t render_target_index, MtClearColorValue *color)
+{
+    if (color)
+    {
+        color->float32[0] = 0.0f;
+        color->float32[1] = 0.0f;
+        color->float32[2] = 0.0f;
+        color->float32[3] = 1.0f;
+    }
+    return true;
+}
+
+static bool default_depth_stencil_clearer(MtClearDepthStencilValue *depth_stencil)
+{
+    if (depth_stencil)
+    {
+        depth_stencil->depth = 1.0f;
+        depth_stencil->stencil = 0;
+    }
+    return true;
+}
+
 static void
 add_group(MtRenderGraph *graph, MtQueueType queue_type, uint32_t *pass_indices, bool last)
 {
@@ -223,8 +245,7 @@ static void graph_bake(MtRenderGraph *graph)
     {
         switch (resource->type)
         {
-            case GRAPH_RESOURCE_IMAGE:
-            {
+            case GRAPH_RESOURCE_IMAGE: {
                 for (uint32_t *pass_index = resource->written_in_passes;
                      pass_index !=
                      resource->written_in_passes + mt_array_size(resource->written_in_passes);
@@ -241,8 +262,7 @@ static void graph_bake(MtRenderGraph *graph)
                 resource->image = mt_render.create_image(graph->dev, &resource->image_info);
                 break;
             }
-            case GRAPH_RESOURCE_BUFFER:
-            {
+            case GRAPH_RESOURCE_BUFFER: {
                 resource->buffer = mt_render.create_buffer(graph->dev, &resource->buffer_info);
                 break;
             }
@@ -323,8 +343,7 @@ static void graph_unbake(MtRenderGraph *graph)
     {
         switch (resource->type)
         {
-            case GRAPH_RESOURCE_IMAGE:
-            {
+            case GRAPH_RESOURCE_IMAGE: {
                 if (resource->image)
                 {
                     // TODO: I wonder why I need this if...
@@ -332,8 +351,7 @@ static void graph_unbake(MtRenderGraph *graph)
                 }
                 break;
             }
-            case GRAPH_RESOURCE_BUFFER:
-            {
+            case GRAPH_RESOURCE_BUFFER: {
                 mt_render.destroy_buffer(graph->dev, resource->buffer);
                 break;
             }
@@ -528,7 +546,7 @@ static void graph_execute(MtRenderGraph *graph)
                     pass->render_pass.current_framebuffer = pass->framebuffers[0];
                 }
 
-                cmd_begin_render_pass(cb, &pass->render_pass, NULL, NULL);
+                cmd_begin_render_pass(cb, pass);
             }
 
             //
@@ -756,6 +774,9 @@ graph_add_pass(MtRenderGraph *graph, const char *name, MtPipelineStage stage)
     MtRenderGraphPass *pass = mt_array_last(graph->passes);
     memset(pass, 0, sizeof(*pass));
 
+    pass->color_clearer = default_color_clearer;
+    pass->depth_stencil_clearer = default_depth_stencil_clearer;
+
     switch (stage)
     {
         case MT_PIPELINE_STAGE_FRAGMENT_SHADER:
@@ -789,6 +810,17 @@ graph_add_pass(MtRenderGraph *graph, const char *name, MtPipelineStage stage)
     return pass;
 }
 
+static void pass_set_color_clearer(MtRenderGraphPass *pass, MtRenderGraphColorClearer clearer)
+{
+    pass->color_clearer = clearer;
+}
+
+static void
+pass_set_depth_stencil_clearer(MtRenderGraphPass *pass, MtRenderGraphDepthStencilClearer clearer)
+{
+    pass->depth_stencil_clearer = clearer;
+}
+
 static void pass_set_builder(MtRenderGraphPass *pass, MtRenderGraphPassBuilder builder)
 {
     pass->builder = builder;
@@ -804,22 +836,19 @@ static void pass_read(MtRenderGraphPass *pass, MtRenderGraphPassRead type, const
 
     switch (type)
     {
-        case MT_PASS_READ_IMAGE_TRANSFER:
-        {
+        case MT_PASS_READ_IMAGE_TRANSFER: {
             assert(resource->type == GRAPH_RESOURCE_IMAGE);
             resource->image_info.usage |= MT_IMAGE_USAGE_TRANSFER_SRC_BIT;
             mt_array_push(pass->graph->dev->alloc, pass->image_transfer_inputs, (uint32_t)index);
             break;
         }
-        case MT_PASS_READ_SAMPLED_IMAGE:
-        {
+        case MT_PASS_READ_SAMPLED_IMAGE: {
             assert(resource->type == GRAPH_RESOURCE_IMAGE);
             resource->image_info.usage |= MT_IMAGE_USAGE_SAMPLED_BIT;
             mt_array_push(pass->graph->dev->alloc, pass->image_sampled_inputs, (uint32_t)index);
             break;
         }
-        case MT_PASS_READ_BUFFER:
-        {
+        case MT_PASS_READ_BUFFER: {
             assert(
                 resource->type == GRAPH_RESOURCE_BUFFER ||
                 resource->type == GRAPH_RESOURCE_EXTERNAL_BUFFER);
@@ -840,8 +869,7 @@ static void pass_write(MtRenderGraphPass *pass, MtRenderGraphPassWrite type, con
 
     switch (type)
     {
-        case MT_PASS_WRITE_COLOR_ATTACHMENT:
-        {
+        case MT_PASS_WRITE_COLOR_ATTACHMENT: {
             assert(resource->type == GRAPH_RESOURCE_IMAGE);
 
             resource->image_info.usage |=
@@ -851,8 +879,7 @@ static void pass_write(MtRenderGraphPass *pass, MtRenderGraphPassWrite type, con
             mt_array_push(pass->graph->dev->alloc, pass->color_outputs, (uint32_t)index);
             break;
         }
-        case MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT:
-        {
+        case MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT: {
             assert(resource->type == GRAPH_RESOURCE_IMAGE);
 
             resource->image_info.usage |= MT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -860,16 +887,14 @@ static void pass_write(MtRenderGraphPass *pass, MtRenderGraphPassWrite type, con
             switch (resource->image_info.format)
             {
                 case MT_FORMAT_D16_UNORM:
-                case MT_FORMAT_D32_SFLOAT:
-                {
+                case MT_FORMAT_D32_SFLOAT: {
                     resource->image_info.aspect = MT_IMAGE_ASPECT_DEPTH_BIT;
                     break;
                 }
 
                 case MT_FORMAT_D16_UNORM_S8_UINT:
                 case MT_FORMAT_D24_UNORM_S8_UINT:
-                case MT_FORMAT_D32_SFLOAT_S8_UINT:
-                {
+                case MT_FORMAT_D32_SFLOAT_S8_UINT: {
                     resource->image_info.aspect =
                         MT_IMAGE_ASPECT_DEPTH_BIT | MT_IMAGE_ASPECT_STENCIL_BIT;
                     break;
@@ -880,16 +905,14 @@ static void pass_write(MtRenderGraphPass *pass, MtRenderGraphPassWrite type, con
             pass->depth_output = (uint32_t)index;
             break;
         }
-        case MT_PASS_WRITE_BUFFER:
-        {
+        case MT_PASS_WRITE_BUFFER: {
             assert(
                 resource->type == GRAPH_RESOURCE_BUFFER ||
                 resource->type == GRAPH_RESOURCE_EXTERNAL_BUFFER);
             mt_array_push(pass->graph->dev->alloc, pass->buffer_writes, (uint32_t)index);
             break;
         }
-        case MT_PASS_WRITE_IMAGE_TRANSFER:
-        {
+        case MT_PASS_WRITE_IMAGE_TRANSFER: {
             assert(resource->type == GRAPH_RESOURCE_IMAGE);
             resource->image_info.usage |=
                 MT_IMAGE_USAGE_TRANSFER_DST_BIT | MT_IMAGE_USAGE_SAMPLED_BIT;
@@ -922,13 +945,18 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
         VkAttachmentDescription color_attachment = {
             .format = graph->swapchain->swapchain_image_format,
             .samples = VK_SAMPLE_COUNT_1_BIT,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         };
+
+        if (pass->color_clearer((uint32_t)mt_array_size(rp_attachments), NULL))
+        {
+            color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
 
         mt_array_push(graph->dev->alloc, rp_attachments, color_attachment);
 
@@ -956,13 +984,18 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
         VkAttachmentDescription color_attachment = {
             .format = resource->image->format,
             .samples = resource->image->sample_count,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         };
+
+        if (pass->color_clearer((uint32_t)mt_array_size(rp_attachments), NULL))
+        {
+            color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
 
         if (pass->next && pass->next->queue_type == MT_QUEUE_TRANSFER)
         {
@@ -987,13 +1020,19 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
         VkAttachmentDescription depth_attachment = {
             .format = resource->image->format,
             .samples = resource->image->sample_count,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
         };
+
+        if (pass->depth_stencil_clearer(NULL))
+        {
+            depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
 
         mt_array_push(graph->dev->alloc, rp_attachments, depth_attachment);
         mt_array_push(graph->dev->alloc, fb_image_views, resource->image->image_view);

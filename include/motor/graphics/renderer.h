@@ -19,9 +19,6 @@ typedef struct MtSwapchain MtSwapchain;
 typedef struct MtRenderGraph MtRenderGraph;
 typedef struct MtRenderGraphPass MtRenderGraphPass;
 
-typedef void (*MtRenderGraphBuilder)(MtRenderGraph *, void *user_data);
-typedef void (*MtRenderGraphPassBuilder)(MtRenderGraph *, MtCmdBuffer *, void *user_data);
-
 typedef union MtClearColorValue
 {
     float float32[4];
@@ -40,6 +37,11 @@ typedef union MtClearValue
     MtClearColorValue color;
     MtClearDepthStencilValue depth_stencil;
 } MtClearValue;
+
+typedef void (*MtRenderGraphBuilder)(MtRenderGraph *, void *user_data);
+typedef void (*MtRenderGraphPassBuilder)(MtRenderGraph *, MtCmdBuffer *, void *user_data);
+typedef bool (*MtRenderGraphColorClearer)(uint32_t render_target_index, MtClearColorValue *);
+typedef bool (*MtRenderGraphDepthStencilClearer)(MtClearDepthStencilValue *);
 
 typedef enum MtQueueType {
     MT_QUEUE_GRAPHICS,
@@ -367,7 +369,9 @@ typedef struct MtRenderer
     MtBuffer *(*graph_get_buffer)(MtRenderGraph *, const char *name);
 
     MtRenderGraphPass *(*graph_add_pass)(MtRenderGraph *, const char *name, MtPipelineStage stage);
-    void (*pass_set_builder)(MtRenderGraphPass *, MtRenderGraphPassBuilder builder);
+    void (*pass_set_color_clearer)(MtRenderGraphPass *, MtRenderGraphColorClearer);
+    void (*pass_set_depth_stencil_clearer)(MtRenderGraphPass *, MtRenderGraphDepthStencilClearer);
+    void (*pass_set_builder)(MtRenderGraphPass *, MtRenderGraphPassBuilder);
 
     void (*pass_read)(MtRenderGraphPass *, MtRenderGraphPassRead, const char *name);
     void (*pass_write)(MtRenderGraphPass *, MtRenderGraphPassWrite, const char *name);

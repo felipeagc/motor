@@ -372,6 +372,8 @@ typedef struct MtRenderGraphPass
     MtQueueType queue_type;
 
     MtRenderGraph *graph;
+    MtRenderGraphColorClearer color_clearer;
+    MtRenderGraphDepthStencilClearer depth_stencil_clearer;
     MtRenderGraphPassBuilder builder;
 
     uint32_t depth_output;
