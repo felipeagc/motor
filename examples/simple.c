@@ -16,6 +16,7 @@
 #include <motor/engine/entity_archetypes.h>
 #include <motor/engine/inspector.h>
 #include <motor/engine/physics.h>
+#include <motor/engine/picker.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/image_asset.h>
 #include <motor/engine/assets/gltf_asset.h>
@@ -29,12 +30,10 @@ typedef struct Game
 {
     MtEngine engine;
     MtRenderGraph *graph;
-    MtRenderGraph *picking_graph;
 
     MtImageAsset *image;
     MtPipelineAsset *pbr_pipeline;
     MtPipelineAsset *selected_pipeline;
-    MtPipelineAsset *picking_pipeline;
     MtPipelineAsset *fullscreen_pipeline;
 
     MtPerspectiveCamera cam;
@@ -65,7 +64,6 @@ static void game_init(Game *g)
     mt_asset_manager_queue_load(am, "../assets/test.png", (MtAsset **)&g->image);
     mt_asset_manager_queue_load(am, "../shaders/pbr.hlsl", (MtAsset **)&g->pbr_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/selected.hlsl", (MtAsset **)&g->selected_pipeline);
-    mt_asset_manager_queue_load(am, "../shaders/picking.hlsl", (MtAsset **)&g->picking_pipeline);
     mt_asset_manager_queue_load(
         am, "../shaders/fullscreen.hlsl", (MtAsset **)&g->fullscreen_pipeline);
 
@@ -82,7 +80,6 @@ static void game_init(Game *g)
 
     // Create render graph
     g->graph = mt_render.create_graph(dev, swapchain, g);
-    g->picking_graph = mt_render.create_graph(dev, NULL, g);
 
     // Create entities
     g->model_archetype = mt_entity_manager_register_archetype(
@@ -182,7 +179,6 @@ static void game_init(Game *g)
 static void game_destroy(Game *g)
 {
     mt_physics_scene_destroy(g->scene);
-    mt_render.destroy_graph(g->picking_graph);
     mt_render.destroy_graph(g->graph);
     mt_environment_destroy(&g->env);
     mt_engine_destroy(&g->engine);
@@ -200,15 +196,6 @@ static void light_system(MtEntityArchetype *arch, MtEnvironment *env, float delt
     float x = sinf(acc * 2.0f) * 2.0f;
     float z = cosf(acc * 2.0f) * 2.0f;
 
-    const float constant = 1.0f;
-    const float linear = 0.7f;
-    const float quadratic = 1.8f;
-    float light_max = 10.0f;
-    float radius =
-        (-linear +
-         sqrtf(linear * linear - 4.0f * quadratic * (constant - (256.0f / 5.0f) * light_max))) /
-        (2 * quadratic);
-
     env->uniform.point_light_count = 0;
     for (uint32_t e = 0; e < arch->entity_count; ++e)
     {
@@ -220,8 +207,6 @@ static void light_system(MtEntityArchetype *arch, MtEnvironment *env, float delt
         env->uniform.point_lights[l].pos.w = 1.0f;
 
         env->uniform.point_lights[l].color = comps->color[e];
-
-        env->uniform.point_lights[l].radius = radius;
 
         env->uniform.point_light_count++;
     }
@@ -277,8 +262,9 @@ static void mirror_physics_transforms_system(MtEntityArchetype *arch)
 // }}}
 
 // Picking system {{{
-static void picking_system(MtCmdBuffer *cb, MtEntityArchetype *arch)
+static void picking_system(MtCmdBuffer *cb, void *user_data)
 {
+    MtEntityArchetype *arch = user_data;
     MtModelArchetype *comps = (MtModelArchetype *)arch->components;
     for (uint32_t e = 0; e < arch->entity_count; ++e)
     {
@@ -287,96 +273,8 @@ static void picking_system(MtCmdBuffer *cb, MtEntityArchetype *arch)
         transform = mat4_mul(quat_to_mat4(comps->rot[e]), transform);
         transform = mat4_translate(transform, comps->pos[e]);
 
-        const uint32_t entity_id = e;
-        mt_render.cmd_bind_uniform(cb, &entity_id, sizeof(uint32_t), 2, 0);
+        mt_render.cmd_bind_uniform(cb, &e, sizeof(uint32_t), 2, 0);
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, UINT32_MAX);
-    }
-}
-// }}}
-
-// Picking render graph {{{
-static void picking_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
-{
-    Game *g = user_data;
-
-    // Draw models
-    mt_render.cmd_bind_pipeline(cb, g->picking_pipeline->pipeline);
-    mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
-    picking_system(cb, g->model_archetype);
-}
-
-static void picking_transfer_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
-{
-    Game *g = user_data;
-
-    double x, y;
-    mt_window.get_cursor_pos(g->engine.window, &x, &y);
-
-    struct nk_context *nk = mt_nuklear_get_context(g->engine.nk_ctx);
-
-    MtBuffer *picking_buffer = mt_render.graph_get_buffer(g->picking_graph, "picking_buffer");
-
-    if (x > 0.0 && y > 0.0 && !nk_window_is_any_hovered(nk))
-    {
-        mt_render.cmd_copy_image_to_buffer(
-            cb,
-            &(MtImageCopyView){
-                .image = mt_render.graph_get_image(graph, "picking"),
-                .offset = {(int32_t)x, (int32_t)y, 0},
-            },
-            &(MtBufferCopyView){.buffer = picking_buffer},
-            (MtExtent3D){1, 1, 1});
-    }
-}
-
-static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
-{
-    Game *g = user_data;
-
-    uint32_t width, height;
-    mt_window.get_size(g->engine.window, &width, &height);
-
-    mt_render.graph_add_image(
-        graph,
-        "depth",
-        &(MtImageCreateInfo){
-            .width = width,
-            .height = height,
-            .format = MT_FORMAT_D32_SFLOAT,
-        });
-
-    mt_render.graph_add_image(
-        graph,
-        "picking",
-        &(MtImageCreateInfo){
-            .width = width,
-            .height = height,
-            .format = MT_FORMAT_R32_UINT,
-        });
-
-    mt_render.graph_add_buffer(
-        graph,
-        "picking_buffer",
-        &(MtBufferCreateInfo){
-            .usage = MT_BUFFER_USAGE_TRANSFER,
-            .memory = MT_BUFFER_MEMORY_HOST,
-            .size = sizeof(uint32_t),
-        });
-
-    {
-        MtRenderGraphPass *picking_pass =
-            mt_render.graph_add_pass(graph, "picking_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-        mt_render.pass_write(picking_pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "picking");
-        mt_render.pass_write(picking_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
-        mt_render.pass_set_builder(picking_pass, picking_pass_builder);
-    }
-
-    {
-        MtRenderGraphPass *picking_transfer_pass =
-            mt_render.graph_add_pass(graph, "picking_transfer_pass", MT_PIPELINE_STAGE_TRANSFER);
-        mt_render.pass_read(picking_transfer_pass, MT_PASS_READ_IMAGE_TRANSFER, "picking");
-        mt_render.pass_write(picking_transfer_pass, MT_PASS_WRITE_BUFFER, "picking_buffer");
-        mt_render.pass_set_builder(picking_transfer_pass, picking_transfer_pass_builder);
     }
 }
 // }}}
@@ -429,14 +327,10 @@ int main(int argc, char *argv[])
 
     MtWindow *win = game.engine.window;
     MtSwapchain *swapchain = game.engine.swapchain;
-    MtDevice *dev = game.engine.device;
     struct nk_context *nk = mt_nuklear_get_context(game.engine.nk_ctx);
 
     mt_render.graph_set_builder(game.graph, graph_builder);
     mt_render.graph_bake(game.graph);
-
-    mt_render.graph_set_builder(game.picking_graph, picking_graph_builder);
-    mt_render.graph_bake(game.picking_graph);
 
     uint32_t width, height;
     mt_window.get_size(win, &width, &height);
@@ -461,29 +355,31 @@ int main(int argc, char *argv[])
                 }
                 case MT_EVENT_FRAMEBUFFER_RESIZED: {
                     mt_render.graph_on_resize(game.graph);
-                    mt_render.graph_on_resize(game.picking_graph);
+                    mt_picker_resize(game.engine.picker);
                     break;
                 }
                 case MT_EVENT_BUTTON_PRESSED: {
                     if (event.mouse.button == MT_MOUSE_BUTTON_LEFT)
                     {
-                        mt_render.graph_execute(game.picking_graph);
-                        mt_render.graph_wait_all(game.picking_graph);
+                        double x, y;
+                        mt_window.get_cursor_pos(game.engine.window, &x, &y);
 
-                        MtBuffer *picking_buffer =
-                            mt_render.graph_get_buffer(game.picking_graph, "picking_buffer");
+                        uint32_t value = mt_picker_pick(
+                            game.engine.picker,
+                            &game.cam.uniform,
+                            (int32_t)x,
+                            (int32_t)y,
+                            picking_system,
+                            game.model_archetype);
 
-                        void *mapping = mt_render.map_buffer(dev, picking_buffer);
-                        MtEntity entity_id = 0;
-                        memcpy(&entity_id, mapping, sizeof(uint32_t));
-
-                        if (entity_id > 0)
+                        if (value == MT_PICKER_SELECTION_DESELECT)
                         {
-                            game.model_archetype->selected_entity = entity_id - 1;
+                            game.model_archetype->selected_entity = MT_ENTITY_INVALID;
                         }
-
-                        memcpy(mapping, &(uint32_t){0}, sizeof(uint32_t));
-                        mt_render.unmap_buffer(dev, picking_buffer);
+                        if (value < MT_PICKER_SELECTION_LAST)
+                        {
+                            game.model_archetype->selected_entity = (MtEntity)value;
+                        }
                     }
                     break;
                 }

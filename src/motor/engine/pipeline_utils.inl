@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 #include <shaderc/shaderc.h>
 #include <motor/base/string_builder.h>
 #include <motor/base/log.h>
@@ -428,8 +429,7 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
 
         MtPipeline *pipeline = NULL;
 
-        enum
-        {
+        enum {
             NONE,
             GRAPHICS,
             COMPUTE,
@@ -453,18 +453,15 @@ create_pipeline(MtEngine *engine, const char *path, const char *input, size_t in
 
         switch (type)
         {
-            case GRAPHICS:
-            {
+            case GRAPHICS: {
                 pipeline = create_graphics_pipeline_hlsl(engine, path, input, input_size, pragmas);
                 break;
             }
-            case COMPUTE:
-            {
+            case COMPUTE: {
                 pipeline = create_compute_pipeline_hlsl(engine, path, input, input_size, pragmas);
                 break;
             }
-            case NONE:
-            {
+            case NONE: {
                 mt_log_error("Missing shader entry point: \"%s\"", path);
                 break;
             }

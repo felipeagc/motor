@@ -47,5 +47,5 @@ void vertex(in VsInput vs_in, out VsOutput vs_out)
 
 uint pixel(VsOutput fs_in) : SV_Target
 {
-    return entity_id + 1;
+    return entity_id;
 }

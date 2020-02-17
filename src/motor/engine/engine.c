@@ -9,6 +9,7 @@
 #include <motor/graphics/vulkan/glfw_window.h>
 #include <motor/engine/file_watcher.h>
 #include <motor/engine/physics.h>
+#include <motor/engine/picker.h>
 #include <shaderc/shaderc.h>
 #include <string.h>
 #include <stdio.h>
@@ -121,10 +122,12 @@ void mt_engine_init(MtEngine *engine)
         engine->alloc, MT_FILE_WATCHER_EVENT_MODIFY, asset_watcher_handler, "../assets");
 
     engine->physics = mt_physics_create(engine->alloc);
+    engine->picker = mt_picker_create(engine);
 }
 
 void mt_engine_destroy(MtEngine *engine)
 {
+    mt_picker_destroy(engine->picker);
     mt_physics_destroy(engine->physics);
 
     mt_entity_manager_destroy(&engine->entity_manager);
