@@ -13,7 +13,7 @@ if get_option('default_library') == 'shared'
   add_project_arguments('-DMT_SHARED', language: 'cpp')
 endif
 
-if get_option('debug') == true
+if get_option('debug')
   add_project_arguments('-D_DEBUG', language: 'c')
   add_project_arguments('-D_DEBUG', language: 'cpp')
 endif
@@ -142,12 +142,24 @@ motor_engine_lib = library(
 motor_engine_dep = declare_dependency(
   link_with: motor_engine_lib,
   dependencies: motor_engine_deps,
-  include_directories: include_directories('include')
+  include_directories: [include_directories('include'), shaderc_include_dir, physx_include_dirs]
   )
 
 executable('gltf_ktx', ['tools/gltf_ktx.c', 'tools/bc7enc16.c'], dependencies: [motor_base_dep])
 
-executable('simple', 'examples/simple.c', dependencies: [motor_engine_dep])
+gui_link_args = []
+
+if target_machine.system() == 'windows'
+  gui_link_args += '/entry:mainCRTStartup'
+  gui_link_args += '/subsystem:windows'
+endif
+
+executable('simple',
+  'examples/simple.c',
+  dependencies: [motor_engine_dep],
+  gui_app : false,
+  link_args: gui_link_args)
+
 executable('watcher', 'examples/watcher.c', dependencies: [motor_engine_dep])
 executable('read_config', 'examples/read_config.c', dependencies: [motor_engine_dep])
 executable('tokenizer', 'examples/tokenizer.c', dependencies: [motor_base_dep])
@@ -160,3 +172,8 @@ test('hash', hash_tests)
 
 thread_tests = executable('thread_tests', 'tests/thread_tests.c', dependencies: [motor_base_dep])
 test('thread', thread_tests)
+
+configure_file(input: 'thirdparty/shaderc/windows/shaderc_shared.dll', output: 'shaderc_shared.dll', copy: true)
+configure_file(input: 'thirdparty/physx/windows/debug/PhysX_64.dll', output: 'PhysX_64.dll', copy: true)
+configure_file(input: 'thirdparty/physx/windows/debug/PhysXCommon_64.dll', output: 'PhysXCommon_64.dll', copy: true)
+configure_file(input: 'thirdparty/physx/windows/debug/PhysXFoundation_64.dll', output: 'PhysXFoundation_64.dll', copy: true)

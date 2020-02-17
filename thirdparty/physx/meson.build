@@ -6,9 +6,15 @@ physx_include_dirs = [
 physx_deps = []
 
 if target_machine.system() == 'windows'
-  physx_lib_dir = meson.current_source_dir() / 'windows'
-  # physx_deps += cc.find_library('PhysXDevice64', dirs: [physx_lib_dir])
-  # configure_file(input: 'windows/PhysXDevice64.dll', output: 'PhysXDevice64.dll', copy: true)
+  if get_option('debug')
+    physx_lib_dir = meson.current_source_dir() / 'windows/debug'
+  else
+    error('Only debug builds are supported on windows for now')
+  endif
+  physx_deps += cc.find_library('PhysX_64', dirs: [physx_lib_dir])
+  physx_deps += cc.find_library('PhysXCommon_64', dirs: [physx_lib_dir])
+  physx_deps += cc.find_library('PhysXFoundation_64', dirs: [physx_lib_dir])
+  physx_deps += cc.find_library('PhysXExtensions_static_64', dirs: [physx_lib_dir])
 else
   physx_lib_dir = meson.current_source_dir() / 'linux'
   physx_deps += cc.find_library('PhysX_static_64', dirs: [physx_lib_dir])

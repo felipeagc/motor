@@ -413,6 +413,8 @@ static MtSwapchain *create_swapchain(MtDevice *dev, MtWindow *window, MtAllocato
     swapchain->dev = dev;
     swapchain->window = window;
 
+    swapchain->last_time = mt_time_ns();
+
     swapchain->present_family_index = UINT32_MAX;
 
     swapchain_create_surface(dev, window, &swapchain->surface);
