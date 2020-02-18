@@ -17,6 +17,7 @@
 #include <motor/engine/inspector.h>
 #include <motor/engine/physics.h>
 #include <motor/engine/picker.h>
+#include <motor/engine/gizmos.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/image_asset.h>
 #include <motor/engine/assets/gltf_asset.h>
@@ -34,6 +35,7 @@ typedef struct Game
     MtImageAsset *image;
     MtPipelineAsset *pbr_pipeline;
     MtPipelineAsset *selected_pipeline;
+    MtPipelineAsset *gizmo_pipeline;
     MtPipelineAsset *fullscreen_pipeline;
 
     MtPerspectiveCamera cam;
@@ -64,6 +66,7 @@ static void game_init(Game *g)
     mt_asset_manager_queue_load(am, "../assets/test.png", (MtAsset **)&g->image);
     mt_asset_manager_queue_load(am, "../shaders/pbr.hlsl", (MtAsset **)&g->pbr_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/selected.hlsl", (MtAsset **)&g->selected_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/gizmo.hlsl", (MtAsset **)&g->gizmo_pipeline);
     mt_asset_manager_queue_load(
         am, "../shaders/fullscreen.hlsl", (MtAsset **)&g->fullscreen_pipeline);
 
@@ -245,7 +248,12 @@ static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
         // Draw wireframe
         mt_render.cmd_bind_pipeline(cb, g->selected_pipeline->pipeline);
         mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+        mt_render.cmd_bind_uniform(cb, &(Vec4){0.7f, 0.17f, 0.27f, 0.5f}, sizeof(Vec4), 2, 0);
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, UINT32_MAX);
+
+        mt_render.cmd_bind_pipeline(cb, g->gizmo_pipeline->pipeline);
+        mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
+        mt_draw_translation_gizmo(cb, &comps->pos[e]);
     }
 }
 // }}}

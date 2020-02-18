@@ -12,71 +12,12 @@
 #include <motor/engine/assets/image_asset.h>
 #include <motor/graphics/renderer.h>
 #include "pipeline_utils.inl"
+#include "common_geometry.inl"
 
-typedef enum CubemapType
-{
+typedef enum CubemapType {
     CUBEMAP_IRRADIANCE,
     CUBEMAP_RADIANCE,
 } CubemapType;
-
-static const Vec3 cube_positions[36] = {
-    {-0.5, 0.5, -0.5},  {-0.5, -0.5, -0.5}, {0.5, -0.5, -0.5},
-    {0.5, -0.5, -0.5},  {0.5, 0.5, -0.5},   {-0.5, 0.5, -0.5},
-
-    {-0.5, -0.5, 0.5},  {-0.5, -0.5, -0.5}, {-0.5, 0.5, -0.5},
-    {-0.5, 0.5, -0.5},  {-0.5, 0.5, 0.5},   {-0.5, -0.5, 0.5},
-
-    {0.5, -0.5, -0.5},  {0.5, -0.5, 0.5},   {0.5, 0.5, 0.5},
-    {0.5, 0.5, 0.5},    {0.5, 0.5, -0.5},   {0.5, -0.5, -0.5},
-
-    {-0.5, -0.5, 0.5},  {-0.5, 0.5, 0.5},   {0.5, 0.5, 0.5},
-    {0.5, 0.5, 0.5},    {0.5, -0.5, 0.5},   {-0.5, -0.5, 0.5},
-
-    {-0.5, 0.5, -0.5},  {0.5, 0.5, -0.5},   {0.5, 0.5, 0.5},
-    {0.5, 0.5, 0.5},    {-0.5, 0.5, 0.5},   {-0.5, 0.5, -0.5},
-
-    {-0.5, -0.5, -0.5}, {-0.5, -0.5, 0.5},  {0.5, -0.5, -0.5},
-    {0.5, -0.5, -0.5},  {-0.5, -0.5, 0.5},  {0.5, -0.5, 0.5},
-};
-
-static const Mat4 direction_matrices[6] = {
-    {{
-        {0.0, 0.0, -1.0, 0.0},
-        {0.0, -1.0, 0.0, 0.0},
-        {-1.0, 0.0, 0.0, 0.0},
-        {0.0, 0.0, 0.0, 1.0},
-    }},
-    {{
-        {0.0, 0.0, 1.0, 0.0},
-        {0.0, -1.0, 0.0, 0.0},
-        {1.0, 0.0, 0.0, 0.0},
-        {0.0, 0.0, 0.0, 1.0},
-    }},
-    {{
-        {1.0, 0.0, 0.0, 0.0},
-        {0.0, 0.0, -1.0, 0.0},
-        {0.0, 1.0, 0.0, 0.0},
-        {0.0, 0.0, 0.0, 1.0},
-    }},
-    {{
-        {1.0, 0.0, 0.0, 0.0},
-        {0.0, 0.0, 1.0, 0.0},
-        {0.0, -1.0, 0.0, 0.0},
-        {0.0, 0.0, 0.0, 1.0},
-    }},
-    {{
-        {1.0, 0.0, 0.0, 0.0},
-        {0.0, -1.0, 0.0, 0.0},
-        {0.0, 0.0, -1.0, 0.0},
-        {0.0, 0.0, 0.0, 1.0},
-    }},
-    {{
-        {-1.0, 0.0, 0.0, 0.0},
-        {0.0, -1.0, 0.0, 0.0},
-        {0.0, 0.0, 1.0, 0.0},
-        {0.0, 0.0, 0.0, 1.0},
-    }},
-};
 
 // BRDF LUT {{{
 typedef struct BRDFGraphData
@@ -175,7 +116,7 @@ static void layer_pass_callback(MtRenderGraph *graph, MtCmdBuffer *cb, void *use
     } uniform;
 
     uniform.mvp = mat4_mul(
-        direction_matrices[data->layer],
+        g_direction_matrices[data->layer],
         mat4_perspective(((float)MT_PI / 2.0f), 1.0f, 0.1f, 512.0f));
 
     if (data->type == CUBEMAP_RADIANCE)
@@ -202,8 +143,8 @@ static void layer_pass_callback(MtRenderGraph *graph, MtCmdBuffer *cb, void *use
     mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), 0, 0);
     mt_render.cmd_bind_sampler(cb, data->env->skybox_sampler, 0, 1);
     mt_render.cmd_bind_image(cb, data->env->skybox_image, 0, 2);
-    void *mapping = mt_render.cmd_bind_vertex_data(cb, sizeof(cube_positions));
-    memcpy(mapping, cube_positions, sizeof(cube_positions));
+    void *mapping = mt_render.cmd_bind_vertex_data(cb, sizeof(g_cube_vertices));
+    memcpy(mapping, g_cube_vertices, sizeof(g_cube_vertices));
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
 }
 
@@ -457,8 +398,8 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
     mt_render.cmd_bind_sampler(cb, env->radiance_sampler, 1, 0);
     mt_render.cmd_bind_image(cb, env->radiance_image, 1, 1);
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 2);
-    void *mapping = mt_render.cmd_bind_vertex_data(cb, sizeof(cube_positions));
-    memcpy(mapping, cube_positions, sizeof(cube_positions));
+    void *mapping = mt_render.cmd_bind_vertex_data(cb, sizeof(g_cube_vertices));
+    memcpy(mapping, g_cube_vertices, sizeof(g_cube_vertices));
 
     mt_render.cmd_draw(cb, 36, 1, 0, 0);
 }

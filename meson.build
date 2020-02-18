@@ -113,6 +113,7 @@ motor_engine_sources = [
   'src/motor/engine/entities.c',
   'src/motor/engine/inspector.c',
   'src/motor/engine/picker.c',
+  'src/motor/engine/gizmos.c',
   'src/motor/engine/asset_manager.c',
   'src/motor/engine/assets/image_asset.c',
   'src/motor/engine/assets/pipeline_asset.c',
