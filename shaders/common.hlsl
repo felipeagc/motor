@@ -53,7 +53,7 @@ struct Model
 {
     float4x4 local_model;
     float4x4 model;
-    float normal_mapped;
+    float normal_mapped; // TODO: this should move to the material uniform
 };
 
 #endif

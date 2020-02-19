@@ -9,13 +9,9 @@
 #include "common.hlsl"
 #include "pbr_common.hlsl"
 
-[[vk::binding(0, 0)]] cbuffer camera
+[[vk::binding(0, 0)]] cbuffer gizmo
 {
     Camera cam;
-};
-
-[[vk::binding(0, 1)]] cbuffer gizmo
-{
     float4x4 model;
     float4 color;
 };

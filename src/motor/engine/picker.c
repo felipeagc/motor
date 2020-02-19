@@ -13,8 +13,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-static_assert(sizeof(MtPickerSelectionType) == sizeof(uint32_t), "");
-
 struct MtPicker
 {
     MtEngine *engine;

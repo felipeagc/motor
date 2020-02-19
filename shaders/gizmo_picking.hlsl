@@ -1,34 +1,23 @@
 #pragma motor vertex_entry vertex
 #pragma motor pixel_entry pixel
-#pragma motor blending true
-#pragma motor depth_test true
-#pragma motor depth_write true
-#pragma motor cull_mode front
+#pragma motor blending false
+#pragma motor depth_test false
+#pragma motor depth_write false
+#pragma motor cull_mode back
 #pragma motor front_face clockwise
 
 #include "common.hlsl"
 
-[[vk::binding(0, 0)]] cbuffer camera
+[[vk::binding(0, 0)]] cbuffer gizmo
 {
     Camera cam;
-};
-
-[[vk::binding(0, 1)]] cbuffer model
-{
-    Model model;
-};
-
-[[vk::binding(0, 2)]] cbuffer picker
-{
+    float4x4 model;
     uint entity_id;
 };
 
 struct VsInput
 {
     float3 pos : POSITION;
-    float3 normal : NORMAL;
-    float2 uv : TEXCOORD;
-    float4 tangent : TANGENT;
 };
 
 struct VsOutput
@@ -38,8 +27,7 @@ struct VsOutput
 
 void vertex(in VsInput vs_in, out VsOutput vs_out)
 {
-    float4x4 model0 = mul(model.model, model.local_model);
-    float4 loc_pos = mul(model0, float4(vs_in.pos, 1.0));
+    float4 loc_pos = mul(model, float4(vs_in.pos, 1.0));
     float3 world_pos = loc_pos.xyz / loc_pos.w;
     vs_out.sv_pos = mul(mul(cam.proj, cam.view), float4(world_pos, 1.0f));
 }
