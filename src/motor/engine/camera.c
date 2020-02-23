@@ -9,14 +9,14 @@ void mt_perspective_camera_init(MtPerspectiveCamera *c)
 {
     memset(c, 0, sizeof(*c));
 
-    c->yaw   = 0.0f;
+    c->yaw = 0.0f;
     c->pitch = 0.0f;
 
-    c->pos   = V3(0.0f, 0.0f, 0.0f);
+    c->pos = V3(0.0f, 0.0f, 0.0f);
     c->speed = 5.0f;
 
     c->near = 0.1f;
-    c->far  = 300.0f;
+    c->far = 300.0f;
 
     c->fovy = 75.0f * (MT_PI / 180.0f);
 
@@ -30,16 +30,14 @@ void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event)
 {
     switch (event->type)
     {
-        case MT_EVENT_BUTTON_PRESSED:
-        {
+        case MT_EVENT_BUTTON_PRESSED: {
             if (event->mouse.button == MT_MOUSE_BUTTON_RIGHT)
             {
                 mt_window.set_cursor_mode(event->window, MT_CURSOR_MODE_DISABLED);
             }
             break;
         }
-        case MT_EVENT_BUTTON_RELEASED:
-        {
+        case MT_EVENT_BUTTON_RELEASED: {
             if (event->mouse.button == MT_MOUSE_BUTTON_RIGHT)
             {
                 mt_window.set_cursor_mode(event->window, MT_CURSOR_MODE_NORMAL);
@@ -53,19 +51,19 @@ void mt_perspective_camera_on_event(MtPerspectiveCamera *c, MtEvent *event)
 void mt_perspective_camera_update(
     MtPerspectiveCamera *c, MtWindow *win, float aspect, float delta_time)
 {
-    double x, y;
+    int32_t x, y;
     mt_window.get_cursor_pos(win, &x, &y);
 
-    double dx = x - c->prev_x;
-    double dy = y - c->prev_y;
+    int32_t dx = x - c->prev_x;
+    int32_t dy = y - c->prev_y;
 
     c->prev_x = x;
     c->prev_y = y;
 
     if (mt_window.get_cursor_mode(win) == MT_CURSOR_MODE_DISABLED)
     {
-        c->yaw -= dx * c->sensitivity * (MT_PI / 180.0f);
-        c->pitch -= dy * c->sensitivity * (MT_PI / 180.0f);
+        c->yaw -= (float)dx * c->sensitivity * (MT_PI / 180.0f);
+        c->pitch -= (float)dy * c->sensitivity * (MT_PI / 180.0f);
         c->pitch = clamp(c->pitch, -89.0f * (MT_PI / 180.0f), 89.0f * (MT_PI / 180.0f));
     }
 
@@ -73,10 +71,10 @@ void mt_perspective_camera_update(
     front.x = sin(c->yaw) * cos(c->pitch);
     front.y = sin(c->pitch);
     front.z = cos(c->yaw) * cos(c->pitch);
-    front   = v3_normalize(front);
+    front = v3_normalize(front);
 
     Vec3 right = v3_normalize(v3_cross(front, V3(0.0f, 1.0f, 0.0f)));
-    Vec3 up    = v3_normalize(v3_cross(right, front));
+    Vec3 up = v3_normalize(v3_cross(right, front));
 
     float delta = c->speed * delta_time;
     if (mt_window.get_key(win, 'W'))
@@ -97,7 +95,7 @@ void mt_perspective_camera_update(
     }
 
     c->uniform.pos.xyz = c->pos;
-    c->uniform.pos.w   = 1.0f;
+    c->uniform.pos.w = 1.0f;
 
     c->uniform.view = mat4_look_at(c->pos, v3_add(c->pos, front), up);
 

@@ -3,6 +3,7 @@
 #include "api_types.h"
 #include "asset_manager.h"
 #include "entities.h"
+#include "gizmos.h"
 #include "nuklear_impl.h"
 #include <motor/base/thread_pool.h>
 
@@ -28,6 +29,7 @@ typedef struct MtEngine
 
     MtPhysics *physics;
     MtPicker *picker;
+    MtGizmo gizmo;
 
     MtAllocator *alloc;
     MtThreadPool thread_pool;

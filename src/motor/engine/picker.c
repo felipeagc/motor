@@ -4,8 +4,6 @@
 #include <motor/graphics/window.h>
 #include <motor/graphics/renderer.h>
 #include <motor/engine/engine.h>
-#include <motor/engine/nuklear.h>
-#include <motor/engine/nuklear_impl.h>
 #include <motor/engine/camera.h>
 
 #include "pipeline_utils.inl"
@@ -41,11 +39,9 @@ static void picking_transfer_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb,
 {
     MtPicker *picker = user_data;
 
-    struct nk_context *nk = mt_nuklear_get_context(picker->engine->nk_ctx);
-
     MtBuffer *picking_buffer = mt_render.graph_get_buffer(picker->graph, "picking_buffer");
 
-    if (picker->x > 0 && picker->y > 0 && !nk_window_is_any_hovered(nk))
+    if (picker->x > 0 && picker->y > 0)
     {
         mt_render.cmd_copy_image_to_buffer(
             cb,
@@ -191,7 +187,7 @@ uint32_t mt_picker_pick(
     void *mapping = mt_render.map_buffer(picker->engine->device, picking_buffer);
     uint32_t value = UINT32_MAX;
     memcpy(&value, mapping, sizeof(uint32_t));
-    memcpy(mapping, &(uint32_t){MT_PICKER_SELECTION_DESELECT}, sizeof(uint32_t));
+    memcpy(mapping, &(uint32_t){UINT32_MAX}, sizeof(uint32_t));
     mt_render.unmap_buffer(picker->engine->device, picking_buffer);
 
     return value;

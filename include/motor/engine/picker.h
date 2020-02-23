@@ -10,15 +10,6 @@ typedef struct MtEngine MtEngine;
 typedef struct MtCmdBuffer MtCmdBuffer;
 typedef struct MtCameraUniform MtCameraUniform;
 
-typedef enum MtPickerSelectionType {
-    MT_PICKER_SELECTION_LAST = UINT32_MAX - 5,
-    MT_PICKER_SELECTION_TRANSLATE_X = UINT32_MAX - 4,
-    MT_PICKER_SELECTION_TRANSLATE_Y = UINT32_MAX - 3,
-    MT_PICKER_SELECTION_TRANSLATE_Z = UINT32_MAX - 2,
-    MT_PICKER_SELECTION_INALID = UINT32_MAX - 1,
-    MT_PICKER_SELECTION_DESELECT = UINT32_MAX,
-} MtPickerSelectionType;
-
 typedef struct MtPicker MtPicker;
 
 typedef void (*MtPickerDrawCallback)(MtCmdBuffer *, void *user_data);

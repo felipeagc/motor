@@ -29,7 +29,8 @@
 #include <xmmintrin.h>
 #endif
 
-typedef union Vec2 {
+typedef union Vec2
+{
     float v[2];
     struct
     {
@@ -41,7 +42,8 @@ typedef union Vec2 {
     };
 } Vec2;
 
-typedef union Vec3 {
+typedef union Vec3
+{
     float v[3];
     struct
     {
@@ -57,11 +59,13 @@ typedef union Vec3 {
     };
 } Vec3;
 
-typedef union MT_MATH_ALIGNAS(16) Vec4 {
+typedef union MT_MATH_ALIGNAS(16) Vec4
+{
     float v[4];
     struct
     {
-        union {
+        union
+        {
             Vec3 xyz;
             struct
             {
@@ -73,7 +77,8 @@ typedef union MT_MATH_ALIGNAS(16) Vec4 {
 
     struct
     {
-        union {
+        union
+        {
             Vec3 rgb;
             struct
             {
@@ -89,7 +94,8 @@ typedef union MT_MATH_ALIGNAS(16) Vec4 {
     };
 } Vec4;
 
-typedef union MT_MATH_ALIGNAS(16) Mat4 {
+typedef union MT_MATH_ALIGNAS(16) Mat4
+{
     float cols[4][4];
     float elems[16];
     Vec4 v[4];
@@ -98,7 +104,8 @@ typedef union MT_MATH_ALIGNAS(16) Mat4 {
 #endif
 } Mat4;
 
-typedef union Quat {
+typedef union Quat
+{
     struct
     {
         float x, y, z, w;
@@ -108,3 +115,10 @@ typedef union Quat {
         Vec3 xyz;
     };
 } Quat;
+
+typedef struct Ray
+{
+    Vec3 origin;
+    Vec3 direction;
+    float t;
+} Ray;

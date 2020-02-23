@@ -206,10 +206,8 @@ void mt_nuklear_handle_event(MtNuklearContext *nk_ctx, MtEvent *event)
     {
         /* mouse button */
         bool down = event->type == MT_EVENT_BUTTON_PRESSED;
-        double fx, fy;
-        mt_window.get_cursor_pos(event->window, &fx, &fy);
-        int x = (int)fx;
-        int y = (int)fy;
+        int32_t x, y;
+        mt_window.get_cursor_pos(event->window, &x, &y);
         if (event->mouse.button == MT_MOUSE_BUTTON_LEFT)
         {
             /* if (event->button.clicks > 1) */

@@ -36,10 +36,7 @@ typedef struct MtWindow
  * Event queue
  *
  */
-enum
-{
-    EVENT_QUEUE_CAPACITY = 65535
-};
+enum { EVENT_QUEUE_CAPACITY = 65535 };
 
 typedef struct EventQueue
 {
@@ -185,14 +182,32 @@ static void get_size(MtWindow *window, uint32_t *width, uint32_t *height)
     *height = (uint32_t)h;
 }
 
-static void get_cursor_pos(MtWindow *w, double *x, double *y)
+static void get_cursor_pos(MtWindow *w, int32_t *x, int32_t *y)
 {
-    glfwGetCursorPos(w->window, x, y);
+    double dx, dy;
+    glfwGetCursorPos(w->window, &dx, &dy);
+    *x = (int32_t)dx;
+    *y = (int32_t)dy;
 }
 
-static void set_cursor_pos(MtWindow *w, double x, double y)
+static void set_cursor_pos(MtWindow *w, int32_t x, int32_t y)
 {
-    glfwSetCursorPos(w->window, x, y);
+    glfwSetCursorPos(w->window, (double)x, (double)y);
+}
+
+static void get_cursor_pos_normalized(MtWindow *w, float *nx, float *ny)
+{
+    int32_t ix, iy;
+    get_cursor_pos(w, &ix, &iy);
+
+    uint32_t iw, ih;
+    get_size(w, &iw, &ih);
+
+    float fx = (float)ix, fy = (float)iy;
+    float fw = (float)iw, fh = (float)ih;
+
+    *nx = (fx / (fw * 0.5f)) - 1.0f;
+    *ny = (fy / (fh * 0.5f)) - 1.0f;
 }
 
 static MtCursorMode get_cursor_mode(MtWindow *w)
@@ -291,6 +306,8 @@ static MtWindowSystem g_glfw_window_system = {
 
     .get_cursor_pos = get_cursor_pos,
     .set_cursor_pos = set_cursor_pos,
+
+    .get_cursor_pos_normalized = get_cursor_pos_normalized,
 
     .get_cursor_mode = get_cursor_mode,
     .set_cursor_mode = set_cursor_mode,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math_types.h"
+#include <float.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -872,6 +873,39 @@ MT_MATH_INLINE Quat quat_look_at(Vec3 direction, Vec3 up)
     }
 
     return (Quat){0};
+}
+
+/*
+ * Ray functions
+ */
+
+MT_MATH_INLINE float ray_distance(Ray *l1, Ray *l2)
+{
+    const Vec3 dp = v3_sub(l2->origin, l1->origin);
+    const float v12 = v3_dot(l1->direction, l1->direction);
+    const float v22 = v3_dot(l2->direction, l2->direction);
+    const float v1v2 = v3_dot(l1->direction, l2->direction);
+
+    const float det = v1v2 * v1v2 - v12 * v22;
+
+    if (fabs(det) > FLT_MIN)
+    {
+        const float inv_det = 1.f / det;
+
+        const float dpv1 = v3_dot(dp, l1->direction);
+        const float dpv2 = v3_dot(dp, l2->direction);
+
+        l1->t = inv_det * (v22 * dpv1 - v1v2 * dpv2);
+        l2->t = inv_det * (v1v2 * dpv1 - v12 * dpv2);
+
+        return v3_mag(
+            v3_sub(dp, v3_sub(v3_muls(l2->direction, l2->t), v3_muls(l1->direction, l1->t))));
+    }
+    else
+    {
+        const Vec3 a = v3_cross(dp, l1->direction);
+        return sqrtf(v3_dot(a, a) / v12);
+    }
 }
 
 /*

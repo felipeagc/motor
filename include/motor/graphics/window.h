@@ -281,8 +281,10 @@ typedef struct MtWindowSystem
 
     void (*get_size)(MtWindow *, uint32_t *width, uint32_t *height);
 
-    void (*get_cursor_pos)(MtWindow *, double *x, double *y);
-    void (*set_cursor_pos)(MtWindow *, double x, double y);
+    void (*get_cursor_pos)(MtWindow *, int32_t *x, int32_t *y);
+    void (*set_cursor_pos)(MtWindow *, int32_t x, int32_t y);
+
+    void (*get_cursor_pos_normalized)(MtWindow *, float *x, float *y);
 
     MtCursorMode (*get_cursor_mode)(MtWindow *);
     void (*set_cursor_mode)(MtWindow *, MtCursorMode);

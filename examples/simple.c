@@ -36,7 +36,6 @@ typedef struct Game
     MtPipelineAsset *pbr_pipeline;
     MtPipelineAsset *selected_pipeline;
     MtPipelineAsset *gizmo_pipeline;
-    MtPipelineAsset *gizmo_picking_pipeline;
     MtPipelineAsset *fullscreen_pipeline;
 
     MtPerspectiveCamera cam;
@@ -68,8 +67,6 @@ static void game_init(Game *g)
     mt_asset_manager_queue_load(am, "../shaders/pbr.hlsl", (MtAsset **)&g->pbr_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/selected.hlsl", (MtAsset **)&g->selected_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/gizmo.hlsl", (MtAsset **)&g->gizmo_pipeline);
-    mt_asset_manager_queue_load(
-        am, "../shaders/gizmo_picking.hlsl", (MtAsset **)&g->gizmo_picking_pipeline);
     mt_asset_manager_queue_load(
         am, "../shaders/fullscreen.hlsl", (MtAsset **)&g->fullscreen_pipeline);
 
@@ -255,7 +252,8 @@ static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, UINT32_MAX);
 
         mt_render.cmd_bind_pipeline(cb, g->gizmo_pipeline->pipeline);
-        mt_draw_translation_gizmo(cb, &g->cam.uniform, &comps->pos[e]);
+        mt_translation_gizmo_draw(
+            &g->engine.gizmo, cb, g->engine.window, &g->cam.uniform, &comps->pos[e]);
     }
 }
 // }}}
@@ -286,13 +284,6 @@ static void picking_system(MtCmdBuffer *cb, void *user_data)
 
         mt_render.cmd_bind_uniform(cb, &e, sizeof(uint32_t), 2, 0);
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, UINT32_MAX);
-    }
-
-    if (arch->selected_entity != MT_ENTITY_INVALID)
-    {
-        MtEntity e = arch->selected_entity;
-        mt_render.cmd_bind_pipeline(cb, g->gizmo_picking_pipeline->pipeline);
-        mt_draw_translation_gizmo_picker(cb, &g->cam.uniform, &comps->pos[e]);
     }
 }
 // }}}
@@ -379,30 +370,15 @@ int main(int argc, char *argv[])
                 case MT_EVENT_BUTTON_PRESSED: {
                     if (event.mouse.button == MT_MOUSE_BUTTON_LEFT)
                     {
-                        double x, y;
-                        mt_window.get_cursor_pos(game.engine.window, &x, &y);
-
-                        uint32_t value = mt_picker_pick(
-                            game.engine.picker,
-                            &game.cam.uniform,
-                            (int32_t)x,
-                            (int32_t)y,
-                            picking_system,
-                            &game);
-
-                        switch (value)
+                        if (!nk_window_is_any_hovered(nk))
                         {
-                            case MT_PICKER_SELECTION_DESELECT: {
-                                game.model_archetype->selected_entity = MT_ENTITY_INVALID;
-                                break;
-                            }
-                            default: {
-                                if (value < MT_PICKER_SELECTION_LAST)
-                                {
-                                    game.model_archetype->selected_entity = (MtEntity)value;
-                                }
-                                break;
-                            }
+                            int32_t x, y;
+                            mt_window.get_cursor_pos(game.engine.window, &x, &y);
+
+                            uint32_t value = mt_picker_pick(
+                                game.engine.picker, &game.cam.uniform, x, y, picking_system, &game);
+
+                            game.model_archetype->selected_entity = (MtEntity)value;
                         }
                     }
                     break;

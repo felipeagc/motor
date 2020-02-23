@@ -32,7 +32,7 @@ typedef struct MtPerspectiveCamera
     float far;
     float fovy;
 
-    double prev_x, prev_y;
+    int32_t prev_x, prev_y;
 
     float sensitivity;
 } MtPerspectiveCamera;

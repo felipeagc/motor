@@ -9,12 +9,25 @@ extern "C" {
 
 typedef struct MtCmdBuffer MtCmdBuffer;
 typedef struct MtCameraUniform MtCameraUniform;
+typedef struct MtWindow MtWindow;
+typedef struct MtEvent MtEvent;
 
-MT_ENGINE_API void
-mt_draw_translation_gizmo(MtCmdBuffer *cb, const MtCameraUniform *camera, const Vec3 *pos);
+typedef enum MtGizmoState {
+    MT_GIZMO_STATE_NONE = 0,
+    MT_GIZMO_STATE_TRANSLATE_X,
+    MT_GIZMO_STATE_TRANSLATE_Y,
+    MT_GIZMO_STATE_TRANSLATE_Z,
+} MtGizmoState;
 
-MT_ENGINE_API void
-mt_draw_translation_gizmo_picker(MtCmdBuffer *cb, const MtCameraUniform *camera, const Vec3 *pos);
+typedef struct MtGizmo
+{
+    MtGizmoState state;
+    Vec3 previous_intersect;
+    Vec3 current_intersect;
+} MtGizmo;
+
+MT_ENGINE_API void mt_translation_gizmo_draw(
+    MtGizmo *gizmo, MtCmdBuffer *cb, MtWindow *window, const MtCameraUniform *camera, Vec3 *pos);
 
 #ifdef __cplusplus
 }
