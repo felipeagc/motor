@@ -14,13 +14,13 @@ typedef struct MtEvent MtEvent;
 
 typedef enum MtGizmoState {
     MT_GIZMO_STATE_NONE = 0,
-    MT_GIZMO_STATE_TRANSLATE_X,
-    MT_GIZMO_STATE_TRANSLATE_Y,
-    MT_GIZMO_STATE_TRANSLATE_Z,
+    MT_GIZMO_STATE_TRANSLATE,
 } MtGizmoState;
 
 typedef struct MtGizmo
 {
+    bool hovered;
+    uint32_t axis;
     MtGizmoState state;
     Vec3 previous_intersect;
     Vec3 current_intersect;

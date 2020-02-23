@@ -5,6 +5,7 @@
 #pragma motor depth_write false
 #pragma motor cull_mode back
 #pragma motor front_face clockwise
+#pragma motor topology line_list
 
 #include "common.hlsl"
 #include "pbr_common.hlsl"

@@ -128,3 +128,14 @@ static VkBorderColor border_color_to_vulkan(MtBorderColor value)
     }
     return 0;
 }
+
+static VkPrimitiveTopology topology_to_vulkan(MtPrimitiveTopology value)
+{
+    switch (value)
+    {
+        case MT_PRIMITIVE_TOPOLOGY_LINE_LIST: return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        case MT_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        default: assert(0);
+    }
+    return 0;
+}

@@ -106,6 +106,11 @@ typedef enum MtPolygonMode {
     MT_POLYGON_MODE_POINT,
 } MtPolygonMode;
 
+typedef enum MtPrimitiveTopology {
+    MT_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+    MT_PRIMITIVE_TOPOLOGY_LINE_LIST,
+} MtPrimitiveTopology;
+
 typedef struct MtGraphicsPipelineCreateInfo
 {
     bool blending;
@@ -115,6 +120,7 @@ typedef struct MtGraphicsPipelineCreateInfo
     MtPolygonMode polygon_mode;
     MtCullMode cull_mode;
     MtFrontFace front_face;
+    MtPrimitiveTopology topology;
     float line_width;
 } MtGraphicsPipelineCreateInfo;
 

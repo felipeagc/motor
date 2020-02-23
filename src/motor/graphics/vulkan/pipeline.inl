@@ -358,7 +358,7 @@ static void create_graphics_pipeline_instance(
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .topology = topology_to_vulkan(options->topology),
         .primitiveRestartEnable = VK_FALSE,
     };
 

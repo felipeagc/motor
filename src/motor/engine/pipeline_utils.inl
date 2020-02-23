@@ -146,6 +146,7 @@ static MtPipeline *create_graphics_pipeline_hlsl(
         .polygon_mode = MT_POLYGON_MODE_FILL,
         .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
         .cull_mode = MT_CULL_MODE_NONE,
+        .topology = MT_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .line_width = 1.0f,
     };
 
@@ -200,6 +201,18 @@ static MtPipeline *create_graphics_pipeline_hlsl(
             else if (strncmp(pragma->value, "point", pragma->value_len) == 0)
             {
                 pipeline_create_info.polygon_mode = MT_POLYGON_MODE_POINT;
+            }
+        }
+
+        if (strncmp(pragma->key, "topology", pragma->key_len) == 0)
+        {
+            if (strncmp(pragma->value, "line_list", pragma->value_len) == 0)
+            {
+                pipeline_create_info.topology = MT_PRIMITIVE_TOPOLOGY_LINE_LIST;
+            }
+            else if (strncmp(pragma->value, "triangle_list", pragma->value_len) == 0)
+            {
+                pipeline_create_info.topology = MT_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
             }
         }
 

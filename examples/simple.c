@@ -370,7 +370,7 @@ int main(int argc, char *argv[])
                 case MT_EVENT_BUTTON_PRESSED: {
                     if (event.mouse.button == MT_MOUSE_BUTTON_LEFT)
                     {
-                        if (!nk_window_is_any_hovered(nk))
+                        if (!nk_window_is_any_hovered(nk) && !game.engine.gizmo.hovered)
                         {
                             int32_t x, y;
                             mt_window.get_cursor_pos(game.engine.window, &x, &y);
