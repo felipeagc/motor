@@ -119,21 +119,14 @@ extern "C" void mt_physics_scene_step(MtPhysicsScene *scene, float dt)
 //
 
 extern "C" void mt_rigid_actor_init(
-    MtPhysicsScene *scene,
-    MtRigidActor *actor_,
-    MtRigidActorType type,
-    MtPhysicsShape *shape,
-    Vec3 pos,
-    Quat rot)
+    MtPhysicsScene *scene, MtRigidActor *actor_, MtRigidActorType type, MtPhysicsShape *shape)
 {
     MtPhysics *physics = scene->physics;
 
     PxMaterial *material = physics->physics->createMaterial(0.5f, 0.5f, 0.6f);
     PxShape *shape_ = NULL;
 
-    PxTransform transform;
-    transform.q = PxQuat(rot.x, rot.y, rot.z, rot.w);
-    transform.p = PxVec3(pos.x, pos.y, pos.z);
+    PxTransform transform = {};
 
     switch (shape->type)
     {

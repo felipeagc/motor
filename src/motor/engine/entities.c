@@ -50,7 +50,8 @@ MtEntityArchetype *mt_entity_manager_register_archetype(
     return archetype;
 }
 
-MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype)
+MtEntity mt_entity_manager_add_entity(
+    MtEntityManager *em, MtEntityArchetype *archetype, MtComponentMask component_mask)
 {
     if ((archetype - em->archetypes) >= em->archetype_count)
     {
@@ -67,6 +68,9 @@ MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *ar
             archetype->entity_cap = 32; // Initial cap
         }
 
+        archetype->masks = mt_realloc(
+            em->alloc, archetype->masks, sizeof(*archetype->masks) * archetype->entity_cap);
+
         for (uint32_t i = 0; i < archetype->spec.component_count; ++i)
         {
             assert(archetype->spec.components[i].size > 0);
@@ -79,6 +83,7 @@ MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *ar
     }
 
     MtEntity entity_index = archetype->entity_count++;
+    archetype->masks[entity_index] = component_mask;
 
     if (archetype->entity_init)
     {

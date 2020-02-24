@@ -9,13 +9,14 @@ extern "C" {
 typedef struct MtAllocator MtAllocator;
 typedef struct MtEntityManager MtEntityManager;
 
-#ifndef MT_COMP_INDEX
-#define MT_COMP_INDEX(archetype, component) (offsetof(archetype, component) / sizeof(void *))
+#ifndef MT_COMP_BIT
+#define MT_COMP_BIT(archetype, component) (1 << (offsetof(archetype, component) / sizeof(void *)))
 #endif
 
 #define MT_ENTITY_INVALID UINT32_MAX
 
-typedef int32_t MtEntity;
+typedef uint32_t MtEntity;
+typedef uint32_t MtComponentMask;
 typedef void (*MtEntityInitializer)(void *data, MtEntity entity);
 
 typedef enum MtComponentType {
@@ -45,6 +46,7 @@ typedef struct MtEntityArchetype
 
     MtEntity selected_entity;
 
+    MtComponentMask *masks;
     void **components;
     MtArchetypeSpec spec;
 } MtEntityArchetype;
@@ -66,8 +68,8 @@ MT_ENGINE_API MtEntityArchetype *mt_entity_manager_register_archetype(
     uint32_t component_count,
     MtEntityInitializer initializer);
 
-MT_ENGINE_API MtEntity
-mt_entity_manager_add_entity(MtEntityManager *em, MtEntityArchetype *archetype);
+MT_ENGINE_API MtEntity mt_entity_manager_add_entity(
+    MtEntityManager *em, MtEntityArchetype *archetype, MtComponentMask component_mask);
 
 #ifdef __cplusplus
 }

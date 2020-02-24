@@ -105,57 +105,32 @@ static void game_init(Game *g)
         MtPhysicsShape sphere_shape = {.type = MT_PHYSICS_SHAPE_SPHERE, .radius = 1.0f};
         MtPhysicsShape floor_shape = {.type = MT_PHYSICS_SHAPE_PLANE, .plane = V4(0, 1, 0, 0)};
 
-        e = mt_entity_manager_add_entity(em, g->model_archetype);
-        comps->scale[e] = V3(1, 1, 1);
-        comps->pos[e] = V3(-1.5, 1000, 0);
-        comps->rot[e] = (Quat){0, 0, 0, 1};
+        MtComponentMask comp_mask = MT_COMP_BIT(MtModelArchetype, transform) |
+                                    MT_COMP_BIT(MtModelArchetype, model) |
+                                    MT_COMP_BIT(MtModelArchetype, actor);
+
+        e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
+        comps->transform[e].pos = V3(-1.5, 1000, 0);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
-        mt_rigid_actor_init(
-            g->scene,
-            &comps->actor[e],
-            MT_RIGID_ACTOR_DYNAMIC,
-            &sphere_shape,
-            comps->pos[e],
-            comps->rot[e]);
+        mt_rigid_actor_init(g->scene, &comps->actor[e], MT_RIGID_ACTOR_DYNAMIC, &sphere_shape);
 
-        e = mt_entity_manager_add_entity(em, g->model_archetype);
+        e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
-        comps->scale[e] = V3(100, 100, 100);
-        comps->pos[e] = V3(1.5, 5, 0);
-        comps->rot[e] = (Quat){0, 0, 0, 1};
-        mt_rigid_actor_init(
-            g->scene,
-            &comps->actor[e],
-            MT_RIGID_ACTOR_DYNAMIC,
-            &sphere_shape,
-            comps->pos[e],
-            comps->rot[e]);
+        comps->transform[e].scale = V3(100, 100, 100);
+        comps->transform[e].pos = V3(1.5f, 5.f, 0.f);
+        mt_rigid_actor_init(g->scene, &comps->actor[e], MT_RIGID_ACTOR_DYNAMIC, &sphere_shape);
 
-        e = mt_entity_manager_add_entity(em, g->model_archetype);
+        e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/lantern_ktx.glb");
-        comps->scale[e] = V3(0.2f, 0.2f, 0.2f);
-        comps->pos[e] = V3(4, 5, 0);
-        comps->rot[e] = (Quat){0, 0, 0, 1};
-        mt_rigid_actor_init(
-            g->scene,
-            &comps->actor[e],
-            MT_RIGID_ACTOR_DYNAMIC,
-            &sphere_shape,
-            comps->pos[e],
-            comps->rot[e]);
+        comps->transform[e].scale = V3(0.2f, 0.2f, 0.2f);
+        comps->transform[e].pos = V3(4.f, 5.f, 0.f);
+        mt_rigid_actor_init(g->scene, &comps->actor[e], MT_RIGID_ACTOR_DYNAMIC, &sphere_shape);
 
-        e = mt_entity_manager_add_entity(em, g->model_archetype);
+        e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
-        comps->pos[e] = V3(0, 0, 0);
-        comps->scale[e] = V3(3, 3, 3);
-        comps->rot[e] = (Quat){0, 0, 0, 1};
-        mt_rigid_actor_init(
-            g->scene,
-            &comps->actor[e],
-            MT_RIGID_ACTOR_STATIC,
-            &floor_shape,
-            comps->pos[e],
-            comps->rot[e]);
+        comps->transform[e].pos = V3(0, 0, 0);
+        comps->transform[e].scale = V3(3, 3, 3);
+        mt_rigid_actor_init(g->scene, &comps->actor[e], MT_RIGID_ACTOR_STATIC, &floor_shape);
     }
 
     MtXorShift xs;
@@ -166,13 +141,15 @@ static void game_init(Game *g)
         uint64_t e;
         MtEntityArchetype *arch = g->light_archetype;
         MtPointLightArchetype *comps = (MtPointLightArchetype *)arch->components;
+        MtComponentMask comp_mask =
+            MT_COMP_BIT(MtPointLightArchetype, pos) | MT_COMP_BIT(MtPointLightArchetype, color);
 
 #define LIGHT_POS_X mt_xor_shift_float(&xs, -15.0f, 15.0f)
 #define LIGHT_POS_Y mt_xor_shift_float(&xs, 0.0f, 2.0f)
 #define LIGHT_POS_Z mt_xor_shift_float(&xs, -10.0f, 10.0f)
 #define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
 
-        e = mt_entity_manager_add_entity(em, g->light_archetype);
+        e = mt_entity_manager_add_entity(em, g->light_archetype, comp_mask);
         comps->pos[e] = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
         comps->color[e] = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
         comps->color[e] = v3_muls(v3_normalize(comps->color[e]), 10.0f);
@@ -199,9 +176,14 @@ static void light_system(MtEntityArchetype *arch, MtEnvironment *env, float delt
     float x = sinf(acc * 2.0f) * 2.0f;
     float z = cosf(acc * 2.0f) * 2.0f;
 
+    MtComponentMask comp_mask =
+        MT_COMP_BIT(MtPointLightArchetype, pos) | MT_COMP_BIT(MtPointLightArchetype, color);
+
     env->uniform.point_light_count = 0;
     for (uint32_t e = 0; e < arch->entity_count; ++e)
     {
+        if (!(arch->masks[e] & comp_mask)) continue;
+
         uint32_t l = env->uniform.point_light_count;
 
         env->uniform.point_lights[l].pos.xyz = comps->pos[e];
@@ -223,15 +205,18 @@ static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
     mt_render.cmd_bind_uniform(cb, &g->cam.uniform, sizeof(g->cam.uniform), 0, 0);
     mt_environment_bind(&g->env, cb, 3);
 
+    MtComponentMask comp_mask =
+        MT_COMP_BIT(MtModelArchetype, transform) | MT_COMP_BIT(MtModelArchetype, model);
+
     MtModelArchetype *comps = (MtModelArchetype *)arch->components;
     for (MtEntity e = 0; e < arch->entity_count; ++e)
     {
-        mt_rigid_actor_get_transform(&comps->actor[e], &comps->pos[e], &comps->rot[e]);
+        if (!(arch->masks[e] & comp_mask)) continue;
 
-        Mat4 transform = mat4_identity();
-        transform = mat4_scale(transform, comps->scale[e]);
-        transform = mat4_mul(quat_to_mat4(comps->rot[e]), transform);
-        transform = mat4_translate(transform, comps->pos[e]);
+        mt_rigid_actor_get_transform(
+            &comps->actor[e], &comps->transform[e].pos, &comps->transform[e].rot);
+
+        Mat4 transform = mt_transform_matrix(&comps->transform[e]);
 
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, 2);
     }
@@ -240,10 +225,7 @@ static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
     {
         MtEntity e = arch->selected_entity;
 
-        Mat4 transform = mat4_identity();
-        transform = mat4_scale(transform, comps->scale[e]);
-        transform = mat4_mul(quat_to_mat4(comps->rot[e]), transform);
-        transform = mat4_translate(transform, comps->pos[e]);
+        Mat4 transform = mt_transform_matrix(&comps->transform[e]);
 
         // Draw wireframe
         mt_render.cmd_bind_pipeline(cb, g->selected_pipeline->pipeline);
@@ -253,7 +235,7 @@ static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
 
         mt_render.cmd_bind_pipeline(cb, g->gizmo_pipeline->pipeline);
         mt_translation_gizmo_draw(
-            &g->engine.gizmo, cb, g->engine.window, &g->cam.uniform, &comps->pos[e]);
+            &g->engine.gizmo, cb, g->engine.window, &g->cam.uniform, &comps->transform[e].pos);
     }
 }
 // }}}
@@ -261,10 +243,16 @@ static void model_system(MtCmdBuffer *cb, Game *g, MtEntityArchetype *arch)
 // Physics transform mirroring {{{
 static void mirror_physics_transforms_system(MtEntityArchetype *arch)
 {
+    MtComponentMask comp_mask =
+        MT_COMP_BIT(MtModelArchetype, transform) | MT_COMP_BIT(MtModelArchetype, actor);
+
     MtModelArchetype *comps = (MtModelArchetype *)arch->components;
     for (MtEntity e = 0; e < arch->entity_count; ++e)
     {
-        mt_rigid_actor_set_transform(&comps->actor[e], comps->pos[e], comps->rot[e]);
+        if (!(arch->masks[e] & comp_mask)) continue;
+
+        mt_rigid_actor_set_transform(
+            &comps->actor[e], comps->transform[e].pos, comps->transform[e].rot);
     }
 }
 // }}}
@@ -275,12 +263,14 @@ static void picking_system(MtCmdBuffer *cb, void *user_data)
     Game *g = user_data;
     MtEntityArchetype *arch = g->model_archetype;
     MtModelArchetype *comps = (MtModelArchetype *)arch->components;
+    MtComponentMask comp_mask =
+        MT_COMP_BIT(MtModelArchetype, transform) | MT_COMP_BIT(MtModelArchetype, model);
+
     for (uint32_t e = 0; e < arch->entity_count; ++e)
     {
-        Mat4 transform = mat4_identity();
-        transform = mat4_scale(transform, comps->scale[e]);
-        transform = mat4_mul(quat_to_mat4(comps->rot[e]), transform);
-        transform = mat4_translate(transform, comps->pos[e]);
+        if (!(arch->masks[e] & comp_mask)) continue;
+
+        Mat4 transform = mt_transform_matrix(&comps->transform[e]);
 
         mt_render.cmd_bind_uniform(cb, &e, sizeof(uint32_t), 2, 0);
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, UINT32_MAX);

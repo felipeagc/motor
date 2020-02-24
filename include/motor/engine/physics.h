@@ -67,12 +67,7 @@ MT_ENGINE_API void mt_physics_scene_step(MtPhysicsScene *scene, float dt);
 
 MT_ENGINE_API
 void mt_rigid_actor_init(
-    MtPhysicsScene *scene,
-    MtRigidActor *actor,
-    MtRigidActorType type,
-    MtPhysicsShape *shape,
-    Vec3 pos,
-    Quat rot);
+    MtPhysicsScene *scene, MtRigidActor *actor, MtRigidActorType type, MtPhysicsShape *shape);
 
 MT_ENGINE_API
 void mt_rigid_actor_get_transform(MtRigidActor *actor, Vec3 *pos, Quat *rot);
