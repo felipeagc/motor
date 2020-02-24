@@ -247,8 +247,7 @@ static QueueFamilyIndices find_queue_families(MtDevice *dev, VkPhysicalDevice ph
             indices.compute = i;
         }
 
-        if (are_indices_complete(dev, &indices))
-            break;
+        if (are_indices_complete(dev, &indices)) break;
     }
 
     mt_free(dev->alloc, queue_families);
@@ -282,8 +281,7 @@ static bool check_device_extension_support(MtDevice *dev, VkPhysicalDevice physi
             }
         }
 
-        if (!found)
-            found_all = false;
+        if (!found) found_all = false;
     }
 
     mt_free(dev->alloc, available_extensions);
@@ -941,10 +939,11 @@ static MtRenderer g_vulkan_renderer = {
     .create_graph = create_graph,
     .destroy_graph = destroy_graph,
 
-    .graph_bake = graph_bake,
     .graph_execute = graph_execute,
     .graph_wait_all = graph_wait_all,
     .graph_on_resize = graph_on_resize,
+
+    .graph_set_user_data = graph_set_user_data,
 
     .graph_set_builder = graph_set_builder,
     .graph_add_image = graph_add_image,

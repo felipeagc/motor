@@ -348,6 +348,7 @@ typedef struct MtRenderGraph
     uint32_t current_frame;
     uint32_t frame_count;
     bool framebuffer_resized;
+    bool baked;
 
     /*array*/ MtRenderGraphPass *passes;
     /*array*/ GraphResource *resources;

@@ -143,9 +143,9 @@ MtPicker *mt_picker_create(MtEngine *engine)
 
     picker->picking_pipeline = create_pipeline(engine, path, input, input_size);
 
-    picker->graph = mt_render.create_graph(engine->device, NULL, picker);
+    picker->graph = mt_render.create_graph(engine->device, NULL);
+    mt_render.graph_set_user_data(picker->graph, picker);
     mt_render.graph_set_builder(picker->graph, picking_graph_builder);
-    mt_render.graph_bake(picker->graph);
 
     return picker;
 }

@@ -11,7 +11,6 @@
 #include <motor/engine/assets/pipeline_asset.h>
 #include <motor/engine/assets/image_asset.h>
 #include <motor/graphics/renderer.h>
-#include "pipeline_utils.inl"
 #include "common_geometry.inl"
 
 typedef enum CubemapType {
@@ -50,43 +49,22 @@ static void brdf_graph_builder(MtRenderGraph *graph, void *user_data)
 
 static MtImage *generate_brdf_lut(MtEngine *engine)
 {
-    // Create pipeline
-    const char *path = "../shaders/brdf.hlsl";
-
-    FILE *f = fopen(path, "rb");
-    if (!f)
-    {
-        mt_log_error("Failed to open file: %s", path);
-        return NULL;
-    }
-
-    fseek(f, 0, SEEK_END);
-    size_t input_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char *input = mt_alloc(engine->alloc, input_size);
-    fread(input, input_size, 1, f);
-    fclose(f);
-
-    MtPipeline *pipeline = create_pipeline(engine, path, input, input_size);
-
-    mt_free(engine->alloc, input);
+    MtPipeline *pipeline = engine->brdf_pipeline->pipeline;
 
     // Create image
     const uint32_t dim = 512;
 
     BRDFGraphData data = {.pipeline = pipeline, .dim = dim};
 
-    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, &data);
+    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL);
+    mt_render.graph_set_user_data(graph, &data);
     mt_render.graph_set_builder(graph, brdf_graph_builder);
-    mt_render.graph_bake(graph);
 
     mt_render.graph_execute(graph);
     mt_render.graph_wait_all(graph);
 
     MtImage *brdf = mt_render.graph_consume_image(graph, "brdf");
     mt_render.destroy_graph(graph);
-
-    mt_render.destroy_pipeline(engine->device, pipeline);
 
     return brdf;
 }
@@ -207,32 +185,14 @@ static void cubemap_graph_builder(MtRenderGraph *graph, void *user_data)
 
 static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 {
-    MtEngine *engine = env->asset_manager->engine;
+    MtEngine *engine = env->engine;
 
-    const char *path = NULL;
+    MtPipeline *pipeline = NULL;
     switch (type)
     {
-        case CUBEMAP_IRRADIANCE: path = "../shaders/irradiance_cube.hlsl"; break;
-        case CUBEMAP_RADIANCE: path = "../shaders/prefilter_env_map.hlsl"; break;
+        case CUBEMAP_IRRADIANCE: pipeline = env->engine->irradiance_pipeline->pipeline; break;
+        case CUBEMAP_RADIANCE: pipeline = env->engine->prefilter_env_pipeline->pipeline; break;
     }
-
-    FILE *f = fopen(path, "rb");
-    if (!f)
-    {
-        mt_log_error("Failed to open file: %s", path);
-        return NULL;
-    }
-
-    fseek(f, 0, SEEK_END);
-    size_t input_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char *input = mt_alloc(engine->alloc, input_size);
-    fread(input, input_size, 1, f);
-    fclose(f);
-
-    MtPipeline *pipeline = create_pipeline(engine, path, input, input_size);
-
-    mt_free(engine->alloc, input);
 
     // Create image
     uint32_t dim;
@@ -266,9 +226,9 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
         .format = format,
     };
 
-    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, &data);
+    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL);
+    mt_render.graph_set_user_data(graph, &data);
     mt_render.graph_set_builder(graph, cubemap_graph_builder);
-    mt_render.graph_bake(graph);
 
     for (uint32_t m = 0; m < mip_count; m++)
     {
@@ -286,15 +246,13 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 
     mt_render.destroy_graph(graph);
 
-    mt_render.destroy_pipeline(engine->device, pipeline);
-
     return cubemap;
 }
 // }}}
 
 static void maybe_generate_images(MtEnvironment *env)
 {
-    MtEngine *engine = env->asset_manager->engine;
+    MtEngine *engine = env->engine;
 
     MtImage *old_skybox = env->skybox_image;
     MtImage *old_irradiance = env->irradiance_image;
@@ -304,11 +262,6 @@ static void maybe_generate_images(MtEnvironment *env)
 
     if (env->skybox_image != old_skybox)
     {
-        if (old_skybox)
-        {
-            mt_render.destroy_image(engine->device, old_skybox);
-        }
-
         mt_log_debug("Generating irradiance cubemap");
         env->irradiance_image = generate_cubemap(env, CUBEMAP_IRRADIANCE);
         mt_log_debug("Generated irradiance cubemap");
@@ -349,21 +302,13 @@ static void maybe_generate_images(MtEnvironment *env)
     }
 }
 
-void mt_environment_init(
-    MtEnvironment *env, MtAssetManager *asset_manager, MtImageAsset *skybox_asset)
+void mt_environment_init(MtEnvironment *env, MtEngine *engine)
 {
     memset(env, 0, sizeof(*env));
 
-    env->asset_manager = asset_manager;
-
-    MtEngine *engine = env->asset_manager->engine;
+    env->engine = engine;
 
     env->radiance_mip_levels = 1.0f;
-
-    env->skybox_pipeline =
-        (MtPipelineAsset *)mt_asset_manager_load(asset_manager, "../shaders/skybox.hlsl");
-
-    env->skybox_asset = skybox_asset;
 
     env->brdf_image = generate_brdf_lut(engine);
 
@@ -389,11 +334,16 @@ void mt_environment_init(
     maybe_generate_images(env);
 }
 
+void mt_environment_set_skybox(MtEnvironment *env, MtImageAsset *skybox_asset)
+{
+    env->skybox_asset = skybox_asset;
+}
+
 void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 {
     maybe_generate_images(env);
 
-    mt_render.cmd_bind_pipeline(cb, env->skybox_pipeline->pipeline);
+    mt_render.cmd_bind_pipeline(cb, env->engine->skybox_pipeline->pipeline);
 
     mt_render.cmd_bind_sampler(cb, env->radiance_sampler, 1, 0);
     mt_render.cmd_bind_image(cb, env->radiance_image, 1, 1);
@@ -406,6 +356,8 @@ void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
 
 void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set)
 {
+    maybe_generate_images(env);
+
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), set, 0);
     mt_render.cmd_bind_sampler(cb, env->skybox_sampler, set, 1);
     mt_render.cmd_bind_sampler(cb, env->radiance_sampler, set, 2);
@@ -416,7 +368,7 @@ void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set)
 
 void mt_environment_destroy(MtEnvironment *env)
 {
-    MtEngine *engine = env->asset_manager->engine;
+    MtEngine *engine = env->engine;
 
     if (env->irradiance_image)
     {

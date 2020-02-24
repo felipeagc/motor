@@ -1,10 +1,7 @@
 #pragma once
 
 #include "api_types.h"
-#include "asset_manager.h"
-#include "entities.h"
 #include "gizmos.h"
-#include "nuklear_impl.h"
 #include <motor/base/thread_pool.h>
 
 #ifdef __cplusplus
@@ -19,7 +16,10 @@ typedef struct MtSampler MtSampler;
 typedef struct MtFileWatcher MtFileWatcher;
 typedef struct MtPhysics MtPhysics;
 typedef struct MtPicker MtPicker;
+typedef struct MtAssetManager MtAssetManager;
+typedef struct MtNuklearContext MtNuklearContext;
 typedef struct shaderc_compiler *shaderc_compiler_t;
+typedef struct MtPipelineAsset MtPipelineAsset;
 
 typedef struct MtEngine
 {
@@ -33,8 +33,7 @@ typedef struct MtEngine
 
     MtAllocator *alloc;
     MtThreadPool thread_pool;
-    MtAssetManager asset_manager;
-    MtEntityManager entity_manager;
+    MtAssetManager *asset_manager;
 
     MtNuklearContext *nk_ctx;
     MtFileWatcher *watcher;
@@ -45,6 +44,15 @@ typedef struct MtEngine
     MtImage *black_image;
     MtImage *default_cubemap;
     MtSampler *default_sampler;
+
+    MtPipelineAsset *pbr_pipeline;
+    MtPipelineAsset *selected_pipeline;
+    MtPipelineAsset *gizmo_pipeline;
+    MtPipelineAsset *skybox_pipeline;
+    MtPipelineAsset *brdf_pipeline;
+    MtPipelineAsset *irradiance_pipeline;
+    MtPipelineAsset *prefilter_env_pipeline;
+    MtPipelineAsset *ui_pipeline;
 } MtEngine;
 
 MT_ENGINE_API void mt_engine_init(MtEngine *engine);

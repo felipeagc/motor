@@ -1,7 +1,6 @@
 #include <motor/engine/entities.h>
 
 #include <motor/base/log.h>
-#include <motor/base/array.h>
 #include <motor/base/allocator.h>
 #include <string.h>
 #include <assert.h>
@@ -15,7 +14,7 @@ void mt_entity_manager_init(MtEntityManager *em, MtAllocator *alloc)
 void mt_entity_manager_destroy(MtEntityManager *em)
 {
     for (MtEntityArchetype *archetype = em->archetypes;
-         archetype != em->archetypes + mt_array_size(em->archetypes);
+         archetype != em->archetypes + em->archetype_count;
          archetype++)
     {
         for (uint32_t i = 0; i < archetype->spec.component_count; ++i)

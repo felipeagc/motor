@@ -10,6 +10,8 @@
 #include <motor/engine/file_watcher.h>
 #include <motor/engine/physics.h>
 #include <motor/engine/picker.h>
+#include <motor/engine/asset_manager.h>
+#include <motor/engine/nuklear_impl.h>
 #include <shaderc/shaderc.h>
 #include <string.h>
 #include <stdio.h>
@@ -21,7 +23,7 @@ void asset_watcher_handler(MtFileWatcherEvent *e, void *user_data)
     switch (e->type)
     {
         case MT_FILE_WATCHER_EVENT_MODIFY: {
-            mt_asset_manager_load(&engine->asset_manager, e->src);
+            mt_asset_manager_load(engine->asset_manager, e->src);
             break;
         }
         default: break;
@@ -113,16 +115,32 @@ void mt_engine_init(MtEngine *engine)
         });
 
     mt_thread_pool_init(&engine->thread_pool, num_threads, engine->alloc);
-    mt_asset_manager_init(&engine->asset_manager, engine);
-    mt_entity_manager_init(&engine->entity_manager, engine->alloc);
-
-    engine->nk_ctx = mt_nuklear_create(engine);
 
     engine->watcher = mt_file_watcher_create(
         engine->alloc, MT_FILE_WATCHER_EVENT_MODIFY, asset_watcher_handler, "../assets");
 
     engine->physics = mt_physics_create(engine->alloc);
     engine->picker = mt_picker_create(engine);
+
+    engine->asset_manager = mt_alloc(engine->alloc, sizeof(*engine->asset_manager));
+    mt_asset_manager_init(engine->asset_manager, engine);
+
+    MtAssetManager *am = engine->asset_manager;
+    mt_asset_manager_queue_load(am, "../shaders/pbr.hlsl", (MtAsset **)&engine->pbr_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/gizmo.hlsl", (MtAsset **)&engine->gizmo_pipeline);
+    mt_asset_manager_queue_load(
+        am, "../shaders/selected.hlsl", (MtAsset **)&engine->selected_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/skybox.hlsl", (MtAsset **)&engine->skybox_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/brdf.hlsl", (MtAsset **)&engine->brdf_pipeline);
+    mt_asset_manager_queue_load(
+        am, "../shaders/irradiance_cube.hlsl", (MtAsset **)&engine->irradiance_pipeline);
+    mt_asset_manager_queue_load(
+        am, "../shaders/prefilter_env_map.hlsl", (MtAsset **)&engine->prefilter_env_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/ui.hlsl", (MtAsset **)&engine->ui_pipeline);
+
+    mt_thread_pool_wait_all(&engine->thread_pool);
+
+    engine->nk_ctx = mt_nuklear_create(engine);
 }
 
 void mt_engine_destroy(MtEngine *engine)
@@ -130,8 +148,9 @@ void mt_engine_destroy(MtEngine *engine)
     mt_picker_destroy(engine->picker);
     mt_physics_destroy(engine->physics);
 
-    mt_entity_manager_destroy(&engine->entity_manager);
-    mt_asset_manager_destroy(&engine->asset_manager);
+    mt_asset_manager_destroy(engine->asset_manager);
+    mt_free(engine->alloc, engine->asset_manager);
+
     mt_thread_pool_destroy(&engine->thread_pool);
 
     mt_file_watcher_destroy(engine->watcher);

@@ -114,13 +114,12 @@ static void destroy_group(MtRenderGraph *graph, ExecutionGroup *group)
     mt_array_free(graph->dev->alloc, group->pass_indices);
 }
 
-static MtRenderGraph *create_graph(MtDevice *dev, MtSwapchain *swapchain, void *user_data)
+static MtRenderGraph *create_graph(MtDevice *dev, MtSwapchain *swapchain)
 {
     MtRenderGraph *graph = mt_alloc(dev->alloc, sizeof(*graph));
     memset(graph, 0, sizeof(*graph));
     graph->dev = dev;
     graph->swapchain = swapchain;
-    graph->user_data = user_data;
 
     if (graph->swapchain)
     {
@@ -164,10 +163,17 @@ static void graph_set_builder(MtRenderGraph *graph, MtRenderGraphBuilder builder
     graph->graph_builder = builder;
 }
 
+static void graph_set_user_data(MtRenderGraph *graph, void *user_data)
+{
+    graph->user_data = user_data;
+}
+
 static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass);
 
 static void graph_bake(MtRenderGraph *graph)
 {
+    graph->baked = true;
+
     //
     // Create stuff
     //
@@ -290,6 +296,8 @@ static void graph_bake(MtRenderGraph *graph)
 
 static void graph_unbake(MtRenderGraph *graph)
 {
+    graph->baked = false;
+
     //
     // Destroy the execution groups
     //
@@ -392,11 +400,10 @@ static void graph_execute(MtRenderGraph *graph)
 {
     graph->current_frame = (graph->current_frame + 1) % graph->frame_count;
 
-    if (graph->framebuffer_resized)
+    if (graph->framebuffer_resized || !graph->baked)
     {
         graph->framebuffer_resized = false;
 
-        graph_unbake(graph);
         graph_bake(graph);
     }
 
@@ -457,8 +464,7 @@ static void graph_execute(MtRenderGraph *graph)
 
             VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
             VkPipelineStageFlags dst_stage_mask = pass->stage;
-            if (pass->prev)
-                src_stage_mask = pass->prev->stage;
+            if (pass->prev) src_stage_mask = pass->prev->stage;
 
             mt_array_set_size(graph->buffer_barriers, 0);
             mt_array_set_size(graph->image_barriers, 0);
@@ -573,8 +579,7 @@ static void graph_execute(MtRenderGraph *graph)
 
             src_stage_mask = pass->stage;
             dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-            if (pass->next)
-                dst_stage_mask = pass->next->stage;
+            if (pass->next) dst_stage_mask = pass->next->stage;
 
             mt_array_set_size(graph->buffer_barriers, 0);
             mt_array_set_size(graph->image_barriers, 0);

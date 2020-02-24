@@ -1,8 +1,11 @@
 #pragma once
 
+#include "api_types.h"
 #include <motor/base/math_types.h>
+#include <motor/engine/entities.h>
 #include <motor/engine/physics.h>
 #include <motor/engine/transform.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {

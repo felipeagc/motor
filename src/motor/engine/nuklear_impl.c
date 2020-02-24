@@ -78,9 +78,7 @@ MtNuklearContext *mt_nuklear_create(MtEngine *engine)
 
     nk_init_default(&ctx->ctx, 0);
 
-    ctx->pipeline =
-        (MtPipelineAsset *)mt_asset_manager_load(&engine->asset_manager, "../shaders/ui.hlsl");
-    assert(ctx->pipeline);
+    ctx->pipeline = engine->ui_pipeline;
 
     ctx->sampler = mt_render.create_sampler(
         ctx->engine->device,
@@ -303,8 +301,7 @@ void mt_nuklear_render(MtNuklearContext *ctx, MtCmdBuffer *cb)
     /* iterate over and execute each draw command */
     nk_draw_foreach(cmd, &ctx->ctx, &ctx->cmds)
     {
-        if (!cmd->elem_count)
-            continue;
+        if (!cmd->elem_count) continue;
         mt_render.cmd_bind_image(cb, (MtImage *)cmd->texture.ptr, 0, 2);
         mt_render.cmd_set_scissor(
             cb,

@@ -85,7 +85,7 @@ float d_ggx(float NdotH, float roughness)
 
 float3 prefilter_env_map(float3 R, float roughness)
 {
-    const uint num_samples = 1024;
+    const uint num_samples = 512;
 
     float3 N = R;
     float3 V = R;

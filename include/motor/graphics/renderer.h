@@ -357,15 +357,16 @@ typedef struct MtRenderer
     void (*cmd_dispatch)(
         MtCmdBuffer *, uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z);
 
-    MtRenderGraph *(*create_graph)(MtDevice *, MtSwapchain *, void *user_data);
+    MtRenderGraph *(*create_graph)(MtDevice *, MtSwapchain *);
     void (*destroy_graph)(MtRenderGraph *);
+
+    void (*graph_set_user_data)(MtRenderGraph *, void *user_data);
 
     void (*graph_set_builder)(MtRenderGraph *, MtRenderGraphBuilder);
     void (*graph_add_image)(MtRenderGraph *, const char *name, MtImageCreateInfo *info);
     void (*graph_add_buffer)(MtRenderGraph *, const char *name, MtBufferCreateInfo *info);
     void (*graph_add_external_buffer)(MtRenderGraph *, const char *name, MtBuffer *buffer);
 
-    void (*graph_bake)(MtRenderGraph *);
     void (*graph_execute)(MtRenderGraph *);
     void (*graph_wait_all)(MtRenderGraph *);
     void (*graph_on_resize)(MtRenderGraph *);

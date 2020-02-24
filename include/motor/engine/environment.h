@@ -10,9 +10,9 @@ extern "C" {
 typedef struct MtCmdBuffer MtCmdBuffer;
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
-typedef struct MtAssetManager MtAssetManager;
+typedef struct MtEngine MtEngine;
 typedef struct MtImageAsset MtImageAsset;
-typedef struct MtPipelineAsset MtPipelineAsset;
+typedef struct MtRenderGraph MtRenderGraph;
 
 #define MT_MAX_POINT_LIGHTS 64
 
@@ -44,9 +44,7 @@ typedef struct MtEnvironmentUniform
 
 typedef struct MtEnvironment
 {
-    MtAssetManager *asset_manager;
-
-    MtPipelineAsset *skybox_pipeline;
+    MtEngine *engine;
 
     MtImageAsset *skybox_asset;
 
@@ -64,8 +62,9 @@ typedef struct MtEnvironment
     float radiance_mip_levels;
 } MtEnvironment;
 
-MT_ENGINE_API void
-mt_environment_init(MtEnvironment *env, MtAssetManager *asset_manager, MtImageAsset *skybox_asset);
+MT_ENGINE_API void mt_environment_init(MtEnvironment *env, MtEngine *engine);
+
+MT_ENGINE_API void mt_environment_set_skybox(MtEnvironment *env, MtImageAsset *skybox_asset);
 
 MT_ENGINE_API void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb);
 
