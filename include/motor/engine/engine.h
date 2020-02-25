@@ -17,7 +17,6 @@ typedef struct MtFileWatcher MtFileWatcher;
 typedef struct MtPhysics MtPhysics;
 typedef struct MtPicker MtPicker;
 typedef struct MtAssetManager MtAssetManager;
-typedef struct MtNuklearContext MtNuklearContext;
 typedef struct MtImguiContext MtImguiContext;
 typedef struct shaderc_compiler *shaderc_compiler_t;
 typedef struct MtPipelineAsset MtPipelineAsset;
@@ -36,7 +35,6 @@ typedef struct MtEngine
     MtThreadPool thread_pool;
     MtAssetManager *asset_manager;
 
-    MtNuklearContext *nk_ctx;
     MtImguiContext *imgui_ctx;
     MtFileWatcher *watcher;
 
@@ -54,7 +52,6 @@ typedef struct MtEngine
     MtPipelineAsset *brdf_pipeline;
     MtPipelineAsset *irradiance_pipeline;
     MtPipelineAsset *prefilter_env_pipeline;
-    MtPipelineAsset *ui_pipeline;
     MtPipelineAsset *imgui_pipeline;
 } MtEngine;
 

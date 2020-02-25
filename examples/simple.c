@@ -248,8 +248,6 @@ int main(int argc, char *argv[])
         mt_imgui_begin(engine.imgui_ctx);
         igNewFrame();
 
-        igShowStyleEditor(NULL);
-
         mt_inspect_archetype(win, game.model_archetype);
 
         igRender();
