@@ -127,6 +127,12 @@ motor_engine_sources = [
   'src/motor/engine/stb_image.c',
   'src/motor/engine/stb_rect_pack.c',
   'src/motor/engine/stb_truetype.c',
+  'src/motor/engine/imgui_impl.c',
+  'src/motor/engine/cimgui.cpp',
+  'src/motor/engine/imgui.cpp',
+  'src/motor/engine/imgui_draw.cpp',
+  'src/motor/engine/imgui_widgets.cpp',
+  'src/motor/engine/imgui_demo.cpp',
 ]
 
 motor_engine_deps = [motor_base_dep, motor_graphics_dep, shaderc_dep]

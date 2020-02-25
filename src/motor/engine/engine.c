@@ -12,6 +12,7 @@
 #include <motor/engine/picker.h>
 #include <motor/engine/asset_manager.h>
 #include <motor/engine/nuklear_impl.h>
+#include <motor/engine/imgui_impl.h>
 #include <shaderc/shaderc.h>
 #include <string.h>
 #include <stdio.h>
@@ -137,10 +138,12 @@ void mt_engine_init(MtEngine *engine)
     mt_asset_manager_queue_load(
         am, "../shaders/prefilter_env_map.hlsl", (MtAsset **)&engine->prefilter_env_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/ui.hlsl", (MtAsset **)&engine->ui_pipeline);
+    mt_asset_manager_queue_load(am, "../shaders/imgui.hlsl", (MtAsset **)&engine->imgui_pipeline);
 
     mt_thread_pool_wait_all(&engine->thread_pool);
 
     engine->nk_ctx = mt_nuklear_create(engine);
+    engine->imgui_ctx = mt_imgui_create(engine);
 }
 
 void mt_engine_destroy(MtEngine *engine)
@@ -155,6 +158,7 @@ void mt_engine_destroy(MtEngine *engine)
 
     mt_file_watcher_destroy(engine->watcher);
     mt_nuklear_destroy(engine->nk_ctx);
+    mt_imgui_destroy(engine->imgui_ctx);
 
     mt_render.destroy_image(engine->device, engine->default_cubemap);
     mt_render.destroy_image(engine->device, engine->white_image);

@@ -21,6 +21,7 @@ typedef void (*MtEntityInitializer)(void *data, MtEntity entity);
 
 typedef enum MtComponentType {
     MT_COMPONENT_TYPE_UNKNOWN = 0,
+    MT_COMPONENT_TYPE_TRANSFORM,
     MT_COMPONENT_TYPE_VEC3,
     MT_COMPONENT_TYPE_QUAT,
 } MtComponentType;

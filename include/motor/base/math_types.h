@@ -106,6 +106,7 @@ typedef union MT_MATH_ALIGNAS(16) Mat4
 
 typedef union Quat
 {
+    float v[4];
     struct
     {
         float x, y, z, w;

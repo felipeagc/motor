@@ -8,10 +8,8 @@ extern "C" {
 
 typedef struct MtWindow MtWindow;
 typedef struct MtEntityArchetype MtEntityArchetype;
-struct nk_context;
 
-MT_ENGINE_API void
-mt_inspect_archetype(MtWindow *window, struct nk_context *nk, MtEntityArchetype *archetype);
+MT_ENGINE_API void mt_inspect_archetype(MtWindow *window, MtEntityArchetype *archetype);
 
 #ifdef __cplusplus
 }

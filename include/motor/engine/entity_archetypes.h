@@ -21,7 +21,7 @@ typedef struct MtModelArchetype
 } MtModelArchetype;
 
 static MtComponentSpec mt_model_archetype_components[] = {
-    {"Transform", sizeof(MtTransform)},
+    {"Transform", sizeof(MtTransform), MT_COMPONENT_TYPE_TRANSFORM},
     {"GLTF Model", sizeof(MtGltfAsset *)},
     {"Rigid actor", sizeof(MtRigidActor)},
 };

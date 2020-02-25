@@ -122,23 +122,45 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
         {
             uint32_t location =
                 spvc_compiler_get_decoration(compiler, input_list[i].id, SpvDecorationLocation);
-            if (location == UINT32_MAX)
-                continue;
+            if (location == UINT32_MAX) continue;
 
             spvc_type type = spvc_compiler_get_type_handle(compiler, input_list[i].type_id);
+            spvc_basetype base_type = spvc_type_get_basetype(type);
             uint32_t type_width = spvc_type_get_bit_width(type);
             uint32_t vector_size = spvc_type_get_vector_size(type);
 
             VertexAttribute *attrib = &shader->vertex_attributes[location];
             attrib->size = (type_width * vector_size) / 8;
 
-            switch (attrib->size)
+            switch (base_type)
             {
-                case sizeof(float): attrib->format = VK_FORMAT_R32_SFLOAT; break;
-                case sizeof(float) * 2: attrib->format = VK_FORMAT_R32G32_SFLOAT; break;
-                case sizeof(float) * 3: attrib->format = VK_FORMAT_R32G32B32_SFLOAT; break;
-                case sizeof(float) * 4: attrib->format = VK_FORMAT_R32G32B32A32_SFLOAT; break;
-                default: assert(0);
+                case SPVC_BASETYPE_FP32: {
+                    switch (attrib->size)
+                    {
+                        case sizeof(float): attrib->format = VK_FORMAT_R32_SFLOAT; break;
+                        case sizeof(float) * 2: attrib->format = VK_FORMAT_R32G32_SFLOAT; break;
+                        case sizeof(float) * 3: attrib->format = VK_FORMAT_R32G32B32_SFLOAT; break;
+                        case sizeof(float) * 4:
+                            attrib->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+                            break;
+                        default: assert(0); break;
+                    }
+                    break;
+                }
+                case SPVC_BASETYPE_UINT32: {
+                    switch (attrib->size)
+                    {
+                        case sizeof(uint32_t): attrib->format = VK_FORMAT_R32_UINT; break;
+                        case sizeof(uint32_t) * 2: attrib->format = VK_FORMAT_R32G32_UINT; break;
+                        case sizeof(uint32_t) * 3: attrib->format = VK_FORMAT_R32G32B32_UINT; break;
+                        case sizeof(uint32_t) * 4:
+                            attrib->format = VK_FORMAT_R32G32B32A32_UINT;
+                            break;
+                        default: assert(0); break;
+                    }
+                    break;
+                }
+                default: assert(0); break;
             }
         }
     }
@@ -535,8 +557,7 @@ request_graphics_pipeline_instance(MtDevice *dev, MtPipeline *pipeline, MtRender
     uint64_t hash = (uint64_t)XXH64_digest(&state);
 
     PipelineInstance *instance = mt_hash_get_ptr(&pipeline->instances, hash);
-    if (instance)
-        return instance;
+    if (instance) return instance;
 
     instance = mt_alloc(dev->alloc, sizeof(PipelineInstance));
     instance->hash = hash;
@@ -547,8 +568,7 @@ request_graphics_pipeline_instance(MtDevice *dev, MtPipeline *pipeline, MtRender
 static PipelineInstance *request_compute_pipeline_instance(MtDevice *dev, MtPipeline *pipeline)
 {
     PipelineInstance *instance = mt_hash_get_ptr(&pipeline->instances, pipeline->hash);
-    if (instance)
-        return instance;
+    if (instance) return instance;
 
     instance = mt_alloc(dev->alloc, sizeof(PipelineInstance));
     instance->hash = pipeline->hash;

@@ -4,8 +4,6 @@
 #include <motor/base/rand.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/window.h>
-#include <motor/engine/nuklear.h>
-#include <motor/engine/nuklear_impl.h>
 #include <motor/engine/file_watcher.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/scene.h>
@@ -14,6 +12,7 @@
 #include <motor/engine/asset_manager.h>
 #include <motor/engine/entities.h>
 #include <motor/engine/entity_archetypes.h>
+#include <motor/engine/imgui_impl.h>
 #include <motor/engine/inspector.h>
 #include <motor/engine/picker.h>
 #include <motor/engine/systems.h>
@@ -144,7 +143,6 @@ static void game_destroy(Game *g)
 static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
 {
     Game *g = user_data;
-    MtNuklearContext *nk_ctx = g->scene.engine->nk_ctx;
 
     // Draw skybox
     mt_render.cmd_bind_uniform(cb, &g->scene.cam.uniform, sizeof(g->scene.cam.uniform), 0, 0);
@@ -155,7 +153,7 @@ static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user
     mt_selected_model_system(g->model_archetype, &g->scene, cb);
 
     // Draw UI
-    mt_nuklear_render(nk_ctx, cb);
+    mt_imgui_render(g->scene.engine->imgui_ctx, cb);
 }
 
 static void graph_builder(MtRenderGraph *graph, void *user_data)
@@ -192,7 +190,6 @@ int main(int argc, char *argv[])
 
     MtWindow *win = engine.window;
     MtSwapchain *swapchain = engine.swapchain;
-    struct nk_context *nk = mt_nuklear_get_context(engine.nk_ctx);
 
     mt_render.graph_set_builder(game.scene.graph, graph_builder);
 
@@ -204,12 +201,10 @@ int main(int argc, char *argv[])
         mt_file_watcher_poll(engine.watcher, &engine);
         mt_window.poll_events();
 
-        nk_input_begin(nk);
-
         MtEvent event;
         while (mt_window.next_event(win, &event))
         {
-            mt_nuklear_handle_event(engine.nk_ctx, &event);
+            mt_imgui_handle_event(engine.imgui_ctx, &event);
             mt_perspective_camera_on_event(&game.scene.cam, &event);
             switch (event.type)
             {
@@ -225,7 +220,8 @@ int main(int argc, char *argv[])
                 case MT_EVENT_BUTTON_PRESSED: {
                     if (event.mouse.button == MT_MOUSE_BUTTON_LEFT)
                     {
-                        if (!nk_window_is_any_hovered(nk) && !engine.gizmo.hovered)
+                        if (!igIsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
+                            !engine.gizmo.hovered)
                         {
                             int32_t x, y;
                             mt_window.get_cursor_pos(win, &x, &y);
@@ -247,44 +243,16 @@ int main(int argc, char *argv[])
             }
         }
 
-        nk_input_end(nk);
-
         float delta_time = mt_render.swapchain_get_delta_time(swapchain);
 
-        // UI
-        if (nk_begin(
-                nk,
-                "Demo",
-                nk_rect(50, 50, 230, 250),
-                NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE |
-                    NK_WINDOW_TITLE))
-        {
-            nk_layout_row_dynamic(nk, 0, 2);
+        mt_imgui_begin(engine.imgui_ctx);
+        igNewFrame();
 
-            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "Delta");
-            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "%fms", delta_time);
+        igShowStyleEditor(NULL);
 
-            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "FPS");
-            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "%.0f", 1.0f / delta_time);
+        mt_inspect_archetype(win, game.model_archetype);
 
-            nk_labelf(nk, NK_TEXT_ALIGN_LEFT, "Camera pos");
-            nk_labelf(
-                nk,
-                NK_TEXT_ALIGN_LEFT,
-                "%.2f %.2f %.2f",
-                game.scene.cam.pos.x,
-                game.scene.cam.pos.y,
-                game.scene.cam.pos.z);
-
-            nk_layout_row_dynamic(nk, 32, 1);
-            if (nk_button_label(nk, "Hello"))
-            {
-                mt_log("Hello");
-            }
-        }
-        nk_end(nk);
-
-        mt_inspect_archetype(win, nk, game.model_archetype);
+        igRender();
 
         mt_mirror_physics_transforms_system(game.model_archetype);
 

@@ -59,6 +59,15 @@ typedef enum MtMouseButton {
     MT_MOUSE_BUTTON_MIDDLE = MT_MOUSE_BUTTON3,
 } MtMouseButton;
 
+typedef enum MtMod {
+    MT_MOD_SHIFT = 0x0001,
+    MT_MOD_CONTROL = 0x0002,
+    MT_MOD_ALT = 0x0004,
+    MT_MOD_SUPER = 0x0008,
+    MT_MOD_CAPS_LOCK = 0x0010,
+    MT_MOD_NUM_LOCK = 0x0020,
+} MtMod;
+
 typedef enum MtKey {
     MT_KEY_UNKNOWN = -1,
 
