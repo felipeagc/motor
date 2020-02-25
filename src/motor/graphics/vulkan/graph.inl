@@ -290,8 +290,9 @@ static void graph_bake(MtRenderGraph *graph)
         }
     }
 
-    mt_log_debug(
-        "Baked render graph with %lu execution groups", mt_array_size(graph->execution_groups));
+    /* mt_log_debug( */
+    /*     "Baked render graph with %lu execution groups", mt_array_size(graph->execution_groups));
+     */
 }
 
 static void graph_unbake(MtRenderGraph *graph)
@@ -403,6 +404,11 @@ static void graph_execute(MtRenderGraph *graph)
     if (graph->framebuffer_resized || !graph->baked)
     {
         graph->framebuffer_resized = false;
+
+        if (graph->baked)
+        {
+            graph_unbake(graph);
+        }
 
         graph_bake(graph);
     }

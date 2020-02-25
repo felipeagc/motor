@@ -262,11 +262,9 @@ static void maybe_generate_images(MtEnvironment *env)
 
     if (env->skybox_image != old_skybox)
     {
-        mt_log_debug("Generating irradiance cubemap");
         env->irradiance_image = generate_cubemap(env, CUBEMAP_IRRADIANCE);
         mt_log_debug("Generated irradiance cubemap");
 
-        mt_log_debug("Generating radiance cubemap");
         env->radiance_image = generate_cubemap(env, CUBEMAP_RADIANCE);
         mt_log_debug("Generated radiance cubemap");
     }

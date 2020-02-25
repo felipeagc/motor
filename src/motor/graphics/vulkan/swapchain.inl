@@ -351,7 +351,6 @@ static void swapchain_create_swapchain_image_views(MtSwapchain *swapchain)
 
 static void swapchain_create_resizables(MtSwapchain *swapchain)
 {
-    mt_log("Creating resizables");
     MtDevice *dev = swapchain->dev;
 
     uint32_t width = 0, height = 0;
