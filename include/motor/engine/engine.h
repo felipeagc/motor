@@ -2,6 +2,7 @@
 
 #include "api_types.h"
 #include "gizmos.h"
+#include "scene.h"
 #include <motor/base/thread_pool.h>
 
 #ifdef __cplusplus
@@ -53,11 +54,17 @@ typedef struct MtEngine
     MtPipelineAsset *irradiance_pipeline;
     MtPipelineAsset *prefilter_env_pipeline;
     MtPipelineAsset *imgui_pipeline;
+
+    MtIScene current_scene;
 } MtEngine;
 
 MT_ENGINE_API void mt_engine_init(MtEngine *engine);
 
 MT_ENGINE_API void mt_engine_destroy(MtEngine *engine);
+
+MT_ENGINE_API void mt_engine_set_scene(MtEngine *engine, const MtIScene *scene);
+
+MT_ENGINE_API void mt_engine_update(MtEngine *engine);
 
 #ifdef __cplusplus
 }

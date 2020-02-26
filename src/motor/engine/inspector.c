@@ -136,7 +136,7 @@ void mt_inspect_archetype(MtEngine *engine, MtEntityArchetype *archetype)
                             MtPhysicsTransform transform =
                                 mt_physics_shape_get_local_transform(shape);
                             igDragFloat3(
-                                "Position", transform.pos.v, 1.0f, 0.0f, 0.0f, "%.3f", 1.0);
+                                "Position", transform.pos.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
                             igDragFloat4(
                                 "Rotation", transform.rot.v, 0.1f, -1.0f, 1.0f, "%.3f", 1.0);
                             mt_physics_shape_set_local_transform(shape, &transform);

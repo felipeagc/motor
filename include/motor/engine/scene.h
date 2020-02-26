@@ -13,8 +13,25 @@ typedef struct MtPhysicsScene MtPhysicsScene;
 typedef struct MtAssetManager MtAssetManager;
 typedef struct MtEntityManager MtEntityManager;
 typedef struct MtRenderGraph MtRenderGraph;
+typedef struct MtScene MtScene;
+typedef struct MtEvent MtEvent;
 
-typedef struct MtScene
+typedef struct MtSceneVT
+{
+    void (*init)(MtScene *inst);
+    void (*update)(MtScene *inst, float delta);
+    void (*draw_ui)(MtScene *inst);
+    void (*on_event)(MtScene *inst, const MtEvent *event);
+    void (*destroy)(MtScene *inst);
+} MtSceneVT;
+
+typedef struct MtIScene
+{
+    MtScene *inst;
+    const MtSceneVT *vt;
+} MtIScene;
+
+struct MtScene
 {
     MtEngine *engine;
 
@@ -27,7 +44,7 @@ typedef struct MtScene
 
     MtAssetManager *asset_manager;
     MtEntityManager *entity_manager;
-} MtScene;
+};
 
 MT_ENGINE_API void mt_scene_init(MtScene *scene, MtEngine *engine);
 

@@ -145,6 +145,11 @@ void mt_engine_init(MtEngine *engine)
 
 void mt_engine_destroy(MtEngine *engine)
 {
+    if (engine->current_scene.inst)
+    {
+        engine->current_scene.vt->destroy(engine->current_scene.inst);
+    }
+
     mt_picker_destroy(engine->picker);
     mt_physics_destroy(engine->physics);
 
@@ -172,4 +177,85 @@ void mt_engine_destroy(MtEngine *engine)
 #if 0
     mt_arena_destroy(engine->alloc);
 #endif
+}
+
+void mt_engine_set_scene(MtEngine *engine, const MtIScene *scene)
+{
+    if (engine->current_scene.inst)
+    {
+        engine->current_scene.vt->destroy(engine->current_scene.inst);
+    }
+
+    if (scene)
+    {
+        engine->current_scene = *scene;
+
+        if (engine->current_scene.vt->init)
+        {
+            engine->current_scene.vt->init(engine->current_scene.inst);
+        }
+    }
+    else
+    {
+        engine->current_scene.inst = NULL;
+    }
+}
+
+void mt_engine_update(MtEngine *engine)
+{
+    MtScene *scene = engine->current_scene.inst;
+
+    mt_file_watcher_poll(engine->watcher, engine);
+    mt_window.poll_events();
+
+    MtEvent event;
+    while (mt_window.next_event(engine->window, &event))
+    {
+        mt_imgui_handle_event(engine->imgui_ctx, &event);
+
+        if (event.type == MT_EVENT_FRAMEBUFFER_RESIZED)
+        {
+            mt_picker_resize(engine->picker);
+        }
+
+        if (scene)
+        {
+            mt_perspective_camera_on_event(&scene->cam, &event);
+
+            if (event.type == MT_EVENT_FRAMEBUFFER_RESIZED)
+            {
+                mt_render.graph_on_resize(scene->graph);
+            }
+
+            engine->current_scene.vt->on_event(scene, &event);
+        }
+    }
+
+    if (scene)
+    {
+        float delta_time = mt_render.swapchain_get_delta_time(engine->swapchain);
+
+        // Update cam
+        uint32_t width, height;
+        mt_window.get_size(engine->window, &width, &height);
+        float aspect = (float)width / (float)height;
+        mt_perspective_camera_update(&scene->cam, engine->window, aspect, delta_time);
+
+        mt_imgui_begin(engine->imgui_ctx);
+        igNewFrame();
+
+        if (engine->current_scene.vt->draw_ui)
+        {
+            engine->current_scene.vt->draw_ui(scene);
+        }
+
+        igRender();
+
+        if (engine->current_scene.vt->update)
+        {
+            engine->current_scene.vt->update(scene, delta_time);
+        }
+
+        mt_render.graph_execute(scene->graph);
+    }
 }
