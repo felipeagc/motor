@@ -28,13 +28,6 @@ struct MtPhysicsScene
     float step_size;
 };
 
-struct RigidActor
-{
-    PxRigidActor *actor;
-};
-
-static_assert(sizeof(RigidActor) == sizeof(MtRigidActor), "");
-
 //
 // Physics
 //
@@ -115,89 +108,163 @@ extern "C" void mt_physics_scene_step(MtPhysicsScene *scene, float dt)
 }
 
 //
-// RigidActor
+// Shape
 //
 
-extern "C" void mt_rigid_actor_init(
-    MtPhysicsScene *scene, MtRigidActor *actor_, MtRigidActorType type, MtPhysicsShape *shape)
+extern "C" MtPhysicsShape *mt_physics_shape_create(MtPhysics *physics, MtPhysicsShapeType type)
 {
-    MtPhysics *physics = scene->physics;
-
+    PxShape *shape = NULL;
     PxMaterial *material = physics->physics->createMaterial(0.5f, 0.5f, 0.6f);
-    PxShape *shape_ = NULL;
 
-    PxTransform transform = {};
-
-    switch (shape->type)
+    switch (type)
     {
         case MT_PHYSICS_SHAPE_SPHERE: {
-            shape_ = physics->physics->createShape(PxSphereGeometry(shape->radius), *material);
+            shape = physics->physics->createShape(PxSphereGeometry{}, *material);
             break;
         }
         case MT_PHYSICS_SHAPE_PLANE: {
-            assert(type == MT_RIGID_ACTOR_STATIC);
-            shape_ = physics->physics->createShape(PxPlaneGeometry{}, *material);
-            shape_->setLocalPose(PxTransformFromPlaneEquation(
-                PxPlane(shape->plane.x, shape->plane.y, shape->plane.z, shape->plane.w)));
+            shape = physics->physics->createShape(PxPlaneGeometry{}, *material);
             break;
         }
     }
 
-    assert(shape_ != NULL);
+    material->release();
 
-    RigidActor actor = {};
+    return (MtPhysicsShape *)shape;
+}
+
+extern "C" MtPhysicsShapeType mt_physics_shape_get_type(MtPhysicsShape *shape_)
+{
+    PxShape *shape = (PxShape *)shape_;
+    switch (shape->getGeometryType())
+    {
+        case PxGeometryType::eSPHERE: return MT_PHYSICS_SHAPE_SPHERE;
+        case PxGeometryType::ePLANE: return MT_PHYSICS_SHAPE_PLANE;
+        default: assert(0);
+    }
+}
+
+extern "C" void
+mt_physics_shape_set_local_transform(MtPhysicsShape *shape_, const MtPhysicsTransform *transform)
+{
+    PxShape *shape = (PxShape *)shape_;
+    shape->setLocalPose(PxTransform{
+        PxVec3{transform->pos.x, transform->pos.y, transform->pos.z},
+        PxQuat{transform->rot.x, transform->rot.y, transform->rot.z, transform->rot.w}});
+}
+
+extern "C" MtPhysicsTransform mt_physics_shape_get_local_transform(MtPhysicsShape *shape_)
+{
+    PxShape *shape = (PxShape *)shape_;
+
+    PxTransform px_transform = shape->getLocalPose();
+    MtPhysicsTransform transform;
+
+    transform.pos.x = px_transform.p.x;
+    transform.pos.y = px_transform.p.y;
+    transform.pos.z = px_transform.p.z;
+
+    transform.rot.x = px_transform.q.x;
+    transform.rot.y = px_transform.q.y;
+    transform.rot.z = px_transform.q.z;
+    transform.rot.w = px_transform.q.w;
+
+    return transform;
+}
+
+extern "C" void mt_physics_shape_set_radius(MtPhysicsShape *shape_, float radius)
+{
+    PxShape *shape = (PxShape *)shape_;
+    shape->setGeometry(PxSphereGeometry(radius));
+}
+
+extern "C" float mt_physics_shape_get_radius(MtPhysicsShape *shape_)
+{
+    PxShape *shape = (PxShape *)shape_;
+    PxSphereGeometry geom;
+    shape->getSphereGeometry(geom);
+    return geom.radius;
+}
+
+//
+// RigidActor
+//
+
+extern "C" MtRigidActor *mt_rigid_actor_create(MtPhysicsScene *scene, MtRigidActorType type)
+{
+    MtPhysics *physics = scene->physics;
+
+    PxRigidActor *actor = NULL;
 
     switch (type)
     {
         case MT_RIGID_ACTOR_DYNAMIC: {
-            actor.actor = physics->physics->createRigidDynamic(transform);
+            actor = physics->physics->createRigidDynamic({});
             break;
         }
         case MT_RIGID_ACTOR_STATIC: {
-            actor.actor = physics->physics->createRigidStatic(transform);
+            actor = physics->physics->createRigidStatic({});
             break;
         }
     }
 
-    actor.actor->attachShape(*shape_);
-    shape_->release();
-    material->release();
+    assert(actor);
 
-    scene->scene->addActor(*actor.actor);
+    scene->scene->addActor(*actor);
 
-    memcpy(actor_, &actor, sizeof(actor));
+    return (MtRigidActor *)actor;
 }
 
-extern "C" void mt_rigid_actor_get_transform(MtRigidActor *actor_, Vec3 *pos, Quat *rot)
+extern "C" void mt_rigid_actor_attach_shape(MtRigidActor *actor_, MtPhysicsShape *shape_)
 {
-    RigidActor actor = {};
-    memcpy(&actor, actor_, sizeof(actor));
-    PxTransform transform = actor.actor->getGlobalPose();
-
-    pos->x = transform.p.x;
-    pos->y = transform.p.y;
-    pos->z = transform.p.z;
-
-    rot->x = transform.q.x;
-    rot->y = transform.q.y;
-    rot->z = transform.q.z;
-    rot->w = transform.q.w;
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    PxShape *shape = (PxShape *)shape_;
+    actor->attachShape(*shape);
 }
 
-extern "C" void mt_rigid_actor_set_transform(MtRigidActor *actor_, Vec3 pos, Quat rot)
+extern "C" void mt_rigid_actor_detach_shape(MtRigidActor *actor_, MtPhysicsShape *shape_)
 {
-    RigidActor actor = {};
-    memcpy(&actor, actor_, sizeof(actor));
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    PxShape *shape = (PxShape *)shape_;
+    actor->detachShape(*shape);
+}
 
-    PxTransform transform;
-    transform.p.x = pos.x;
-    transform.p.y = pos.y;
-    transform.p.z = pos.z;
+extern "C" uint32_t mt_rigid_actor_get_shape_count(MtRigidActor *actor_)
+{
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    return actor->getNbShapes();
+}
 
-    transform.q.x = rot.x;
-    transform.q.y = rot.y;
-    transform.q.z = rot.z;
-    transform.q.w = rot.w;
+extern "C" void mt_rigid_actor_get_shapes(
+    MtRigidActor *actor_, MtPhysicsShape **out_shapes, uint32_t count, uint32_t start)
+{
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    actor->getShapes((PxShape **)out_shapes, count, start);
+}
 
-    actor.actor->setGlobalPose(transform);
+extern "C" MtPhysicsTransform mt_rigid_actor_get_transform(MtRigidActor *actor_)
+{
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    PxTransform px_transform = actor->getGlobalPose();
+    MtPhysicsTransform transform;
+
+    transform.pos.x = px_transform.p.x;
+    transform.pos.y = px_transform.p.y;
+    transform.pos.z = px_transform.p.z;
+
+    transform.rot.x = px_transform.q.x;
+    transform.rot.y = px_transform.q.y;
+    transform.rot.z = px_transform.q.z;
+    transform.rot.w = px_transform.q.w;
+
+    return transform;
+}
+
+extern "C" void
+mt_rigid_actor_set_transform(MtRigidActor *actor_, const MtPhysicsTransform *transform)
+{
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    actor->setGlobalPose(PxTransform{
+        PxVec3{transform->pos.x, transform->pos.y, transform->pos.z},
+        PxQuat{transform->rot.x, transform->rot.y, transform->rot.z, transform->rot.w}});
 }

@@ -55,12 +55,9 @@ void mt_model_system(MtEntityArchetype *arch, MtScene *scene, MtCmdBuffer *cb)
     {
         if (!(arch->masks[e] & comp_mask)) continue;
 
-        mt_rigid_actor_get_transform(
-            &comps->actor[e], &comps->transform[e].pos, &comps->transform[e].rot);
+        Mat4 mat = mt_transform_matrix(&comps->transform[e]);
 
-        Mat4 transform = mt_transform_matrix(&comps->transform[e]);
-
-        mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, 2);
+        mt_gltf_asset_draw(comps->model[e], cb, &mat, 1, 2);
     }
 }
 
@@ -89,21 +86,6 @@ void mt_selected_model_system(MtEntityArchetype *arch, MtScene *scene, MtCmdBuff
     }
 }
 
-void mt_mirror_physics_transforms_system(MtEntityArchetype *arch)
-{
-    MtComponentMask comp_mask =
-        MT_COMP_BIT(MtModelArchetype, transform) | MT_COMP_BIT(MtModelArchetype, actor);
-
-    MtModelArchetype *comps = (MtModelArchetype *)arch->components;
-    for (MtEntity e = 0; e < arch->entity_count; ++e)
-    {
-        if (!(arch->masks[e] & comp_mask)) continue;
-
-        mt_rigid_actor_set_transform(
-            &comps->actor[e], comps->transform[e].pos, comps->transform[e].rot);
-    }
-}
-
 void mt_picking_system(MtCmdBuffer *cb, void *user_data)
 {
     MtEntityArchetype *arch = user_data;
@@ -119,5 +101,37 @@ void mt_picking_system(MtCmdBuffer *cb, void *user_data)
 
         mt_render.cmd_bind_uniform(cb, &e, sizeof(uint32_t), 2, 0);
         mt_gltf_asset_draw(comps->model[e], cb, &transform, 1, UINT32_MAX);
+    }
+}
+
+void mt_pre_physics_sync_system(MtEntityArchetype *arch)
+{
+    MtComponentMask comp_mask =
+        MT_COMP_BIT(MtModelArchetype, transform) | MT_COMP_BIT(MtModelArchetype, actor);
+
+    MtModelArchetype *comps = (MtModelArchetype *)arch->components;
+    for (MtEntity e = 0; e < arch->entity_count; ++e)
+    {
+        if (!(arch->masks[e] & comp_mask)) continue;
+
+        mt_rigid_actor_set_transform(
+            comps->actor[e],
+            &(MtPhysicsTransform){.pos = comps->transform[e].pos, .rot = comps->transform[e].rot});
+    }
+}
+
+void mt_post_physics_sync_system(MtEntityArchetype *arch)
+{
+    MtComponentMask comp_mask =
+        MT_COMP_BIT(MtModelArchetype, transform) | MT_COMP_BIT(MtModelArchetype, actor);
+
+    MtModelArchetype *comps = (MtModelArchetype *)arch->components;
+    for (MtEntity e = 0; e < arch->entity_count; ++e)
+    {
+        if (!(arch->masks[e] & comp_mask)) continue;
+
+        MtPhysicsTransform transform = mt_rigid_actor_get_transform(comps->actor[e]);
+        comps->transform[e].pos = transform.pos;
+        comps->transform[e].rot = transform.rot;
     }
 }

@@ -6,10 +6,10 @@
 extern "C" {
 #endif
 
-typedef struct MtWindow MtWindow;
+typedef struct MtEngine MtEngine;
 typedef struct MtEntityArchetype MtEntityArchetype;
 
-MT_ENGINE_API void mt_inspect_archetype(MtWindow *window, MtEntityArchetype *archetype);
+MT_ENGINE_API void mt_inspect_archetype(MtEngine *engine, MtEntityArchetype *archetype);
 
 #ifdef __cplusplus
 }

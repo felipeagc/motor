@@ -17,13 +17,13 @@ typedef struct MtModelArchetype
 {
     MtTransform *transform;
     MtGltfAsset **model;
-    MtRigidActor *actor;
+    MtRigidActor **actor;
 } MtModelArchetype;
 
 static MtComponentSpec mt_model_archetype_components[] = {
     {"Transform", sizeof(MtTransform), MT_COMPONENT_TYPE_TRANSFORM},
-    {"GLTF Model", sizeof(MtGltfAsset *)},
-    {"Rigid actor", sizeof(MtRigidActor)},
+    {"GLTF Model", sizeof(MtGltfAsset *), MT_COMPONENT_TYPE_GLTF_MODEL},
+    {"Rigid actor", sizeof(MtRigidActor *), MT_COMPONENT_TYPE_RIGID_ACTOR},
 };
 
 static inline void mt_model_archetype_init(void *data, MtEntity e)
@@ -33,7 +33,7 @@ static inline void mt_model_archetype_init(void *data, MtEntity e)
     comps->transform[e].scale = V3(1.f, 1.f, 1.f);
     comps->transform[e].rot = (Quat){0, 0, 0, 1};
     comps->model[e] = NULL;
-    memset(&comps->actor[e], 0, sizeof(comps->actor[e]));
+    comps->actor[e] = NULL;
 }
 
 typedef struct MtPointLightArchetype

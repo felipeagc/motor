@@ -20,9 +20,11 @@ MT_ENGINE_API void mt_model_system(MtEntityArchetype *arch, MtScene *scene, MtCm
 MT_ENGINE_API void
 mt_selected_model_system(MtEntityArchetype *arch, MtScene *scene, MtCmdBuffer *cb);
 
-MT_ENGINE_API void mt_mirror_physics_transforms_system(MtEntityArchetype *arch);
-
 MT_ENGINE_API void mt_picking_system(MtCmdBuffer *cb, void *user_data);
+
+MT_ENGINE_API void mt_pre_physics_sync_system(MtEntityArchetype *arch);
+
+MT_ENGINE_API void mt_post_physics_sync_system(MtEntityArchetype *arch);
 
 #ifdef __cplusplus
 }

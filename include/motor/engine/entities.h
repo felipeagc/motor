@@ -24,6 +24,8 @@ typedef enum MtComponentType {
     MT_COMPONENT_TYPE_TRANSFORM,
     MT_COMPONENT_TYPE_VEC3,
     MT_COMPONENT_TYPE_QUAT,
+    MT_COMPONENT_TYPE_RIGID_ACTOR,
+    MT_COMPONENT_TYPE_GLTF_MODEL,
 } MtComponentType;
 
 typedef struct MtComponentSpec

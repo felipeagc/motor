@@ -75,39 +75,45 @@ static void game_init(Game *g, MtEngine *engine)
         MtEntityArchetype *arch = g->model_archetype;
         MtModelArchetype *comps = (MtModelArchetype *)arch->components;
 
-        MtPhysicsShape sphere_shape = {.type = MT_PHYSICS_SHAPE_SPHERE, .radius = 1.0f};
-        MtPhysicsShape floor_shape = {.type = MT_PHYSICS_SHAPE_PLANE, .plane = V4(0, 1, 0, 0)};
+        MtPhysicsShape *sphere_shape =
+            mt_physics_shape_create(g->scene.engine->physics, MT_PHYSICS_SHAPE_SPHERE);
+        mt_physics_shape_set_radius(sphere_shape, 1.0f);
+        MtPhysicsShape *floor_shape =
+            mt_physics_shape_create(g->scene.engine->physics, MT_PHYSICS_SHAPE_PLANE);
+        mt_physics_shape_set_local_transform(
+            floor_shape,
+            &(MtPhysicsTransform){.rot = quat_from_axis_angle(V3(0, 0, 1), M_PI / 2.0f)});
 
         MtComponentMask comp_mask = MT_COMP_BIT(MtModelArchetype, transform) |
                                     MT_COMP_BIT(MtModelArchetype, model) |
                                     MT_COMP_BIT(MtModelArchetype, actor);
 
         e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
-        comps->transform[e].pos = V3(-1.5, 1000, 0);
+        comps->transform[e].pos = V3(-1.5, 10, 0);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
-        mt_rigid_actor_init(
-            g->scene.physics_scene, &comps->actor[e], MT_RIGID_ACTOR_DYNAMIC, &sphere_shape);
+        comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_DYNAMIC);
+        mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
 
         e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
         comps->transform[e].scale = V3(100, 100, 100);
         comps->transform[e].pos = V3(1.5f, 5.f, 0.f);
-        mt_rigid_actor_init(
-            g->scene.physics_scene, &comps->actor[e], MT_RIGID_ACTOR_DYNAMIC, &sphere_shape);
+        comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_DYNAMIC);
+        mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
 
         e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/lantern_ktx.glb");
         comps->transform[e].scale = V3(0.2f, 0.2f, 0.2f);
         comps->transform[e].pos = V3(4.f, 5.f, 0.f);
-        mt_rigid_actor_init(
-            g->scene.physics_scene, &comps->actor[e], MT_RIGID_ACTOR_DYNAMIC, &sphere_shape);
+        comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_DYNAMIC);
+        mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
 
         e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
         comps->transform[e].pos = V3(0, 0, 0);
         comps->transform[e].scale = V3(3, 3, 3);
-        mt_rigid_actor_init(
-            g->scene.physics_scene, &comps->actor[e], MT_RIGID_ACTOR_STATIC, &floor_shape);
+        comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_STATIC);
+        mt_rigid_actor_attach_shape(comps->actor[e], floor_shape);
     }
 
     MtXorShift xs;
@@ -248,11 +254,9 @@ int main(int argc, char *argv[])
         mt_imgui_begin(engine.imgui_ctx);
         igNewFrame();
 
-        mt_inspect_archetype(win, game.model_archetype);
+        mt_inspect_archetype(&engine, game.model_archetype);
 
         igRender();
-
-        mt_mirror_physics_transforms_system(game.model_archetype);
 
         // Update cam
         mt_window.get_size(win, &width, &height);
@@ -260,7 +264,10 @@ int main(int argc, char *argv[])
         mt_perspective_camera_update(&game.scene.cam, win, aspect, delta_time);
 
         mt_light_system(game.light_archetype, &game.scene, delta_time);
+
+        mt_pre_physics_sync_system(game.model_archetype);
         mt_physics_scene_step(game.scene.physics_scene, delta_time);
+        mt_post_physics_sync_system(game.model_archetype);
 
         // Execute render graph
         mt_render.graph_execute(game.scene.graph);
