@@ -119,7 +119,7 @@ extern "C" MtPhysicsShape *mt_physics_shape_create(MtPhysics *physics, MtPhysics
     switch (type)
     {
         case MT_PHYSICS_SHAPE_SPHERE: {
-            shape = physics->physics->createShape(PxSphereGeometry{}, *material);
+            shape = physics->physics->createShape(PxSphereGeometry{1.0f}, *material);
             break;
         }
         case MT_PHYSICS_SHAPE_PLANE: {
