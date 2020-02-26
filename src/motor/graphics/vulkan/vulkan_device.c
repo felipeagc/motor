@@ -368,8 +368,8 @@ static void create_device(MtDevice *dev)
     VkPhysicalDeviceFeatures device_features = {0};
     vkGetPhysicalDeviceFeatures(dev->physical_device, &device_features);
 
-    if (!device_features.fillModeNonSolid || !device_features.wideLines ||
-        !device_features.samplerAnisotropy || !device_features.textureCompressionBC)
+    if (!device_features.fillModeNonSolid || !device_features.samplerAnisotropy ||
+        !device_features.textureCompressionBC)
     {
         mt_log_fatal("Vulkan physical device missing required features");
         abort();

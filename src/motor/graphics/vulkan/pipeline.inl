@@ -409,7 +409,7 @@ static void create_graphics_pipeline_instance(
         .depthClampEnable = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = polygon_mode_to_vulkan(options->polygon_mode),
-        .lineWidth = options->line_width,
+        .lineWidth = 1.0f,
         .cullMode = cull_mode_to_vulkan(options->cull_mode),
         .frontFace = front_face_to_vulkan(options->front_face),
         .depthBiasEnable = options->depth_bias,
@@ -598,11 +598,6 @@ static MtPipeline *create_graphics_pipeline(
     memset(pipeline, 0, sizeof(*pipeline));
     pipeline->bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-    if (ci->line_width == 0.0f || memcmp(&(uint32_t){0}, &ci->line_width, sizeof(uint32_t)) == 0)
-    {
-        ci->line_width = 1.0f;
-    }
-
     pipeline->create_info = *ci;
 
     Shader vertex_shader;
@@ -631,7 +626,6 @@ static MtPipeline *create_graphics_pipeline(
     XXH64_update(&state, &ci->depth_bias, sizeof(ci->depth_bias));
     XXH64_update(&state, &ci->cull_mode, sizeof(ci->cull_mode));
     XXH64_update(&state, &ci->front_face, sizeof(ci->front_face));
-    XXH64_update(&state, &ci->line_width, sizeof(ci->line_width));
 
     pipeline->hash = (uint64_t)XXH64_digest(&state);
 

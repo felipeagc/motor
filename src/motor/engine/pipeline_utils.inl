@@ -77,8 +77,7 @@ static shaderc_include_result *include_resolver(
     uint64_t last_slash = 0;
     for (uint64_t i = 0; i < strlen(requesting_source); i++)
     {
-        if (requesting_source[i] == '/')
-            last_slash = i + 1;
+        if (requesting_source[i] == '/') last_slash = i + 1;
     }
 
     char *path = NULL;
@@ -147,7 +146,6 @@ static MtPipeline *create_graphics_pipeline_hlsl(
         .front_face = MT_FRONT_FACE_COUNTER_CLOCKWISE,
         .cull_mode = MT_CULL_MODE_NONE,
         .topology = MT_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        .line_width = 1.0f,
     };
 
     char *vertex_entry_point = NULL;
@@ -247,15 +245,6 @@ static MtPipeline *create_graphics_pipeline_hlsl(
                 pipeline_create_info.cull_mode = MT_CULL_MODE_FRONT_AND_BACK;
             }
         }
-
-        if (strncmp(pragma->key, "line_width", pragma->key_len) == 0)
-        {
-            char str[48];
-            assert(pragma->value_len < sizeof(str));
-            memcpy(str, pragma->value, pragma->value_len);
-            str[pragma->value_len] = '\0';
-            pipeline_create_info.line_width = (float)strtod(str, NULL);
-        }
     }
 
     if (!vertex_entry_point)
@@ -340,13 +329,10 @@ static MtPipeline *create_graphics_pipeline_hlsl(
     return pipeline;
 
 failed:
-    if (options)
-        shaderc_compile_options_release(options);
+    if (options) shaderc_compile_options_release(options);
 
-    if (vertex_result)
-        shaderc_result_release(vertex_result);
-    if (fragment_result)
-        shaderc_result_release(fragment_result);
+    if (vertex_result) shaderc_result_release(vertex_result);
+    if (fragment_result) shaderc_result_release(fragment_result);
     return NULL;
 }
 // }}}
@@ -421,11 +407,9 @@ static MtPipeline *create_compute_pipeline_hlsl(
     return pipeline;
 
 failed:
-    if (options)
-        shaderc_compile_options_release(options);
+    if (options) shaderc_compile_options_release(options);
 
-    if (compute_result)
-        shaderc_result_release(compute_result);
+    if (compute_result) shaderc_result_release(compute_result);
     return NULL;
 }
 // }}}

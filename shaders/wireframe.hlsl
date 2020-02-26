@@ -6,7 +6,6 @@
 #pragma motor cull_mode front
 #pragma motor front_face clockwise
 #pragma motor polygon_mode line
-#pragma motor line_width 3.0f
 
 #include "common.hlsl"
 #include "pbr_common.hlsl"

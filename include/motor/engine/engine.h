@@ -47,7 +47,7 @@ typedef struct MtEngine
     MtSampler *default_sampler;
 
     MtPipelineAsset *pbr_pipeline;
-    MtPipelineAsset *selected_pipeline;
+    MtPipelineAsset *wireframe_pipeline;
     MtPipelineAsset *gizmo_pipeline;
     MtPipelineAsset *skybox_pipeline;
     MtPipelineAsset *brdf_pipeline;

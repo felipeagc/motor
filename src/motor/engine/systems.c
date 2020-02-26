@@ -65,7 +65,7 @@ void mt_selected_model_system(MtEntityArchetype *arch, MtScene *scene, MtCmdBuff
 {
     MtEngine *engine = scene->engine;
     MtPipeline *gizmo_pipeline = engine->gizmo_pipeline->pipeline;
-    MtPipeline *selected_pipeline = engine->selected_pipeline->pipeline;
+    MtPipeline *selected_pipeline = engine->wireframe_pipeline->pipeline;
     MtModelArchetype *comps = (MtModelArchetype *)arch->components;
 
     if (arch->selected_entity != MT_ENTITY_INVALID)

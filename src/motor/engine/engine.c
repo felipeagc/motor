@@ -129,7 +129,7 @@ void mt_engine_init(MtEngine *engine)
     mt_asset_manager_queue_load(am, "../shaders/pbr.hlsl", (MtAsset **)&engine->pbr_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/gizmo.hlsl", (MtAsset **)&engine->gizmo_pipeline);
     mt_asset_manager_queue_load(
-        am, "../shaders/selected.hlsl", (MtAsset **)&engine->selected_pipeline);
+        am, "../shaders/wireframe.hlsl", (MtAsset **)&engine->wireframe_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/skybox.hlsl", (MtAsset **)&engine->skybox_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/brdf.hlsl", (MtAsset **)&engine->brdf_pipeline);
     mt_asset_manager_queue_load(

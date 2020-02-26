@@ -121,7 +121,6 @@ typedef struct MtGraphicsPipelineCreateInfo
     MtCullMode cull_mode;
     MtFrontFace front_face;
     MtPrimitiveTopology topology;
-    float line_width;
 } MtGraphicsPipelineCreateInfo;
 
 typedef struct MtViewport
