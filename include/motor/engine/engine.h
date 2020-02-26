@@ -3,6 +3,7 @@
 #include "api_types.h"
 #include "gizmos.h"
 #include "scene.h"
+#include "meshes.h"
 #include <motor/base/thread_pool.h>
 
 #ifdef __cplusplus
@@ -14,6 +15,7 @@ typedef struct MtWindow MtWindow;
 typedef struct MtSwapchain MtSwapchain;
 typedef struct MtImage MtImage;
 typedef struct MtSampler MtSampler;
+typedef struct MtBuffer MtBuffer;
 typedef struct MtFileWatcher MtFileWatcher;
 typedef struct MtPhysics MtPhysics;
 typedef struct MtPicker MtPicker;
@@ -45,6 +47,8 @@ typedef struct MtEngine
     MtImage *black_image;
     MtImage *default_cubemap;
     MtSampler *default_sampler;
+
+    MtMesh sphere_mesh;
 
     MtPipelineAsset *pbr_pipeline;
     MtPipelineAsset *wireframe_pipeline;

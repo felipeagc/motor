@@ -15,20 +15,13 @@
 #include <assert.h>
 #include <string.h>
 
-typedef struct GltfVertex
-{
-    Vec3 pos;
-    Vec3 normal;
-    Vec2 uv0;
-    Vec4 tangent;
-} GltfVertex;
-
 typedef struct MaterialUniform
 {
     Vec4 base_color_factor;
     float metallic;
     float roughness;
     Vec4 emissive_factor;
+    float normal_mapped;
 } MaterialUniform;
 
 typedef struct GltfMaterial
@@ -103,7 +96,7 @@ static void load_node(
     cgltf_node *node,
     cgltf_data *model,
     uint32_t **index_buffer,
-    GltfVertex **vertex_buffer);
+    MtStandardVertex **vertex_buffer);
 
 static Mat4 node_local_matrix(GltfNode *node)
 {
@@ -192,13 +185,11 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
         ci.anisotropy = true;
         switch (sampler->mag_filter)
         {
-            case 0x2601:
-            {
+            case 0x2601: {
                 ci.mag_filter = MT_FILTER_LINEAR;
             }
             break;
-            case 0x2600:
-            {
+            case 0x2600: {
                 ci.mag_filter = MT_FILTER_NEAREST;
             }
             break;
@@ -207,13 +198,11 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
         switch (sampler->min_filter)
         {
-            case 0x2601:
-            {
+            case 0x2601: {
                 ci.min_filter = MT_FILTER_LINEAR;
             }
             break;
-            case 0x2600:
-            {
+            case 0x2600: {
                 ci.min_filter = MT_FILTER_NEAREST;
             }
             break;
@@ -477,7 +466,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
     }
 
     // Load nodes
-    GltfVertex *vertices = NULL;
+    MtStandardVertex *vertices = NULL;
     uint32_t *indices = NULL;
 
     cgltf_scene *scene = data->scene;
@@ -496,7 +485,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
         }
     }
 
-    size_t vertex_buffer_size = mt_array_size(vertices) * sizeof(GltfVertex);
+    size_t vertex_buffer_size = mt_array_size(vertices) * sizeof(MtStandardVertex);
     size_t index_buffer_size = mt_array_size(indices) * sizeof(uint32_t);
     asset->index_count = (uint32_t)mt_array_size(indices);
 
@@ -535,8 +524,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 static void asset_destroy(MtAsset *asset_)
 {
     MtGltfAsset *asset = (MtGltfAsset *)asset_;
-    if (!asset)
-        return;
+    if (!asset) return;
 
     MtDevice *dev = asset->asset_manager->engine->device;
     MtAllocator *alloc = asset->asset_manager->alloc;
@@ -578,7 +566,7 @@ static void load_node(
     cgltf_node *node,
     cgltf_data *model,
     uint32_t **index_buffer,
-    GltfVertex **vertex_buffer)
+    MtStandardVertex **vertex_buffer)
 {
     MtAllocator *alloc = asset->asset_manager->alloc;
 
@@ -704,7 +692,7 @@ static void load_node(
 
             uint32_t first_vertex = mt_array_size(*vertex_buffer);
             mt_array_add(alloc, *vertex_buffer, vertex_count);
-            GltfVertex *vertices = &(*vertex_buffer)[first_vertex];
+            MtStandardVertex *vertices = &(*vertex_buffer)[first_vertex];
 
             for (size_t v = 0; v < vertex_count; v++)
             {
@@ -764,8 +752,7 @@ static void load_node(
 
                 switch (accessor->component_type)
                 {
-                    case cgltf_component_type_r_32u:
-                    {
+                    case cgltf_component_type_r_32u: {
                         const uint32_t *buf = data_ptr;
                         for (size_t index = 0; index < accessor->count; index++)
                         {
@@ -774,8 +761,7 @@ static void load_node(
                         }
                     }
                     break;
-                    case cgltf_component_type_r_16u:
-                    {
+                    case cgltf_component_type_r_16u: {
                         const uint16_t *buf = data_ptr;
                         for (size_t index = 0; index < accessor->count; index++)
                         {
@@ -784,8 +770,7 @@ static void load_node(
                         }
                     }
                     break;
-                    case cgltf_component_type_r_8u:
-                    {
+                    case cgltf_component_type_r_8u: {
                         const uint8_t *buf = data_ptr;
                         for (size_t index = 0; index < accessor->count; index++)
                         {
@@ -794,8 +779,7 @@ static void load_node(
                         }
                     }
                     break;
-                    default:
-                    {
+                    default: {
                         assert(!"Invalid component type");
                     }
                     break;
@@ -840,20 +824,13 @@ static void node_draw(
         {
             GltfPrimitive *primitive = &node->mesh->primitives[i];
 
-            struct
-            {
-                Mat4 local_model;
-                Mat4 model;
-                float normal_mapped;
-            } uniform;
-            uniform.local_model = node->mesh->matrix;
-            uniform.model = *transform;
-            uniform.normal_mapped = primitive->is_normal_mapped ? 1.0f : 0.0f;
-
-            mt_render.cmd_bind_uniform(cb, &uniform, sizeof(uniform), model_set, 0);
+            Mat4 model = mat4_mul(node->mesh->matrix, *transform);
+            mt_render.cmd_bind_uniform(cb, &model, sizeof(model), model_set, 0);
 
             if (material_set != UINT32_MAX)
             {
+                primitive->material->uniform.normal_mapped =
+                    primitive->is_normal_mapped ? 1.0f : 0.0f;
                 mt_render.cmd_bind_uniform(
                     cb,
                     &primitive->material->uniform,

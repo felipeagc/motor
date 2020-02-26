@@ -1,5 +1,6 @@
 #include <motor/engine/systems.h>
 
+#include <motor/base/log.h>
 #include <motor/graphics/renderer.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/scene.h>
@@ -83,6 +84,45 @@ void mt_selected_model_system(MtEntityArchetype *arch, MtScene *scene, MtCmdBuff
         mt_render.cmd_bind_pipeline(cb, gizmo_pipeline);
         mt_translation_gizmo_draw(
             &engine->gizmo, cb, engine->window, &scene->cam.uniform, &comps->transform[e].pos);
+
+        if (arch->masks[e] & MT_COMP_BIT(MtModelArchetype, actor))
+        {
+            MtPhysicsShape *shapes[32];
+            uint32_t shape_count = mt_rigid_actor_get_shape_count(comps->actor[e]);
+            mt_rigid_actor_get_shapes(comps->actor[e], shapes, shape_count, 0);
+
+            mt_render.cmd_bind_pipeline(cb, scene->engine->wireframe_pipeline->pipeline);
+            mt_render.cmd_bind_uniform(cb, &scene->cam.uniform, sizeof(scene->cam.uniform), 0, 0);
+            mt_render.cmd_bind_uniform(cb, &V4(0.0f, 1.0f, 0.0f, 1.0f), sizeof(Vec4), 2, 0);
+
+            for (uint32_t i = 0; i < shape_count; ++i)
+            {
+                float radius = mt_physics_shape_get_radius(shapes[i]);
+                MtPhysicsTransform px_transform = mt_physics_shape_get_local_transform(shapes[i]);
+                MtTransform shape_transform = {0};
+                shape_transform.pos = px_transform.pos;
+                shape_transform.rot = px_transform.rot;
+                shape_transform.scale = V3(radius, radius, radius);
+
+                MtTransform model_transform = comps->transform[e];
+                model_transform.scale = V3(1, 1, 1);
+
+                Mat4 transform = mat4_mul(
+                    mt_transform_matrix(&shape_transform), mt_transform_matrix(&model_transform));
+                mt_render.cmd_bind_uniform(cb, &transform, sizeof(transform), 1, 0);
+
+                switch (mt_physics_shape_get_type(shapes[i]))
+                {
+                    case MT_PHYSICS_SHAPE_SPHERE: {
+                        mt_mesh_draw(&scene->engine->sphere_mesh, cb);
+                        break;
+                    }
+                    case MT_PHYSICS_SHAPE_PLANE: {
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
 

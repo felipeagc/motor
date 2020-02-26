@@ -148,7 +148,8 @@ static void game_init(MtScene *inst)
         sphere_shape = mt_physics_shape_create(g->scene.engine->physics, MT_PHYSICS_SHAPE_SPHERE);
         mt_physics_shape_set_radius(sphere_shape, 1.0f);
         mt_physics_shape_set_local_transform(
-            sphere_shape, &(MtPhysicsTransform){.pos = V3(0.0f, 1.1f, 0.0f)});
+            sphere_shape,
+            &(MtPhysicsTransform){.pos = V3(0.0f, 1.1f, 0.0f), .rot = (Quat){0, 0, 0, 1}});
         mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
 
         e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);

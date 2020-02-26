@@ -16,7 +16,7 @@
 
 [[vk::binding(0, 1)]] cbuffer model
 {
-    Model model;
+    float4x4 model;
 };
 
 [[vk::binding(0, 2)]] cbuffer material
@@ -61,22 +61,20 @@ void vertex(in VsInput vs_in, out VsOutput vs_out)
 {
     vs_out.uv = vs_in.uv;
 
-    float4x4 model0 = mul(model.model, model.local_model);
-
-    if (model.normal_mapped == 1.0f)
+    if (material.normal_mapped == 1.0f)
     {
-        float3 T = normalize(float3(mul(model0, float4(vs_in.tangent.xyz, 0.0f))));
-        float3 N = normalize(float3(mul(model0, float4(vs_in.normal.xyz, 0.0f))));
+        float3 T = normalize(float3(mul(model, float4(vs_in.tangent.xyz, 0.0f))));
+        float3 N = normalize(float3(mul(model, float4(vs_in.normal.xyz, 0.0f))));
         T = normalize(T - dot(T, N) * N); // re-orthogonalize
         float3 B = vs_in.tangent.w * cross(N, T);
         vs_out.TBN = transpose(float3x3(T, B, N));
     }
     else
     {
-        vs_out.normal = normalize(mul(float3x3(model0), vs_in.normal));
+        vs_out.normal = normalize(mul(float3x3(model), vs_in.normal));
     }
 
-    float4 loc_pos = mul(model0, float4(vs_in.pos, 1.0));
+    float4 loc_pos = mul(model, float4(vs_in.pos, 1.0));
 
     vs_out.world_pos = loc_pos.xyz / loc_pos.w;
 
@@ -168,7 +166,7 @@ float4 pixel(VsOutput fs_in) : SV_Target
         max(pbr_inputs.specular_color.r, pbr_inputs.specular_color.g), pbr_inputs.specular_color.b);
     pbr_inputs.reflectance90 = clamp(reflectance * 25.0, 0.0, 1.0);
 
-    if (model.normal_mapped == 1.0f)
+    if (material.normal_mapped == 1.0f)
     {
         pbr_inputs.N = normal_texture.Sample(texture_sampler, fs_in.uv).rgb;
         pbr_inputs.N = normalize(pbr_inputs.N * 2.0 - 1.0); // Remap from [0, 1] to [-1, 1]

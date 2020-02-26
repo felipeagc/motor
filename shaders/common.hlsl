@@ -6,7 +6,6 @@
 #endif
 
 #define MAX_POINT_LIGHTS 64
-#define TILE_SIZE 16
 
 struct PointLight
 {
@@ -28,6 +27,7 @@ struct Material
     float metallic;
     float roughness;
     float4 emissive;
+    float normal_mapped;
 };
 
 struct Environment
@@ -47,13 +47,6 @@ struct Environment
     float pad3;
 
     PointLight point_lights[MAX_POINT_LIGHTS];
-};
-
-struct Model
-{
-    float4x4 local_model;
-    float4x4 model;
-    float normal_mapped; // TODO: this should move to the material uniform
 };
 
 #endif

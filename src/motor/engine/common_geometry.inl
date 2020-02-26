@@ -1,4 +1,6 @@
 #include <motor/base/math_types.h>
+#include <motor/base/array.h>
+#include <motor/base/allocator.h>
 
 static const Vec3 g_cube_vertices[36] = {
     {-0.5, 0.5, -0.5},  {-0.5, -0.5, -0.5}, {0.5, -0.5, -0.5},

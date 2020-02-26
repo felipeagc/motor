@@ -12,6 +12,7 @@
 #include <motor/engine/picker.h>
 #include <motor/engine/asset_manager.h>
 #include <motor/engine/imgui_impl.h>
+#include <motor/engine/meshes.h>
 #include <shaderc/shaderc.h>
 #include <string.h>
 #include <stdio.h>
@@ -114,6 +115,8 @@ void mt_engine_init(MtEngine *engine)
             .border_color = MT_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
         });
 
+    mt_mesh_init_sphere(&engine->sphere_mesh, engine);
+
     mt_thread_pool_init(&engine->thread_pool, num_threads, engine->alloc);
 
     engine->watcher = mt_file_watcher_create(
@@ -161,6 +164,7 @@ void mt_engine_destroy(MtEngine *engine)
     mt_file_watcher_destroy(engine->watcher);
     mt_imgui_destroy(engine->imgui_ctx);
 
+    mt_mesh_destroy(&engine->sphere_mesh);
     mt_render.destroy_image(engine->device, engine->default_cubemap);
     mt_render.destroy_image(engine->device, engine->white_image);
     mt_render.destroy_image(engine->device, engine->black_image);
