@@ -140,6 +140,10 @@ void mt_engine_init(MtEngine *engine)
     mt_asset_manager_queue_load(
         am, "../shaders/prefilter_env_map.hlsl", (MtAsset **)&engine->prefilter_env_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/imgui.hlsl", (MtAsset **)&engine->imgui_pipeline);
+    mt_asset_manager_queue_load(
+        am, "../shaders/picking.hlsl", (MtAsset **)&engine->picking_pipeline);
+    mt_asset_manager_queue_load(
+        am, "../shaders/picking_transfer.hlsl", (MtAsset **)&engine->picking_transfer_pipeline);
 
     mt_thread_pool_wait_all(&engine->thread_pool);
 

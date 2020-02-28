@@ -49,4 +49,9 @@ struct Environment
     PointLight point_lights[MAX_POINT_LIGHTS];
 };
 
+struct Model
+{
+	float4x4 mat;
+};
+
 #endif

@@ -10,15 +10,8 @@
 #include "common.hlsl"
 #include "pbr_common.hlsl"
 
-[[vk::binding(0, 0)]] cbuffer camera
-{
-    Camera cam;
-};
-
-[[vk::binding(0, 1)]] cbuffer model
-{
-    float4x4 model;
-};
+[[vk::binding(0, 0)]] ConstantBuffer<Camera> cam;
+[[vk::binding(0, 1)]] ConstantBuffer<Model> model;
 
 [[vk::binding(0, 2)]] cbuffer color
 {
@@ -40,7 +33,7 @@ struct VsOutput
 
 void vertex(in VsInput vs_in, out VsOutput vs_out)
 {
-    float4 loc_pos = mul(model, float4(vs_in.pos, 1.0));
+    float4 loc_pos = mul(model.mat, float4(vs_in.pos, 1.0));
     float3 world_pos = loc_pos.xyz / loc_pos.w;
     vs_out.sv_pos = mul(mul(cam.proj, cam.view), float4(world_pos, 1.0f));
 }

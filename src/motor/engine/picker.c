@@ -1,12 +1,12 @@
 #include <motor/engine/picker.h>
 
+#include <motor/base/log.h>
 #include <motor/base/allocator.h>
 #include <motor/graphics/window.h>
 #include <motor/graphics/renderer.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/camera.h>
-
-#include "pipeline_utils.inl"
+#include <motor/engine/assets/pipeline_asset.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -15,7 +15,6 @@ struct MtPicker
 {
     MtEngine *engine;
     MtRenderGraph *graph;
-    MtPipeline *picking_pipeline;
 
     // Temporary data
     int32_t x;
@@ -30,7 +29,7 @@ static void picking_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *us
     MtPicker *picker = user_data;
 
     // Draw models
-    mt_render.cmd_bind_pipeline(cb, picker->picking_pipeline);
+    mt_render.cmd_bind_pipeline(cb, picker->engine->picking_pipeline->pipeline);
     mt_render.cmd_bind_uniform(cb, &picker->camera_uniform, sizeof(picker->camera_uniform), 0, 0);
     picker->draw(cb, picker->user_data);
 }
@@ -39,18 +38,23 @@ static void picking_transfer_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb,
 {
     MtPicker *picker = user_data;
 
-    MtBuffer *picking_buffer = mt_render.graph_get_buffer(picker->graph, "picking_buffer");
-
     if (picker->x > 0 && picker->y > 0)
     {
-        mt_render.cmd_copy_image_to_buffer(
-            cb,
-            &(MtImageCopyView){
-                .image = mt_render.graph_get_image(graph, "picking"),
-                .offset = {picker->x, picker->y, 0},
-            },
-            &(MtBufferCopyView){.buffer = picking_buffer},
-            (MtExtent3D){1, 1, 1});
+        MtBuffer *picking_buffer = mt_render.graph_get_buffer(picker->graph, "picking_buffer");
+
+        struct
+        {
+            int32_t x;
+            int32_t y;
+        } coords;
+        coords.x = picker->x;
+        coords.y = picker->y;
+
+        mt_render.cmd_bind_pipeline(cb, picker->engine->picking_transfer_pipeline->pipeline);
+        mt_render.cmd_bind_storage_buffer(cb, picking_buffer, 0, 0);
+        mt_render.cmd_bind_uniform(cb, &coords, sizeof(coords), 0, 1);
+        mt_render.cmd_bind_image(cb, mt_render.graph_get_image(graph, "picking"), 0, 2);
+        mt_render.cmd_dispatch(cb, 1, 1, 1);
     }
 }
 
@@ -95,7 +99,7 @@ static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
         graph,
         "picking_buffer",
         &(MtBufferCreateInfo){
-            .usage = MT_BUFFER_USAGE_TRANSFER,
+            .usage = MT_BUFFER_USAGE_STORAGE,
             .memory = MT_BUFFER_MEMORY_HOST,
             .size = sizeof(uint32_t),
         });
@@ -111,8 +115,8 @@ static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
 
     {
         MtRenderGraphPass *picking_transfer_pass =
-            mt_render.graph_add_pass(graph, "picking_transfer_pass", MT_PIPELINE_STAGE_TRANSFER);
-        mt_render.pass_read(picking_transfer_pass, MT_PASS_READ_IMAGE_TRANSFER, "picking");
+            mt_render.graph_add_pass(graph, "picking_transfer_pass", MT_PIPELINE_STAGE_COMPUTE);
+        mt_render.pass_read(picking_transfer_pass, MT_PASS_READ_IMAGE_SAMPLED, "picking");
         mt_render.pass_write(picking_transfer_pass, MT_PASS_WRITE_BUFFER, "picking_buffer");
         mt_render.pass_set_builder(picking_transfer_pass, picking_transfer_pass_builder);
     }
@@ -124,24 +128,6 @@ MtPicker *mt_picker_create(MtEngine *engine)
     memset(picker, 0, sizeof(*picker));
 
     picker->engine = engine;
-
-    const char *path = "../shaders/picking.hlsl";
-
-    FILE *f = fopen(path, "rb");
-    if (!f)
-    {
-        mt_log_error("Failed to open file: %s", path);
-        return NULL;
-    }
-
-    fseek(f, 0, SEEK_END);
-    size_t input_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char *input = mt_alloc(engine->alloc, input_size);
-    fread(input, input_size, 1, f);
-    fclose(f);
-
-    picker->picking_pipeline = create_pipeline(engine, path, input, input_size);
 
     picker->graph = mt_render.create_graph(engine->device, NULL);
     mt_render.graph_set_user_data(picker->graph, picker);
@@ -155,7 +141,6 @@ void mt_picker_destroy(MtPicker *picker)
     MtAllocator *alloc = picker->engine->alloc;
 
     mt_render.destroy_graph(picker->graph);
-    mt_render.destroy_pipeline(picker->engine->device, picker->picking_pipeline);
 
     mt_free(alloc, picker);
 }

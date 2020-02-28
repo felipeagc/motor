@@ -253,7 +253,7 @@ typedef enum MtPipelineStage {
 
 typedef enum MtRenderGraphPassRead {
     MT_PASS_READ_IMAGE_TRANSFER,
-    MT_PASS_READ_SAMPLED_IMAGE,
+    MT_PASS_READ_IMAGE_SAMPLED,
     MT_PASS_READ_BUFFER,
 } MtRenderGraphPassRead;
 

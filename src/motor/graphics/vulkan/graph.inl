@@ -853,7 +853,7 @@ static void pass_read(MtRenderGraphPass *pass, MtRenderGraphPassRead type, const
             mt_array_push(pass->graph->dev->alloc, pass->image_transfer_inputs, (uint32_t)index);
             break;
         }
-        case MT_PASS_READ_SAMPLED_IMAGE: {
+        case MT_PASS_READ_IMAGE_SAMPLED: {
             assert(resource->type == GRAPH_RESOURCE_IMAGE);
             resource->image_info.usage |= MT_IMAGE_USAGE_SAMPLED_BIT;
             mt_array_push(pass->graph->dev->alloc, pass->image_sampled_inputs, (uint32_t)index);

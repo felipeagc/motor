@@ -58,6 +58,8 @@ typedef struct MtEngine
     MtPipelineAsset *irradiance_pipeline;
     MtPipelineAsset *prefilter_env_pipeline;
     MtPipelineAsset *imgui_pipeline;
+    MtPipelineAsset *picking_pipeline;
+    MtPipelineAsset *picking_transfer_pipeline;
 
     MtIScene current_scene;
 } MtEngine;

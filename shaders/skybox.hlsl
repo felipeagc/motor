@@ -9,17 +9,11 @@
 #include "common.hlsl"
 #include "pbr_common.hlsl"
 
-[[vk::binding(0, 0)]] cbuffer camera
-{
-    Camera cam;
-};
+[[vk::binding(0, 0)]] ConstantBuffer<Camera> cam;
 
 [[vk::binding(0, 1)]] SamplerState cube_sampler;
 [[vk::binding(1, 1)]] TextureCube<float4> cube_texture;
-[[vk::binding(2, 1)]] cbuffer environment
-{
-    Environment env;
-};
+[[vk::binding(2, 1)]] ConstantBuffer<Environment> env;
 
 struct VsOutput
 {
