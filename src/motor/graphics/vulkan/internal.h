@@ -335,6 +335,7 @@ typedef struct ExecutionGroup
         VkFence fence;
     } frames[FRAMES_IN_FLIGHT];
     uint32_t *pass_indices;
+    bool recording;
 } ExecutionGroup;
 
 typedef struct MtRenderGraph
@@ -343,6 +344,7 @@ typedef struct MtRenderGraph
     MtSwapchain *swapchain;
     VkSemaphore image_available_semaphores[FRAMES_IN_FLIGHT];
     void *user_data;
+    bool recording;
 
     MtRenderGraphBuilder graph_builder;
 
@@ -369,6 +371,7 @@ typedef struct MtRenderGraphPass
     bool present;
     struct MtRenderGraphPass *next;
     struct MtRenderGraphPass *prev;
+    ExecutionGroup *group;
     uint32_t index;
     VkPipelineStageFlags stage;
     MtQueueType queue_type;
@@ -376,7 +379,6 @@ typedef struct MtRenderGraphPass
     MtRenderGraph *graph;
     MtRenderGraphColorClearer color_clearer;
     MtRenderGraphDepthStencilClearer depth_stencil_clearer;
-    MtRenderGraphPassBuilder builder;
 
     uint32_t depth_output;
     /*array*/ uint32_t *color_outputs;

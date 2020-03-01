@@ -32,21 +32,6 @@ typedef struct Game
 } Game;
 
 // Color render graph {{{
-static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
-{
-    Game *g = user_data;
-
-    // Draw skybox
-    mt_environment_draw_skybox(&g->scene.env, cb, &g->scene.cam.uniform);
-
-    // Draw models
-    mt_model_system(g->model_archetype, &g->scene, cb);
-    mt_selected_model_system(g->model_archetype, &g->scene, cb);
-
-    // Draw UI
-    mt_imgui_render(g->scene.engine->imgui_ctx, cb);
-}
-
 static void graph_builder(MtRenderGraph *graph, void *user_data)
 {
     Game *g = user_data;
@@ -66,7 +51,6 @@ static void graph_builder(MtRenderGraph *graph, void *user_data)
         MtRenderGraphPass *color_pass =
             mt_render.graph_add_pass(graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
         mt_render.pass_write(color_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
-        mt_render.pass_set_builder(color_pass, color_pass_builder);
     }
 }
 // }}}
@@ -250,6 +234,22 @@ static void game_update(MtScene *inst, float delta)
     mt_pre_physics_sync_system(g->model_archetype);
     mt_physics_scene_step(inst->physics_scene, delta);
     mt_post_physics_sync_system(g->model_archetype);
+
+    {
+        MtCmdBuffer *cb = mt_render.pass_begin(inst->graph, "color_pass");
+
+        // Draw skybox
+        mt_environment_draw_skybox(&g->scene.env, cb, &g->scene.cam.uniform);
+
+        // Draw models
+        mt_model_system(g->model_archetype, &g->scene, cb);
+        mt_selected_model_system(g->model_archetype, &g->scene, cb);
+
+        // Draw UI
+        mt_imgui_render(g->scene.engine->imgui_ctx, cb);
+
+        mt_render.pass_end(inst->graph, "color_pass");
+    }
 }
 // }}}
 

@@ -164,6 +164,11 @@ gui_link_args = []
 if target_machine.system() == 'windows'
   gui_link_args += '/entry:mainCRTStartup'
   gui_link_args += '/subsystem:windows'
+
+  configure_file(input: 'thirdparty/shaderc/windows/shaderc_shared.dll', output: 'shaderc_shared.dll', copy: true)
+  configure_file(input: 'thirdparty/physx/windows/debug/PhysX_64.dll', output: 'PhysX_64.dll', copy: true)
+  configure_file(input: 'thirdparty/physx/windows/debug/PhysXCommon_64.dll', output: 'PhysXCommon_64.dll', copy: true)
+  configure_file(input: 'thirdparty/physx/windows/debug/PhysXFoundation_64.dll', output: 'PhysXFoundation_64.dll', copy: true)
 endif
 
 executable('simple',
@@ -184,8 +189,3 @@ test('hash', hash_tests)
 
 thread_tests = executable('thread_tests', 'tests/thread_tests.c', dependencies: [motor_base_dep])
 test('thread', thread_tests)
-
-configure_file(input: 'thirdparty/shaderc/windows/shaderc_shared.dll', output: 'shaderc_shared.dll', copy: true)
-configure_file(input: 'thirdparty/physx/windows/debug/PhysX_64.dll', output: 'PhysX_64.dll', copy: true)
-configure_file(input: 'thirdparty/physx/windows/debug/PhysXCommon_64.dll', output: 'PhysXCommon_64.dll', copy: true)
-configure_file(input: 'thirdparty/physx/windows/debug/PhysXFoundation_64.dll', output: 'PhysXFoundation_64.dll', copy: true)

@@ -981,10 +981,12 @@ static MtRenderer g_vulkan_renderer = {
     .graph_add_pass = graph_add_pass,
     .pass_set_color_clearer = pass_set_color_clearer,
     .pass_set_depth_stencil_clearer = pass_set_depth_stencil_clearer,
-    .pass_set_builder = pass_set_builder,
 
     .pass_read = pass_read,
     .pass_write = pass_write,
+
+    .pass_begin = pass_begin,
+    .pass_end = pass_end,
 };
 
 MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocator *alloc)

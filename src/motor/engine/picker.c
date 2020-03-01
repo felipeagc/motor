@@ -24,40 +24,6 @@ struct MtPicker
     void *user_data;
 };
 
-static void picking_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
-{
-    MtPicker *picker = user_data;
-
-    // Draw models
-    mt_render.cmd_bind_pipeline(cb, picker->engine->picking_pipeline->pipeline);
-    mt_render.cmd_bind_uniform(cb, &picker->camera_uniform, sizeof(picker->camera_uniform), 0, 0);
-    picker->draw(cb, picker->user_data);
-}
-
-static void picking_transfer_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user_data)
-{
-    MtPicker *picker = user_data;
-
-    if (picker->x > 0 && picker->y > 0)
-    {
-        MtBuffer *picking_buffer = mt_render.graph_get_buffer(picker->graph, "picking_buffer");
-
-        struct
-        {
-            int32_t x;
-            int32_t y;
-        } coords;
-        coords.x = picker->x;
-        coords.y = picker->y;
-
-        mt_render.cmd_bind_pipeline(cb, picker->engine->picking_transfer_pipeline->pipeline);
-        mt_render.cmd_bind_storage_buffer(cb, picking_buffer, 0, 0);
-        mt_render.cmd_bind_uniform(cb, &coords, sizeof(coords), 0, 1);
-        mt_render.cmd_bind_image(cb, mt_render.graph_get_image(graph, "picking"), 0, 2);
-        mt_render.cmd_dispatch(cb, 1, 1, 1);
-    }
-}
-
 static bool picking_clear_color(uint32_t index, MtClearColorValue *color)
 {
     if (color)
@@ -110,7 +76,6 @@ static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
         mt_render.pass_write(picking_pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "picking");
         mt_render.pass_write(picking_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
         mt_render.pass_set_color_clearer(picking_pass, picking_clear_color);
-        mt_render.pass_set_builder(picking_pass, picking_pass_builder);
     }
 
     {
@@ -118,7 +83,6 @@ static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
             mt_render.graph_add_pass(graph, "picking_transfer_pass", MT_PIPELINE_STAGE_COMPUTE);
         mt_render.pass_read(picking_transfer_pass, MT_PASS_READ_IMAGE_SAMPLED, "picking");
         mt_render.pass_write(picking_transfer_pass, MT_PASS_WRITE_BUFFER, "picking_buffer");
-        mt_render.pass_set_builder(picking_transfer_pass, picking_transfer_pass_builder);
     }
 }
 
@@ -163,6 +127,43 @@ uint32_t mt_picker_pick(
     picker->camera_uniform = *camera_uniform;
     picker->draw = draw;
     picker->user_data = user_data;
+
+    {
+        MtCmdBuffer *cb = mt_render.pass_begin(picker->graph, "picking_pass");
+
+        // Draw models
+        mt_render.cmd_bind_pipeline(cb, picker->engine->picking_pipeline->pipeline);
+        mt_render.cmd_bind_uniform(
+            cb, &picker->camera_uniform, sizeof(picker->camera_uniform), 0, 0);
+        picker->draw(cb, picker->user_data);
+
+        mt_render.pass_end(picker->graph, "picking_pass");
+    }
+
+    {
+        MtCmdBuffer *cb = mt_render.pass_begin(picker->graph, "picking_transfer_pass");
+
+        if (picker->x > 0 && picker->y > 0)
+        {
+            MtBuffer *picking_buffer = mt_render.graph_get_buffer(picker->graph, "picking_buffer");
+
+            struct
+            {
+                int32_t x;
+                int32_t y;
+            } coords;
+            coords.x = picker->x;
+            coords.y = picker->y;
+
+            mt_render.cmd_bind_pipeline(cb, picker->engine->picking_transfer_pipeline->pipeline);
+            mt_render.cmd_bind_storage_buffer(cb, picking_buffer, 0, 0);
+            mt_render.cmd_bind_uniform(cb, &coords, sizeof(coords), 0, 1);
+            mt_render.cmd_bind_image(cb, mt_render.graph_get_image(picker->graph, "picking"), 0, 2);
+            mt_render.cmd_dispatch(cb, 1, 1, 1);
+        }
+
+        mt_render.pass_end(picker->graph, "picking_transfer_pass");
+    }
 
     mt_render.graph_execute(picker->graph);
     mt_render.graph_wait_all(picker->graph);

@@ -1,10 +1,9 @@
 = Motor
 
 == To-do
+* Render graph recording without callbacks
 * Alpha sorting for GLTF models
 * Code hot reloading
-* Better entity ID system
-* Entity menu
 * Gizmos
 ** https://nelari.us/post/gizmos/
 
@@ -37,11 +36,6 @@
 
 * Engine
 ** Introspection system
-** UI widgets
-*** Stack for pushing/popping IDs
-*** Text input
-*** Window / container with scrollbar
-** Physics
 
 === Restructuring
 * Dynamically link stuff for better build times (maybe?)

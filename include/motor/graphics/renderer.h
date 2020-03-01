@@ -39,7 +39,6 @@ typedef union MtClearValue
 } MtClearValue;
 
 typedef void (*MtRenderGraphBuilder)(MtRenderGraph *, void *user_data);
-typedef void (*MtRenderGraphPassBuilder)(MtRenderGraph *, MtCmdBuffer *, void *user_data);
 typedef bool (*MtRenderGraphColorClearer)(uint32_t render_target_index, MtClearColorValue *);
 typedef bool (*MtRenderGraphDepthStencilClearer)(MtClearDepthStencilValue *);
 
@@ -377,10 +376,12 @@ typedef struct MtRenderer
     MtRenderGraphPass *(*graph_add_pass)(MtRenderGraph *, const char *name, MtPipelineStage stage);
     void (*pass_set_color_clearer)(MtRenderGraphPass *, MtRenderGraphColorClearer);
     void (*pass_set_depth_stencil_clearer)(MtRenderGraphPass *, MtRenderGraphDepthStencilClearer);
-    void (*pass_set_builder)(MtRenderGraphPass *, MtRenderGraphPassBuilder);
 
     void (*pass_read)(MtRenderGraphPass *, MtRenderGraphPassRead, const char *name);
     void (*pass_write)(MtRenderGraphPass *, MtRenderGraphPassWrite, const char *name);
+
+    MtCmdBuffer *(*pass_begin)(MtRenderGraph *, const char *name);
+    void (*pass_end)(MtRenderGraph *, const char *name);
 } MtRenderer;
 
 MT_GRAPHICS_API extern MtRenderer mt_render;

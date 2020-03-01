@@ -79,15 +79,17 @@ add_group(MtRenderGraph *graph, MtQueueType queue_type, uint32_t *pass_indices, 
     if (mt_array_size(graph->execution_groups) > 0)
     {
         ExecutionGroup *prev_group = mt_array_last(graph->execution_groups);
+
+        VkPipelineStageFlags wait_stages = 0;
+        for (uint32_t *pass = group.pass_indices;
+             pass != group.pass_indices + mt_array_size(group.pass_indices);
+             ++pass)
+        {
+            wait_stages |= graph->passes[*pass].stage;
+        }
+
         for (uint32_t i = 0; i < graph->frame_count; ++i)
         {
-            VkPipelineStageFlags wait_stages = 0;
-            for (uint32_t *j = group.pass_indices;
-                 j != group.pass_indices + mt_array_size(group.pass_indices);
-                 ++j)
-            {
-                wait_stages |= graph->passes[*j].stage;
-            }
             mt_array_push(
                 graph->dev->alloc,
                 group.frames[i].wait_semaphores,
@@ -97,6 +99,13 @@ add_group(MtRenderGraph *graph, MtQueueType queue_type, uint32_t *pass_indices, 
     }
 
     mt_array_push(graph->dev->alloc, graph->execution_groups, group);
+    ExecutionGroup *last_group = mt_array_last(graph->execution_groups);
+    for (uint32_t *pass = last_group->pass_indices;
+         pass != last_group->pass_indices + mt_array_size(last_group->pass_indices);
+         ++pass)
+    {
+        graph->passes[*pass].group = last_group;
+    }
 }
 
 static void destroy_group(MtRenderGraph *graph, ExecutionGroup *group)
@@ -397,269 +406,293 @@ static void graph_wait_all(MtRenderGraph *graph)
     }
 }
 
-static void graph_execute(MtRenderGraph *graph)
+static MtCmdBuffer *pass_begin(MtRenderGraph *graph, const char *name)
 {
-    graph->current_frame = (graph->current_frame + 1) % graph->frame_count;
-
-    if (graph->framebuffer_resized || !graph->baked)
+    if (!graph->recording)
     {
-        graph->framebuffer_resized = false;
+        //
+        // First pass
+        //
 
-        if (graph->baked)
+        graph->recording = true;
+        graph->current_frame = (graph->current_frame + 1) % graph->frame_count;
+
+        if (graph->framebuffer_resized || !graph->baked)
         {
-            graph_unbake(graph);
+            graph->framebuffer_resized = false;
+
+            if (graph->baked)
+            {
+                graph_unbake(graph);
+            }
+
+            graph_bake(graph);
         }
 
-        graph_bake(graph);
+        if (graph->swapchain)
+        {
+            ExecutionGroup *swapchain_group = mt_array_last(graph->execution_groups);
+
+            vkWaitForFences(
+                graph->dev->device,
+                1,
+                &swapchain_group->frames[graph->current_frame].fence,
+                VK_TRUE,
+                UINT64_MAX);
+
+            VkResult res;
+            while (1)
+            {
+                res = vkAcquireNextImageKHR(
+                    graph->dev->device,
+                    graph->swapchain->swapchain,
+                    UINT64_MAX,
+                    graph->image_available_semaphores[graph->current_frame],
+                    VK_NULL_HANDLE,
+                    &graph->swapchain->current_image_index);
+
+                if (res != VK_ERROR_OUT_OF_DATE_KHR)
+                {
+                    break;
+                }
+
+                swapchain_destroy_resizables(graph->swapchain);
+                swapchain_create_resizables(graph->swapchain);
+
+                graph->framebuffer_resized = true;
+                return pass_begin(graph, name);
+            }
+
+            VK_CHECK(res);
+        }
     }
 
-    if (graph->swapchain)
-    {
-        ExecutionGroup *group = mt_array_last(graph->execution_groups);
+    uintptr_t pass_index = mt_hash_get_uint(&graph->pass_indices, mt_hash_str(name));
+    assert(pass_index != MT_HASH_NOT_FOUND);
+    MtRenderGraphPass *pass = &graph->passes[pass_index];
+    ExecutionGroup *group = pass->group;
 
+    MtCmdBuffer *cb = group->frames[graph->current_frame].cmd_buffer;
+
+    if (!group->recording)
+    {
         vkWaitForFences(
             graph->dev->device, 1, &group->frames[graph->current_frame].fence, VK_TRUE, UINT64_MAX);
 
-        VkResult res;
-        while (1)
-        {
-            res = vkAcquireNextImageKHR(
-                graph->dev->device,
-                graph->swapchain->swapchain,
-                UINT64_MAX,
-                graph->image_available_semaphores[graph->current_frame],
-                VK_NULL_HANDLE,
-                &graph->swapchain->current_image_index);
-
-            if (res != VK_ERROR_OUT_OF_DATE_KHR)
-            {
-                break;
-            }
-
-            swapchain_destroy_resizables(graph->swapchain);
-            swapchain_create_resizables(graph->swapchain);
-
-            graph->framebuffer_resized = true;
-            graph_execute(graph);
-            return;
-        }
-
-        VK_CHECK(res);
+        begin_cmd_buffer(cb);
+        group->recording = true;
     }
 
+    //
+    // Apply some barriers
+    //
+
+    VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    VkPipelineStageFlags dst_stage_mask = pass->stage;
+    if (pass->prev) src_stage_mask = pass->prev->stage;
+
+    mt_array_set_size(graph->buffer_barriers, 0);
+    mt_array_set_size(graph->image_barriers, 0);
+
+    for (uint32_t *res = pass->image_transfer_outputs;
+         res != pass->image_transfer_outputs + mt_array_size(pass->image_transfer_outputs);
+         ++res)
+    {
+        MtImage *image = graph->resources[*res].image;
+
+        VkImageMemoryBarrier barrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .image = image->image,
+            .subresourceRange =
+                {
+                    .aspectMask = image->aspect,
+                    .baseMipLevel = 0,
+                    .levelCount = image->mip_count,
+                    .baseArrayLayer = 0,
+                    .layerCount = image->layer_count,
+                },
+        };
+        mt_array_push(graph->dev->alloc, graph->image_barriers, barrier);
+    }
+
+    for (uint32_t *res = pass->buffer_writes;
+         res != pass->buffer_writes + mt_array_size(pass->buffer_writes);
+         ++res)
+    {
+        VkBufferMemoryBarrier barrier = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .srcAccessMask = 0,
+            .dstAccessMask = 0,
+            .buffer = graph->resources[*res].buffer->buffer,
+            .offset = 0,
+            .size = VK_WHOLE_SIZE,
+        };
+
+        if (src_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+        {
+            barrier.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+        }
+
+        if (dst_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+        {
+            barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+        }
+
+        mt_array_push(graph->dev->alloc, graph->buffer_barriers, barrier);
+    }
+
+    vkCmdPipelineBarrier(
+        cb->cmd_buffer,
+        src_stage_mask,
+        dst_stage_mask,
+        0,
+        0,
+        NULL,
+        (uint32_t)mt_array_size(graph->buffer_barriers),
+        graph->buffer_barriers,
+        (uint32_t)mt_array_size(graph->image_barriers),
+        graph->image_barriers);
+
+    //
+    // Begin render pass (if applicable)
+    //
+
+    if (pass->queue_type == MT_QUEUE_GRAPHICS)
+    {
+        if (pass->present)
+        {
+            pass->render_pass.current_framebuffer =
+                pass->framebuffers[graph->swapchain->current_image_index];
+        }
+        else
+        {
+            pass->render_pass.current_framebuffer = pass->framebuffers[0];
+        }
+
+        cmd_begin_render_pass(cb, pass);
+    }
+
+    return cb;
+}
+
+static void pass_end(MtRenderGraph *graph, const char *name)
+{
+    uintptr_t pass_index = mt_hash_get_uint(&graph->pass_indices, mt_hash_str(name));
+    assert(pass_index != MT_HASH_NOT_FOUND);
+    MtRenderGraphPass *pass = &graph->passes[pass_index];
+    ExecutionGroup *group = pass->group;
+
+    MtCmdBuffer *cb = group->frames[graph->current_frame].cmd_buffer;
+
+    //
+    // End render pass (if applicable)
+    //
+
+    if (pass->queue_type == MT_QUEUE_GRAPHICS)
+    {
+        cmd_end_render_pass(cb);
+    }
+
+    //
+    // Apply more barriers
+    //
+
+    VkPipelineStageFlags src_stage_mask = pass->stage;
+    VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    if (pass->next) dst_stage_mask = pass->next->stage;
+
+    mt_array_set_size(graph->buffer_barriers, 0);
+    mt_array_set_size(graph->image_barriers, 0);
+
+    for (uint32_t *res = pass->image_transfer_outputs;
+         res != pass->image_transfer_outputs + mt_array_size(pass->image_transfer_outputs);
+         ++res)
+    {
+        MtImage *image = graph->resources[*res].image;
+
+        VkImageMemoryBarrier barrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .image = image->image,
+            .subresourceRange =
+                {
+                    .aspectMask = image->aspect,
+                    .baseMipLevel = 0,
+                    .levelCount = image->mip_count,
+                    .baseArrayLayer = 0,
+                    .layerCount = image->layer_count,
+                },
+        };
+        mt_array_push(graph->dev->alloc, graph->image_barriers, barrier);
+    }
+
+    for (uint32_t *res = pass->buffer_writes;
+         res != pass->buffer_writes + mt_array_size(pass->buffer_writes);
+         ++res)
+    {
+        VkBufferMemoryBarrier barrier = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .srcAccessMask = 0,
+            .dstAccessMask = 0,
+            .buffer = graph->resources[*res].buffer->buffer,
+            .offset = 0,
+            .size = VK_WHOLE_SIZE,
+        };
+
+        if (src_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+        {
+            barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+        }
+
+        if (dst_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+        {
+            barrier.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+        }
+
+        mt_array_push(graph->dev->alloc, graph->buffer_barriers, barrier);
+    }
+
+    vkCmdPipelineBarrier(
+        cb->cmd_buffer,
+        src_stage_mask,
+        dst_stage_mask,
+        0,
+        0,
+        NULL,
+        (uint32_t)mt_array_size(graph->buffer_barriers),
+        graph->buffer_barriers,
+        (uint32_t)mt_array_size(graph->image_barriers),
+        graph->image_barriers);
+
+    if (*mt_array_last(group->pass_indices) == pass->index)
+    {
+        assert(group->recording);
+        end_cmd_buffer(cb);
+        group->recording = false;
+    }
+}
+
+static void graph_execute(MtRenderGraph *graph)
+{
     for (ExecutionGroup *group = graph->execution_groups;
          group != graph->execution_groups + mt_array_size(graph->execution_groups);
          ++group)
     {
-        vkWaitForFences(
-            graph->dev->device, 1, &group->frames[graph->current_frame].fence, VK_TRUE, UINT64_MAX);
-
-        MtCmdBuffer *cb = group->frames[graph->current_frame].cmd_buffer;
-
-        begin_cmd_buffer(cb);
-
-        for (uint32_t *pass_index = group->pass_indices;
-             pass_index != group->pass_indices + mt_array_size(group->pass_indices);
-             ++pass_index)
-        {
-            MtRenderGraphPass *pass = &graph->passes[*pass_index];
-
-            //
-            // Apply some barriers
-            //
-
-            VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-            VkPipelineStageFlags dst_stage_mask = pass->stage;
-            if (pass->prev) src_stage_mask = pass->prev->stage;
-
-            mt_array_set_size(graph->buffer_barriers, 0);
-            mt_array_set_size(graph->image_barriers, 0);
-
-            for (uint32_t *res = pass->image_transfer_outputs;
-                 res != pass->image_transfer_outputs + mt_array_size(pass->image_transfer_outputs);
-                 ++res)
-            {
-                MtImage *image = graph->resources[*res].image;
-
-                VkImageMemoryBarrier barrier = {
-                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .srcAccessMask = 0,
-                    .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-                    .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                    .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    .image = image->image,
-                    .subresourceRange =
-                        {
-                            .aspectMask = image->aspect,
-                            .baseMipLevel = 0,
-                            .levelCount = image->mip_count,
-                            .baseArrayLayer = 0,
-                            .layerCount = image->layer_count,
-                        },
-                };
-                mt_array_push(graph->dev->alloc, graph->image_barriers, barrier);
-            }
-
-            for (uint32_t *res = pass->buffer_writes;
-                 res != pass->buffer_writes + mt_array_size(pass->buffer_writes);
-                 ++res)
-            {
-                VkBufferMemoryBarrier barrier = {
-                    .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .srcAccessMask = 0,
-                    .dstAccessMask = 0,
-                    .buffer = graph->resources[*res].buffer->buffer,
-                    .offset = 0,
-                    .size = VK_WHOLE_SIZE,
-                };
-
-                if (src_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
-                {
-                    barrier.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-                }
-
-                if (dst_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
-                {
-                    barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
-                }
-
-                mt_array_push(graph->dev->alloc, graph->buffer_barriers, barrier);
-            }
-
-            vkCmdPipelineBarrier(
-                cb->cmd_buffer,
-                src_stage_mask,
-                dst_stage_mask,
-                0,
-                0,
-                NULL,
-                (uint32_t)mt_array_size(graph->buffer_barriers),
-                graph->buffer_barriers,
-                (uint32_t)mt_array_size(graph->image_barriers),
-                graph->image_barriers);
-
-            //
-            // Begin render pass (if applicable)
-            //
-
-            if (pass->queue_type == MT_QUEUE_GRAPHICS)
-            {
-                if (pass->present)
-                {
-                    pass->render_pass.current_framebuffer =
-                        pass->framebuffers[graph->swapchain->current_image_index];
-                }
-                else
-                {
-                    pass->render_pass.current_framebuffer = pass->framebuffers[0];
-                }
-
-                cmd_begin_render_pass(cb, pass);
-            }
-
-            //
-            // Record the commands
-            //
-
-            if (pass->builder)
-            {
-                pass->builder(graph, cb, graph->user_data);
-            }
-
-            //
-            // End render pass (if applicable)
-            //
-
-            if (pass->queue_type == MT_QUEUE_GRAPHICS)
-            {
-                cmd_end_render_pass(cb);
-            }
-
-            //
-            // Apply more barriers
-            //
-
-            src_stage_mask = pass->stage;
-            dst_stage_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-            if (pass->next) dst_stage_mask = pass->next->stage;
-
-            mt_array_set_size(graph->buffer_barriers, 0);
-            mt_array_set_size(graph->image_barriers, 0);
-
-            for (uint32_t *res = pass->image_transfer_outputs;
-                 res != pass->image_transfer_outputs + mt_array_size(pass->image_transfer_outputs);
-                 ++res)
-            {
-                MtImage *image = graph->resources[*res].image;
-
-                VkImageMemoryBarrier barrier = {
-                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-                    .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-                    .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    .image = image->image,
-                    .subresourceRange =
-                        {
-                            .aspectMask = image->aspect,
-                            .baseMipLevel = 0,
-                            .levelCount = image->mip_count,
-                            .baseArrayLayer = 0,
-                            .layerCount = image->layer_count,
-                        },
-                };
-                mt_array_push(graph->dev->alloc, graph->image_barriers, barrier);
-            }
-
-            for (uint32_t *res = pass->buffer_writes;
-                 res != pass->buffer_writes + mt_array_size(pass->buffer_writes);
-                 ++res)
-            {
-                VkBufferMemoryBarrier barrier = {
-                    .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                    .srcAccessMask = 0,
-                    .dstAccessMask = 0,
-                    .buffer = graph->resources[*res].buffer->buffer,
-                    .offset = 0,
-                    .size = VK_WHOLE_SIZE,
-                };
-
-                if (src_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
-                {
-                    barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
-                }
-
-                if (dst_stage_mask & VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
-                {
-                    barrier.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-                }
-
-                mt_array_push(graph->dev->alloc, graph->buffer_barriers, barrier);
-            }
-
-            vkCmdPipelineBarrier(
-                cb->cmd_buffer,
-                src_stage_mask,
-                dst_stage_mask,
-                0,
-                0,
-                NULL,
-                (uint32_t)mt_array_size(graph->buffer_barriers),
-                graph->buffer_barriers,
-                (uint32_t)mt_array_size(graph->image_barriers),
-                graph->image_barriers);
-        }
-
-        end_cmd_buffer(cb);
-
         VK_CHECK(vkResetFences(graph->dev->device, 1, &group->frames[graph->current_frame].fence));
 
         uint32_t signal_semaphore_count = 1;
@@ -671,6 +704,8 @@ static void graph_execute(MtRenderGraph *graph)
             signal_semaphore_count = 0;
             signal_semaphores = NULL;
         }
+
+        MtCmdBuffer *cb = group->frames[graph->current_frame].cmd_buffer;
 
         submit_cmd(
             graph->dev,
@@ -714,6 +749,8 @@ static void graph_execute(MtRenderGraph *graph)
 
         swapchain_end_frame(graph->swapchain);
     }
+
+    graph->recording = false;
 }
 
 static uint32_t add_graph_resource(MtRenderGraph *graph, const char *name, GraphResourceType type)
@@ -830,11 +867,6 @@ static void
 pass_set_depth_stencil_clearer(MtRenderGraphPass *pass, MtRenderGraphDepthStencilClearer clearer)
 {
     pass->depth_stencil_clearer = clearer;
-}
-
-static void pass_set_builder(MtRenderGraphPass *pass, MtRenderGraphPassBuilder builder)
-{
-    pass->builder = builder;
 }
 
 static void pass_read(MtRenderGraphPass *pass, MtRenderGraphPassRead type, const char *name)
