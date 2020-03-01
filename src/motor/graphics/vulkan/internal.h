@@ -36,7 +36,7 @@ typedef struct BufferBlockAllocation
 {
     uint8_t *mapping;
     size_t offset;
-    size_t padded_size;
+    size_t size;
 } BufferBlockAllocation;
 
 typedef struct BufferBlock
@@ -44,7 +44,6 @@ typedef struct BufferBlock
     MtBuffer *buffer;
     size_t offset;
     size_t alignment;
-    size_t spill_size;
     size_t size;
     uint8_t *mapping;
 } BufferBlock;
@@ -54,7 +53,6 @@ typedef struct BufferPool
     MtDevice *dev;
     size_t block_size;
     size_t alignment;
-    size_t spill_size;
     MtBufferUsage usage;
     /*array*/ BufferBlock *blocks;
 } BufferPool;
@@ -258,9 +256,12 @@ typedef struct MtCmdBuffer
     Descriptor bound_descriptors[MAX_DESCRIPTOR_BINDINGS][MAX_DESCRIPTOR_SETS];
     uint64_t bound_descriptor_set_hashes[MAX_DESCRIPTOR_SETS];
 
-    BufferBlock ubo_block;
-    BufferBlock vbo_block;
-    BufferBlock ibo_block;
+    uint32_t dynamic_offsets[MAX_DESCRIPTOR_BINDINGS][MAX_DESCRIPTOR_SETS];
+    uint64_t dynamic_offset_hashes[MAX_DESCRIPTOR_SETS];
+
+    /*array*/ BufferBlock *ubo_blocks;
+    /*array*/ BufferBlock *vbo_blocks;
+    /*array*/ BufferBlock *ibo_blocks;
 } MtCmdBuffer;
 
 typedef struct MtBuffer

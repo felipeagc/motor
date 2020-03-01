@@ -5,11 +5,6 @@ static void begin_cmd_buffer(MtCmdBuffer *cb)
         .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
     };
     VK_CHECK(vkBeginCommandBuffer(cb->cmd_buffer, &begin_info));
-
-    if (cb->vbo_block.mapping)
-    {
-        assert(cb->vbo_block.buffer->buffer);
-    }
 }
 
 static void end_cmd_buffer(MtCmdBuffer *cb)
@@ -18,13 +13,25 @@ static void end_cmd_buffer(MtCmdBuffer *cb)
     memset(cb->bound_descriptor_set_hashes, 0, sizeof(cb->bound_descriptor_set_hashes));
     memset(&cb->current_viewport, 0, sizeof(cb->current_viewport));
 
-    buffer_block_reset(&cb->ubo_block);
-    buffer_block_reset(&cb->vbo_block);
-    buffer_block_reset(&cb->ibo_block);
-
-    if (cb->vbo_block.mapping)
+    for (BufferBlock *block = cb->ubo_blocks;
+         block != cb->ubo_blocks + mt_array_size(cb->ubo_blocks);
+         ++block)
     {
-        assert(cb->vbo_block.buffer->buffer);
+        buffer_block_reset(block);
+    }
+
+    for (BufferBlock *block = cb->vbo_blocks;
+         block != cb->vbo_blocks + mt_array_size(cb->vbo_blocks);
+         ++block)
+    {
+        buffer_block_reset(block);
+    }
+
+    for (BufferBlock *block = cb->ibo_blocks;
+         block != cb->ibo_blocks + mt_array_size(cb->ibo_blocks);
+         ++block)
+    {
+        buffer_block_reset(block);
     }
 }
 
@@ -47,9 +54,29 @@ static void bind_descriptor_sets(MtCmdBuffer *cb)
         XXH64_update(&state, &cb->bound_descriptors[i][0], sizeof(Descriptor) * binding_count);
         uint64_t descriptors_hash = (uint64_t)XXH64_digest(&state);
 
-        if (cb->bound_descriptor_set_hashes[i] != descriptors_hash)
+        uint32_t dynamic_offsets[MAX_DESCRIPTOR_BINDINGS];
+        uint32_t dynamic_offset_count = 0;
+
+        state = (XXH64_state_t){0};
+        for (uint32_t b = 0; b < binding_count; ++b)
+        {
+            if (cb->bound_pipeline_instance->pipeline->layout->sets[i].bindings[b].descriptorType ==
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+            {
+                XXH64_update(&state, &cb->dynamic_offsets[i][b], sizeof(cb->dynamic_offsets[i][b]));
+                dynamic_offsets[dynamic_offset_count++] = cb->dynamic_offsets[i][b];
+            }
+        }
+        uint64_t dynamic_offset_hash = (uint64_t)XXH64_digest(&state);
+
+        if (cb->bound_descriptor_set_hashes[i] != descriptors_hash ||
+            (dynamic_offset_count > 0 && dynamic_offset_hash != cb->dynamic_offset_hashes[i]))
         {
             cb->bound_descriptor_set_hashes[i] = descriptors_hash;
+            if (dynamic_offset_count > 0)
+            {
+                cb->dynamic_offset_hashes[i] = dynamic_offset_hash;
+            }
 
             DescriptorPool *pool = &cb->bound_pipeline_instance->pipeline->layout->pools[i];
 
@@ -64,8 +91,8 @@ static void bind_descriptor_sets(MtCmdBuffer *cb)
                 i,
                 1,
                 &descriptor_set,
-                0,
-                NULL);
+                dynamic_offset_count,
+                dynamic_offsets);
         }
     }
 }
@@ -223,16 +250,17 @@ static void cmd_set_viewport(MtCmdBuffer *cb, MtViewport *viewport)
 static void
 cmd_set_scissor(MtCmdBuffer *cmd_buffer, int32_t x, int32_t y, uint32_t width, uint32_t height)
 {
-    VkRect2D scissor = {
-        .offset = {x, y},
-        .extent = {width, height},
-    };
-
+    VkRect2D scissor = {.offset = {x, y}, .extent = {width, height}};
     vkCmdSetScissor(cmd_buffer->cmd_buffer, 0, 1, &scissor);
 }
 
 static void cmd_bind_pipeline(MtCmdBuffer *cb, MtPipeline *pipeline)
 {
+    memset(cb->bound_descriptors, 0, sizeof(cb->bound_descriptors));
+    memset(cb->bound_descriptor_set_hashes, 0, sizeof(cb->bound_descriptor_set_hashes));
+    memset(cb->dynamic_offsets, 0, sizeof(cb->dynamic_offsets));
+    memset(cb->dynamic_offset_hashes, 0, sizeof(cb->dynamic_offset_hashes));
+
     switch (pipeline->bind_point)
     {
         case VK_PIPELINE_BIND_POINT_GRAPHICS: {
@@ -326,19 +354,21 @@ cmd_bind_uniform(MtCmdBuffer *cb, const void *data, size_t size, uint32_t set, u
     assert(MT_LENGTH(cb->bound_descriptors) > set);
     assert(MT_LENGTH(cb->bound_descriptors[set]) > binding);
 
-    ensure_buffer_block(&cb->dev->ubo_pool, &cb->ubo_block, size);
-    assert(cb->ubo_block.buffer->buffer);
+    BufferBlock *block = ensure_buffer_block(&cb->dev->ubo_pool, &cb->ubo_blocks, size);
+    assert(block->buffer->buffer);
 
-    BufferBlockAllocation allocation = buffer_block_allocate(&cb->ubo_block, size);
+    BufferBlockAllocation allocation = buffer_block_allocate(block, size);
     assert(allocation.mapping);
 
     mt_mutex_unlock(&cb->dev->device_mutex);
 
     memcpy(allocation.mapping, data, size);
 
-    cb->bound_descriptors[set][binding].buffer.buffer = cb->ubo_block.buffer->buffer;
-    cb->bound_descriptors[set][binding].buffer.offset = allocation.offset;
-    cb->bound_descriptors[set][binding].buffer.range = allocation.padded_size;
+    cb->dynamic_offsets[set][binding] = allocation.offset;
+
+    cb->bound_descriptors[set][binding].buffer.buffer = block->buffer->buffer;
+    cb->bound_descriptors[set][binding].buffer.offset = 0;
+    cb->bound_descriptors[set][binding].buffer.range = VK_WHOLE_SIZE;
 }
 
 static void
@@ -391,15 +421,15 @@ static void *cmd_bind_vertex_data(MtCmdBuffer *cb, size_t size)
 {
     mt_mutex_lock(&cb->dev->device_mutex);
 
-    ensure_buffer_block(&cb->dev->vbo_pool, &cb->vbo_block, size);
-    assert(cb->vbo_block.buffer->buffer);
+    BufferBlock *block = ensure_buffer_block(&cb->dev->vbo_pool, &cb->vbo_blocks, size);
+    assert(block->buffer->buffer);
 
-    BufferBlockAllocation allocation = buffer_block_allocate(&cb->vbo_block, size);
+    BufferBlockAllocation allocation = buffer_block_allocate(block, size);
     assert(allocation.mapping);
 
     mt_mutex_unlock(&cb->dev->device_mutex);
 
-    cmd_bind_vertex_buffer(cb, cb->vbo_block.buffer, allocation.offset);
+    cmd_bind_vertex_buffer(cb, block->buffer, allocation.offset);
 
     return allocation.mapping;
 }
@@ -408,15 +438,15 @@ static void *cmd_bind_index_data(MtCmdBuffer *cb, size_t size, MtIndexType index
 {
     mt_mutex_lock(&cb->dev->device_mutex);
 
-    ensure_buffer_block(&cb->dev->ibo_pool, &cb->ibo_block, size);
-    assert(cb->ibo_block.buffer->buffer);
+    BufferBlock *block = ensure_buffer_block(&cb->dev->ibo_pool, &cb->ibo_blocks, size);
+    assert(block->buffer->buffer);
 
-    BufferBlockAllocation allocation = buffer_block_allocate(&cb->ibo_block, size);
+    BufferBlockAllocation allocation = buffer_block_allocate(block, size);
     assert(allocation.mapping);
 
     mt_mutex_unlock(&cb->dev->device_mutex);
 
-    cmd_bind_index_buffer(cb, cb->ibo_block.buffer, index_type, allocation.offset);
+    cmd_bind_index_buffer(cb, block->buffer, index_type, allocation.offset);
 
     return allocation.mapping;
 }

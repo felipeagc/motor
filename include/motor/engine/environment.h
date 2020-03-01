@@ -13,6 +13,7 @@ typedef struct MtSampler MtSampler;
 typedef struct MtEngine MtEngine;
 typedef struct MtImageAsset MtImageAsset;
 typedef struct MtRenderGraph MtRenderGraph;
+typedef struct MtCameraUniform MtCameraUniform;
 
 #define MT_MAX_POINT_LIGHTS 64
 
@@ -66,7 +67,8 @@ MT_ENGINE_API void mt_environment_init(MtEnvironment *env, MtEngine *engine);
 
 MT_ENGINE_API void mt_environment_set_skybox(MtEnvironment *env, MtImageAsset *skybox_asset);
 
-MT_ENGINE_API void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb);
+MT_ENGINE_API void
+mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb, const MtCameraUniform *cam);
 
 MT_ENGINE_API void mt_environment_bind(MtEnvironment *env, MtCmdBuffer *cb, uint32_t set);
 

@@ -37,8 +37,7 @@ static void color_pass_builder(MtRenderGraph *graph, MtCmdBuffer *cb, void *user
     Game *g = user_data;
 
     // Draw skybox
-    mt_render.cmd_bind_uniform(cb, &g->scene.cam.uniform, sizeof(g->scene.cam.uniform), 0, 0);
-    mt_environment_draw_skybox(&g->scene.env, cb);
+    mt_environment_draw_skybox(&g->scene.env, cb, &g->scene.cam.uniform);
 
     // Draw models
     mt_model_system(g->model_archetype, &g->scene, cb);

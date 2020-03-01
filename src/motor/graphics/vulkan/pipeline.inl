@@ -211,7 +211,7 @@ static void shader_init(MtDevice *dev, Shader *shader, uint8_t *code, size_t cod
                     descriptor_type = VK_DESCRIPTOR_TYPE_SAMPLER;
                     break;
                 case SPVC_RESOURCE_TYPE_UNIFORM_BUFFER:
-                    descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                    descriptor_type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
                     break;
                 case SPVC_RESOURCE_TYPE_STORAGE_BUFFER:
                     descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;

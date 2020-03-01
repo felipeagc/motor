@@ -337,12 +337,13 @@ void mt_environment_set_skybox(MtEnvironment *env, MtImageAsset *skybox_asset)
     env->skybox_asset = skybox_asset;
 }
 
-void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb)
+void mt_environment_draw_skybox(MtEnvironment *env, MtCmdBuffer *cb, const MtCameraUniform *cam)
 {
     maybe_generate_images(env);
 
     mt_render.cmd_bind_pipeline(cb, env->engine->skybox_pipeline->pipeline);
 
+    mt_render.cmd_bind_uniform(cb, cam, sizeof(*cam), 0, 0);
     mt_render.cmd_bind_sampler(cb, env->radiance_sampler, 1, 0);
     mt_render.cmd_bind_image(cb, env->radiance_image, 1, 1);
     mt_render.cmd_bind_uniform(cb, &env->uniform, sizeof(env->uniform), 1, 2);

@@ -604,10 +604,34 @@ free_cmd_buffers(MtDevice *dev, MtQueueType queue_type, uint32_t count, MtCmdBuf
 
     for (uint32_t i = 0; i < count; i++)
     {
-        buffer_pool_recycle(&dev->ubo_pool, &cmd_buffers[i]->ubo_block);
-        buffer_pool_recycle(&dev->vbo_pool, &cmd_buffers[i]->vbo_block);
-        buffer_pool_recycle(&dev->ibo_pool, &cmd_buffers[i]->ibo_block);
-        mt_free(dev->alloc, cmd_buffers[i]);
+        MtCmdBuffer *cb = cmd_buffers[i];
+
+        for (BufferBlock *block = cb->ubo_blocks;
+             block != cb->ubo_blocks + mt_array_size(cb->ubo_blocks);
+             ++block)
+        {
+            buffer_pool_recycle(&dev->ubo_pool, block);
+        }
+
+        for (BufferBlock *block = cb->vbo_blocks;
+             block != cb->vbo_blocks + mt_array_size(cb->vbo_blocks);
+             ++block)
+        {
+            buffer_pool_recycle(&dev->vbo_pool, block);
+        }
+
+        for (BufferBlock *block = cb->ibo_blocks;
+             block != cb->ibo_blocks + mt_array_size(cb->ibo_blocks);
+             ++block)
+        {
+            buffer_pool_recycle(&dev->ibo_pool, block);
+        }
+
+        mt_array_free(dev->alloc, cb->ubo_blocks);
+        mt_array_free(dev->alloc, cb->vbo_blocks);
+        mt_array_free(dev->alloc, cb->ibo_blocks);
+
+        mt_free(dev->alloc, cb);
     }
 
     mt_free(dev->alloc, command_buffers);
@@ -1000,27 +1024,24 @@ MtDevice *mt_vulkan_device_init(MtVulkanDeviceCreateInfo *create_info, MtAllocat
     buffer_pool_init(
         dev,
         &dev->ubo_pool,
-        256 * 1024, /*block size*/
+        65536, /*block size*/
         MT_MAX(
             16u,
             dev->physical_device_properties.limits.minUniformBufferOffsetAlignment), /*alignment*/
-        16 * 1024, /* max UBO size */
         MT_BUFFER_USAGE_UNIFORM);
 
     buffer_pool_init(
         dev,
         &dev->vbo_pool,
-        4 * 1024, /*block size*/
-        16,       /*alignment*/
-        0,
+        65536, /*block size*/
+        16,    /*alignment*/
         MT_BUFFER_USAGE_VERTEX);
 
     buffer_pool_init(
         dev,
         &dev->ibo_pool,
-        4 * 1024, /*block size*/
-        16,       /*alignment*/
-        0,
+        65536, /*block size*/
+        16,    /*alignment*/
         MT_BUFFER_USAGE_INDEX);
 
     return dev;
