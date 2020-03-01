@@ -1,3 +1,6 @@
 [submodule "assets"]
 	path = assets
 	url = https://gitlab.com/felipeac/motor-assets
+[submodule "thirdparty"]
+	path = thirdparty
+	url = https://gitlab.com/felipeac/motor-thirdparty.git
