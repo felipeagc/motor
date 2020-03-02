@@ -28,7 +28,7 @@ static void brdf_graph_builder(MtRenderGraph *graph, void *user_data)
 {
     BRDFGraphData *data = user_data;
 
-    MtImageCreateInfo brdf_info = {
+    MtRenderGraphImage brdf_info = {
         .format = MT_FORMAT_RG16_SFLOAT, .width = data->dim, .height = data->dim};
     mt_render.graph_add_image(graph, "brdf", &brdf_info);
 
@@ -46,7 +46,7 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
 
     BRDFGraphData data = {.dim = dim};
 
-    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL);
+    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, false);
     mt_render.graph_set_user_data(graph, &data);
     mt_render.graph_set_builder(graph, brdf_graph_builder);
 
@@ -81,9 +81,9 @@ static void cubemap_graph_builder(MtRenderGraph *graph, void *user_data)
 {
     CubemapGraphData *data = user_data;
 
-    MtImageCreateInfo color_info = {
+    MtRenderGraphImage color_info = {
         .width = data->dim, .height = data->dim, .format = data->format};
-    MtImageCreateInfo cube_info = {
+    MtRenderGraphImage cube_info = {
         .width = data->dim,
         .height = data->dim,
         .format = data->format,
@@ -140,7 +140,7 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 
     CubemapGraphData data = {.dim = dim, .mip_count = mip_count, .format = format};
 
-    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL);
+    MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, false);
     mt_render.graph_set_user_data(graph, &data);
     mt_render.graph_set_builder(graph, cubemap_graph_builder);
 

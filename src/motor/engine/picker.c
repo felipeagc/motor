@@ -38,26 +38,23 @@ static bool picking_clear_color(uint32_t index, MtClearColorValue *color)
 
 static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
 {
-    MtPicker *picker = user_data;
-
-    uint32_t width, height;
-    mt_window.get_size(picker->engine->window, &width, &height);
-
     mt_render.graph_add_image(
         graph,
         "depth",
-        &(MtImageCreateInfo){
-            .width = width,
-            .height = height,
+        &(MtRenderGraphImage){
+            .size_class = MT_SIZE_CLASS_SWAPCHAIN_RELATIVE,
+            .width = 1.0f,
+            .height = 1.0f,
             .format = MT_FORMAT_D32_SFLOAT,
         });
 
     mt_render.graph_add_image(
         graph,
         "picking",
-        &(MtImageCreateInfo){
-            .width = width,
-            .height = height,
+        &(MtRenderGraphImage){
+            .size_class = MT_SIZE_CLASS_SWAPCHAIN_RELATIVE,
+            .width = 1.0f,
+            .height = 1.0f,
             .format = MT_FORMAT_R32_UINT,
         });
 
@@ -93,7 +90,7 @@ MtPicker *mt_picker_create(MtEngine *engine)
 
     picker->engine = engine;
 
-    picker->graph = mt_render.create_graph(engine->device, NULL);
+    picker->graph = mt_render.create_graph(engine->device, engine->swapchain, false);
     mt_render.graph_set_user_data(picker->graph, picker);
     mt_render.graph_set_builder(picker->graph, picking_graph_builder);
 

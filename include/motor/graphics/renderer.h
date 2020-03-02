@@ -263,6 +263,25 @@ typedef enum MtRenderGraphPassWrite {
     MT_PASS_WRITE_IMAGE_TRANSFER,
 } MtRenderGraphPassWrite;
 
+typedef enum MtSizeClass {
+    MT_SIZE_CLASS_ABSOLUTE = 0,
+    MT_SIZE_CLASS_SWAPCHAIN_RELATIVE,
+} MtSizeClass;
+
+typedef struct MtRenderGraphImage
+{
+    MtSizeClass size_class;
+    float width;
+    float height;
+    uint32_t depth;
+    uint32_t sample_count;
+    uint32_t mip_count;
+    uint32_t layer_count;
+    MtFormat format;
+    MtImageUsage usage;
+    MtImageAspect aspect;
+} MtRenderGraphImage;
+
 typedef struct MtRenderer
 {
     void (*destroy_device)(MtDevice *);
@@ -355,13 +374,13 @@ typedef struct MtRenderer
     void (*cmd_dispatch)(
         MtCmdBuffer *, uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z);
 
-    MtRenderGraph *(*create_graph)(MtDevice *, MtSwapchain *);
+    MtRenderGraph *(*create_graph)(MtDevice *, MtSwapchain *, bool present);
     void (*destroy_graph)(MtRenderGraph *);
 
     void (*graph_set_user_data)(MtRenderGraph *, void *user_data);
 
     void (*graph_set_builder)(MtRenderGraph *, MtRenderGraphBuilder);
-    void (*graph_add_image)(MtRenderGraph *, const char *name, MtImageCreateInfo *info);
+    void (*graph_add_image)(MtRenderGraph *, const char *name, MtRenderGraphImage *info);
     void (*graph_add_buffer)(MtRenderGraph *, const char *name, MtBufferCreateInfo *info);
     void (*graph_add_external_buffer)(MtRenderGraph *, const char *name, MtBuffer *buffer);
 

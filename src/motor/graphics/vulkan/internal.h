@@ -312,7 +312,7 @@ typedef struct GraphResource
     {
         struct
         {
-            MtImageCreateInfo image_info;
+            MtRenderGraphImage image_info;
             MtImage *image;
         };
         struct
@@ -344,6 +344,7 @@ typedef struct MtRenderGraph
     MtSwapchain *swapchain;
     VkSemaphore image_available_semaphores[FRAMES_IN_FLIGHT];
     void *user_data;
+    bool present;
     bool recording;
 
     MtRenderGraphBuilder graph_builder;

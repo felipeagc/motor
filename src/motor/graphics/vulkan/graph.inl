@@ -63,7 +63,7 @@ add_group(MtRenderGraph *graph, MtQueueType queue_type, uint32_t *pass_indices, 
             NULL,
             &group.frames[i].execution_finished_semaphore));
 
-        if (last && graph->swapchain)
+        if (last && graph->present)
         {
             mt_array_push(
                 graph->dev->alloc,
@@ -123,14 +123,20 @@ static void destroy_group(MtRenderGraph *graph, ExecutionGroup *group)
     mt_array_free(graph->dev->alloc, group->pass_indices);
 }
 
-static MtRenderGraph *create_graph(MtDevice *dev, MtSwapchain *swapchain)
+static MtRenderGraph *create_graph(MtDevice *dev, MtSwapchain *swapchain, bool present)
 {
     MtRenderGraph *graph = mt_alloc(dev->alloc, sizeof(*graph));
     memset(graph, 0, sizeof(*graph));
     graph->dev = dev;
     graph->swapchain = swapchain;
+    graph->present = present;
 
-    if (graph->swapchain)
+    if (graph->present)
+    {
+        assert(graph->swapchain);
+    }
+
+    if (graph->present)
     {
         graph->frame_count = FRAMES_IN_FLIGHT;
         for (uint32_t i = 0; i < graph->frame_count; ++i)
@@ -243,7 +249,7 @@ static void graph_bake(MtRenderGraph *graph)
 
     MtRenderGraphPass *last_pass = mt_array_last(graph->passes);
 
-    if (graph->swapchain != NULL)
+    if (graph->present)
     {
         assert(last_pass->queue_type == MT_QUEUE_GRAPHICS);
         last_pass->present = true;
@@ -261,20 +267,34 @@ static void graph_bake(MtRenderGraph *graph)
         switch (resource->type)
         {
             case GRAPH_RESOURCE_IMAGE: {
-                for (uint32_t *pass_index = resource->written_in_passes;
-                     pass_index !=
-                     resource->written_in_passes + mt_array_size(resource->written_in_passes);
-                     ++pass_index)
+                MtImageCreateInfo image_create_info = {
+                    .depth = resource->image_info.depth,
+                    .sample_count = resource->image_info.sample_count,
+                    .mip_count = resource->image_info.mip_count,
+                    .layer_count = resource->image_info.layer_count,
+                    .format = resource->image_info.format,
+                    .usage = resource->image_info.usage,
+                    .aspect = resource->image_info.aspect,
+                };
+
+                switch (resource->image_info.size_class)
                 {
-                    MtRenderGraphPass *pass = &graph->passes[*pass_index];
-                    if (pass->present)
-                    {
-                        resource->image_info.width = graph->swapchain->extent.width;
-                        resource->image_info.height = graph->swapchain->extent.height;
+                    case MT_SIZE_CLASS_ABSOLUTE: {
+                        image_create_info.width = (uint32_t)resource->image_info.width;
+                        image_create_info.height = (uint32_t)resource->image_info.height;
+                        break;
+                    }
+                    case MT_SIZE_CLASS_SWAPCHAIN_RELATIVE: {
+                        assert(graph->swapchain);
+                        image_create_info.width = (uint32_t)(
+                            (float)graph->swapchain->extent.width * resource->image_info.width);
+                        image_create_info.height = (uint32_t)(
+                            (float)graph->swapchain->extent.height * resource->image_info.height);
+                        break;
                     }
                 }
 
-                resource->image = mt_render.create_image(graph->dev, &resource->image_info);
+                resource->image = mt_render.create_image(graph->dev, &image_create_info);
                 break;
             }
             case GRAPH_RESOURCE_BUFFER: {
@@ -429,7 +449,7 @@ static MtCmdBuffer *pass_begin(MtRenderGraph *graph, const char *name)
             graph_bake(graph);
         }
 
-        if (graph->swapchain)
+        if (graph->present)
         {
             ExecutionGroup *swapchain_group = mt_array_last(graph->execution_groups);
 
@@ -699,7 +719,7 @@ static void graph_execute(MtRenderGraph *graph)
         VkSemaphore *signal_semaphores =
             &group->frames[graph->current_frame].execution_finished_semaphore;
 
-        if (group == mt_array_last(graph->execution_groups) && graph->swapchain == NULL)
+        if (group == mt_array_last(graph->execution_groups) && !graph->present)
         {
             signal_semaphore_count = 0;
             signal_semaphores = NULL;
@@ -721,7 +741,7 @@ static void graph_execute(MtRenderGraph *graph)
             });
     }
 
-    if (graph->swapchain)
+    if (graph->present)
     {
         ExecutionGroup *group = mt_array_last(graph->execution_groups);
 
@@ -767,7 +787,7 @@ static uint32_t add_graph_resource(MtRenderGraph *graph, const char *name, Graph
     return (uint32_t)index;
 }
 
-static void graph_add_image(MtRenderGraph *graph, const char *name, MtImageCreateInfo *info)
+static void graph_add_image(MtRenderGraph *graph, const char *name, MtRenderGraphImage *info)
 {
     uint32_t index = add_graph_resource(graph, name, GRAPH_RESOURCE_IMAGE);
     GraphResource *resource = &graph->resources[index];
@@ -977,7 +997,7 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
     mt_array_free(graph->dev->alloc, pass->framebuffers);
     pass->framebuffers = NULL;
 
-    if (graph->swapchain && pass->present)
+    if (graph->present && pass->present)
     {
         //
         // Add swapchain attachments

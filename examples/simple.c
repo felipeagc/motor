@@ -34,14 +34,10 @@ typedef struct Game
 // Color render graph {{{
 static void graph_builder(MtRenderGraph *graph, void *user_data)
 {
-    Game *g = user_data;
-
-    uint32_t width, height;
-    mt_window.get_size(g->scene.engine->window, &width, &height);
-
-    MtImageCreateInfo depth_info = {
-        .width = width,
-        .height = height,
+    MtRenderGraphImage depth_info = {
+        .size_class = MT_SIZE_CLASS_SWAPCHAIN_RELATIVE,
+        .width = 1.0f,
+        .height = 1.0f,
         .format = MT_FORMAT_D32_SFLOAT,
     };
 

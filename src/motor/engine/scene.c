@@ -25,7 +25,7 @@ void mt_scene_init(MtScene *scene, MtEngine *engine)
     mt_perspective_camera_init(&scene->cam);
     mt_environment_init(&scene->env, scene->engine);
 
-    scene->graph = mt_render.create_graph(engine->device, engine->swapchain);
+    scene->graph = mt_render.create_graph(engine->device, engine->swapchain, true);
 }
 
 void mt_scene_destroy(MtScene *scene)
