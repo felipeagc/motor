@@ -36,10 +36,21 @@ static bool picking_clear_color(uint32_t index, MtClearColorValue *color)
     return true;
 }
 
-static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
+MtPicker *mt_picker_create(MtEngine *engine)
 {
+    MtPicker *picker = mt_alloc(engine->alloc, sizeof(*picker));
+    memset(picker, 0, sizeof(*picker));
+
+    picker->engine = engine;
+
+    //
+    // Build render graph
+    //
+
+    picker->graph = mt_render.create_graph(engine->device, engine->swapchain, false);
+
     mt_render.graph_add_image(
-        graph,
+        picker->graph,
         "depth",
         &(MtRenderGraphImage){
             .size_class = MT_SIZE_CLASS_SWAPCHAIN_RELATIVE,
@@ -49,7 +60,7 @@ static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
         });
 
     mt_render.graph_add_image(
-        graph,
+        picker->graph,
         "picking",
         &(MtRenderGraphImage){
             .size_class = MT_SIZE_CLASS_SWAPCHAIN_RELATIVE,
@@ -59,7 +70,7 @@ static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
         });
 
     mt_render.graph_add_buffer(
-        graph,
+        picker->graph,
         "picking_buffer",
         &(MtBufferCreateInfo){
             .usage = MT_BUFFER_USAGE_STORAGE,
@@ -69,30 +80,18 @@ static void picking_graph_builder(MtRenderGraph *graph, void *user_data)
 
     {
         MtRenderGraphPass *picking_pass =
-            mt_render.graph_add_pass(graph, "picking_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+            mt_render.graph_add_pass(picker->graph, "picking_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
         mt_render.pass_write(picking_pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "picking");
         mt_render.pass_write(picking_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
         mt_render.pass_set_color_clearer(picking_pass, picking_clear_color);
     }
 
     {
-        MtRenderGraphPass *picking_transfer_pass =
-            mt_render.graph_add_pass(graph, "picking_transfer_pass", MT_PIPELINE_STAGE_COMPUTE);
+        MtRenderGraphPass *picking_transfer_pass = mt_render.graph_add_pass(
+            picker->graph, "picking_transfer_pass", MT_PIPELINE_STAGE_COMPUTE);
         mt_render.pass_read(picking_transfer_pass, MT_PASS_READ_IMAGE_SAMPLED, "picking");
         mt_render.pass_write(picking_transfer_pass, MT_PASS_WRITE_BUFFER, "picking_buffer");
     }
-}
-
-MtPicker *mt_picker_create(MtEngine *engine)
-{
-    MtPicker *picker = mt_alloc(engine->alloc, sizeof(*picker));
-    memset(picker, 0, sizeof(*picker));
-
-    picker->engine = engine;
-
-    picker->graph = mt_render.create_graph(engine->device, engine->swapchain, false);
-    mt_render.graph_set_user_data(picker->graph, picker);
-    mt_render.graph_set_builder(picker->graph, picking_graph_builder);
 
     return picker;
 }

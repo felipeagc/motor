@@ -19,24 +19,6 @@ typedef enum CubemapType {
 } CubemapType;
 
 // BRDF LUT {{{
-typedef struct BRDFGraphData
-{
-    uint32_t dim;
-} BRDFGraphData;
-
-static void brdf_graph_builder(MtRenderGraph *graph, void *user_data)
-{
-    BRDFGraphData *data = user_data;
-
-    MtRenderGraphImage brdf_info = {
-        .format = MT_FORMAT_RG16_SFLOAT, .width = data->dim, .height = data->dim};
-    mt_render.graph_add_image(graph, "brdf", &brdf_info);
-
-    MtRenderGraphPass *pass =
-        mt_render.graph_add_pass(graph, "brdf_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_write(pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "brdf");
-}
-
 static MtImage *generate_brdf_lut(MtEngine *engine)
 {
     MtPipeline *pipeline = engine->brdf_pipeline->pipeline;
@@ -44,11 +26,22 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
     // Create image
     const uint32_t dim = 512;
 
-    BRDFGraphData data = {.dim = dim};
+    //
+    // Build graph
+    //
 
     MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, false);
-    mt_render.graph_set_user_data(graph, &data);
-    mt_render.graph_set_builder(graph, brdf_graph_builder);
+
+    MtRenderGraphImage brdf_info = {.format = MT_FORMAT_RG16_SFLOAT, .width = dim, .height = dim};
+    mt_render.graph_add_image(graph, "brdf", &brdf_info);
+
+    MtRenderGraphPass *pass =
+        mt_render.graph_add_pass(graph, "brdf_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_write(pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "brdf");
+
+    //
+    // Execute graph
+    //
 
     {
         MtCmdBuffer *cb = mt_render.pass_begin(graph, "brdf_pass");
@@ -70,40 +63,6 @@ static MtImage *generate_brdf_lut(MtEngine *engine)
 // }}}
 
 // Cubemap generation {{{
-typedef struct CubemapGraphData
-{
-    uint32_t dim;
-    uint32_t mip_count;
-    MtFormat format;
-} CubemapGraphData;
-
-static void cubemap_graph_builder(MtRenderGraph *graph, void *user_data)
-{
-    CubemapGraphData *data = user_data;
-
-    MtRenderGraphImage color_info = {
-        .width = data->dim, .height = data->dim, .format = data->format};
-    MtRenderGraphImage cube_info = {
-        .width = data->dim,
-        .height = data->dim,
-        .format = data->format,
-        .layer_count = 6,
-        .mip_count = data->mip_count,
-    };
-
-    mt_render.graph_add_image(graph, "offscreen", &color_info);
-    mt_render.graph_add_image(graph, "cubemap", &cube_info);
-
-    MtRenderGraphPass *layer_pass =
-        mt_render.graph_add_pass(graph, "layer_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-    mt_render.pass_write(layer_pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "offscreen");
-
-    MtRenderGraphPass *transfer_pass =
-        mt_render.graph_add_pass(graph, "transfer_pass", MT_PIPELINE_STAGE_TRANSFER);
-    mt_render.pass_read(transfer_pass, MT_PASS_READ_IMAGE_TRANSFER, "offscreen");
-    mt_render.pass_write(transfer_pass, MT_PASS_WRITE_IMAGE_TRANSFER, "cubemap");
-}
-
 static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
 {
     MtEngine *engine = env->engine;
@@ -138,11 +97,28 @@ static MtImage *generate_cubemap(MtEnvironment *env, CubemapType type)
         env->radiance_mip_levels = (float)mip_count;
     }
 
-    CubemapGraphData data = {.dim = dim, .mip_count = mip_count, .format = format};
-
     MtRenderGraph *graph = mt_render.create_graph(engine->device, NULL, false);
-    mt_render.graph_set_user_data(graph, &data);
-    mt_render.graph_set_builder(graph, cubemap_graph_builder);
+
+    MtRenderGraphImage color_info = {.width = dim, .height = dim, .format = format};
+    MtRenderGraphImage cube_info = {
+        .width = dim,
+        .height = dim,
+        .format = format,
+        .layer_count = 6,
+        .mip_count = mip_count,
+    };
+
+    mt_render.graph_add_image(graph, "offscreen", &color_info);
+    mt_render.graph_add_image(graph, "cubemap", &cube_info);
+
+    MtRenderGraphPass *layer_pass =
+        mt_render.graph_add_pass(graph, "layer_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+    mt_render.pass_write(layer_pass, MT_PASS_WRITE_COLOR_ATTACHMENT, "offscreen");
+
+    MtRenderGraphPass *transfer_pass =
+        mt_render.graph_add_pass(graph, "transfer_pass", MT_PIPELINE_STAGE_TRANSFER);
+    mt_render.pass_read(transfer_pass, MT_PASS_READ_IMAGE_TRANSFER, "offscreen");
+    mt_render.pass_write(transfer_pass, MT_PASS_WRITE_IMAGE_TRANSFER, "cubemap");
 
     for (uint32_t m = 0; m < mip_count; m++)
     {

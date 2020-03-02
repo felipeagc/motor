@@ -31,26 +31,6 @@ typedef struct Game
     MtEntityArchetype *light_archetype;
 } Game;
 
-// Color render graph {{{
-static void graph_builder(MtRenderGraph *graph, void *user_data)
-{
-    MtRenderGraphImage depth_info = {
-        .size_class = MT_SIZE_CLASS_SWAPCHAIN_RELATIVE,
-        .width = 1.0f,
-        .height = 1.0f,
-        .format = MT_FORMAT_D32_SFLOAT,
-    };
-
-    mt_render.graph_add_image(graph, "depth", &depth_info);
-
-    {
-        MtRenderGraphPass *color_pass =
-            mt_render.graph_add_pass(graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
-        mt_render.pass_write(color_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
-    }
-}
-// }}}
-
 // game_init {{{
 static void game_init(MtScene *inst)
 {
@@ -74,9 +54,23 @@ static void game_init(MtScene *inst)
 
     mt_environment_set_skybox(&g->scene.env, skybox_asset);
 
-    // Render graph
-    mt_render.graph_set_user_data(g->scene.graph, g);
-    mt_render.graph_set_builder(g->scene.graph, graph_builder);
+    // Build render graph
+    {
+        MtRenderGraphImage depth_info = {
+            .size_class = MT_SIZE_CLASS_SWAPCHAIN_RELATIVE,
+            .width = 1.0f,
+            .height = 1.0f,
+            .format = MT_FORMAT_D32_SFLOAT,
+        };
+
+        mt_render.graph_add_image(inst->graph, "depth", &depth_info);
+
+        {
+            MtRenderGraphPass *color_pass =
+                mt_render.graph_add_pass(inst->graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+            mt_render.pass_write(color_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
+        }
+    }
 
     // Create entities
     g->model_archetype = mt_entity_manager_register_archetype(

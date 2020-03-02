@@ -153,42 +153,6 @@ static MtRenderGraph *create_graph(MtDevice *dev, MtSwapchain *swapchain, bool p
         graph->frame_count = 1;
     }
 
-    return graph;
-}
-
-static void destroy_graph(MtRenderGraph *graph)
-{
-    graph_unbake(graph);
-
-    for (uint32_t i = 0; i < graph->frame_count; ++i)
-    {
-        if (graph->image_available_semaphores[i] != NULL)
-        {
-            vkDestroySemaphore(graph->dev->device, graph->image_available_semaphores[i], NULL);
-        }
-    }
-
-    mt_array_free(graph->dev->alloc, graph->buffer_barriers);
-    mt_array_free(graph->dev->alloc, graph->image_barriers);
-    mt_free(graph->dev->alloc, graph);
-}
-
-static void graph_set_builder(MtRenderGraph *graph, MtRenderGraphBuilder builder)
-{
-    graph->graph_builder = builder;
-}
-
-static void graph_set_user_data(MtRenderGraph *graph, void *user_data)
-{
-    graph->user_data = user_data;
-}
-
-static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass);
-
-static void graph_bake(MtRenderGraph *graph)
-{
-    graph->baked = true;
-
     //
     // Create stuff
     //
@@ -198,53 +162,95 @@ static void graph_bake(MtRenderGraph *graph)
     mt_hash_init(&graph->pass_indices, mt_array_capacity(graph->passes), graph->dev->alloc);
     mt_hash_init(&graph->resource_indices, mt_array_capacity(graph->resources), graph->dev->alloc);
 
-    //
-    // Run the builder
-    //
-    assert(graph->graph_builder);
-    graph->graph_builder(graph, graph->user_data);
+    return graph;
+}
+
+static void destroy_graph(MtRenderGraph *graph)
+{
+    graph_unbake(graph);
 
     //
-    // Add next & prev
+    // Destroy passes
     //
-
-    for (uint32_t i = 0; i < mt_array_size(graph->passes); ++i)
+    for (MtRenderGraphPass *pass = graph->passes;
+         pass != graph->passes + mt_array_size(graph->passes);
+         ++pass)
     {
-        if (i > 0)
-        {
-            graph->passes[i].prev = &graph->passes[i - 1];
-        }
+        mt_array_free(graph->dev->alloc, pass->color_outputs);
+        mt_array_free(graph->dev->alloc, pass->image_transfer_outputs);
+        mt_array_free(graph->dev->alloc, pass->buffer_writes);
 
-        if (i + 1 < mt_array_size(graph->passes))
+        mt_array_free(graph->dev->alloc, pass->image_transfer_inputs);
+        mt_array_free(graph->dev->alloc, pass->image_sampled_inputs);
+        mt_array_free(graph->dev->alloc, pass->buffer_reads);
+    }
+
+    mt_array_free(graph->dev->alloc, graph->passes);
+
+    //
+    // Destroy the resources
+    //
+    for (GraphResource *resource = graph->resources;
+         resource != graph->resources + mt_array_size(graph->resources);
+         ++resource)
+    {
+        mt_array_free(graph->dev->alloc, resource->read_in_passes);
+        mt_array_free(graph->dev->alloc, resource->written_in_passes);
+    }
+
+    mt_array_free(graph->dev->alloc, graph->resources);
+
+    //
+    // Destory semaphores
+    //
+
+    for (uint32_t i = 0; i < graph->frame_count; ++i)
+    {
+        if (graph->image_available_semaphores[i] != NULL)
         {
-            graph->passes[i].next = &graph->passes[i + 1];
+            vkDestroySemaphore(graph->dev->device, graph->image_available_semaphores[i], NULL);
         }
     }
+
+    //
+    // Destroy hashmaps
+    //
+
+    mt_hash_destroy(&graph->pass_indices);
+    mt_hash_destroy(&graph->resource_indices);
+
+    mt_array_free(graph->dev->alloc, graph->buffer_barriers);
+    mt_array_free(graph->dev->alloc, graph->image_barriers);
+    mt_free(graph->dev->alloc, graph);
+}
+
+static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass);
+
+static void graph_bake(MtRenderGraph *graph)
+{
+    graph->baked = true;
 
     //
     // Create execution groups
     //
 
-    uint32_t prev_pass_index = 0;
-
     uint32_t *pass_indices = NULL;
-    mt_array_push(graph->dev->alloc, pass_indices, prev_pass_index);
 
-    for (uint32_t i = 1; i < mt_array_size(graph->passes); ++i)
+    for (MtRenderGraphPass *pass = graph->passes;
+         pass != graph->passes + mt_array_size(graph->passes);
+         ++pass)
     {
-        MtRenderGraphPass *pass = &graph->passes[i];
-        MtRenderGraphPass *prev_pass = &graph->passes[prev_pass_index];
-        if (prev_pass->stage != pass->stage)
+        if (pass->prev)
         {
-            // Consolidate group
-            add_group(graph, prev_pass->queue_type, pass_indices, false);
-
-            pass_indices = NULL;
+            if (pass->prev->stage != pass->stage)
+            {
+                // Consolidate group
+                add_group(graph, pass->prev->queue_type, pass_indices, false);
+                pass_indices = NULL;
+            }
         }
 
-        mt_array_push(graph->dev->alloc, pass_indices, i);
-
-        prev_pass_index = i;
+        mt_array_push(graph->dev->alloc, pass_indices, pass->index);
     }
 
     MtRenderGraphPass *last_pass = mt_array_last(graph->passes);
@@ -337,7 +343,6 @@ static void graph_unbake(MtRenderGraph *graph)
         destroy_group(graph, group);
     }
     mt_array_free(graph->dev->alloc, graph->execution_groups);
-    graph->execution_groups = NULL;
 
     //
     // Destroy passes
@@ -359,21 +364,10 @@ static void graph_unbake(MtRenderGraph *graph)
 
             mt_array_free(graph->dev->alloc, pass->framebuffers);
         }
-
-        mt_array_free(graph->dev->alloc, pass->color_outputs);
-        mt_array_free(graph->dev->alloc, pass->image_transfer_outputs);
-        mt_array_free(graph->dev->alloc, pass->buffer_writes);
-
-        mt_array_free(graph->dev->alloc, pass->image_transfer_inputs);
-        mt_array_free(graph->dev->alloc, pass->image_sampled_inputs);
-        mt_array_free(graph->dev->alloc, pass->buffer_reads);
     }
 
-    mt_array_free(graph->dev->alloc, graph->passes);
-    graph->passes = NULL;
-
     //
-    // Destory the resources
+    // Destroy the resources
     //
     for (GraphResource *resource = graph->resources;
          resource != graph->resources + mt_array_size(graph->resources);
@@ -386,28 +380,18 @@ static void graph_unbake(MtRenderGraph *graph)
                 {
                     // TODO: I wonder why I need this if...
                     mt_render.destroy_image(graph->dev, resource->image);
+                    resource->image = NULL;
                 }
                 break;
             }
             case GRAPH_RESOURCE_BUFFER: {
                 mt_render.destroy_buffer(graph->dev, resource->buffer);
+                resource->buffer = NULL;
                 break;
             }
             case GRAPH_RESOURCE_EXTERNAL_BUFFER: break;
         }
-        mt_array_free(graph->dev->alloc, resource->read_in_passes);
-        mt_array_free(graph->dev->alloc, resource->written_in_passes);
     }
-
-    mt_array_free(graph->dev->alloc, graph->resources);
-    graph->resources = NULL;
-
-    //
-    // Destroy hashmaps
-    //
-
-    mt_hash_destroy(&graph->pass_indices);
-    mt_hash_destroy(&graph->resource_indices);
 }
 
 static void graph_on_resize(MtRenderGraph *graph)
@@ -441,11 +425,7 @@ static MtCmdBuffer *pass_begin(MtRenderGraph *graph, const char *name)
         {
             graph->framebuffer_resized = false;
 
-            if (graph->baked)
-            {
-                graph_unbake(graph);
-            }
-
+            graph_unbake(graph);
             graph_bake(graph);
         }
 
@@ -874,6 +854,12 @@ graph_add_pass(MtRenderGraph *graph, const char *name, MtPipelineStage stage)
     pass->name = name;
     pass->depth_output = UINT32_MAX;
 
+    if (pass->index > 0)
+    {
+        graph->passes[pass->index].prev = &graph->passes[pass->index - 1];
+        graph->passes[pass->index - 1].next = &graph->passes[pass->index];
+    }
+
     mt_hash_set_uint(&graph->pass_indices, mt_hash_str(name), index);
     return pass;
 }
@@ -993,9 +979,6 @@ static void create_pass_renderpass(MtRenderGraph *graph, MtRenderGraphPass *pass
 
     uint32_t *color_attachment_indices = NULL;
     uint32_t depth_attachment_index = UINT32_MAX;
-
-    mt_array_free(graph->dev->alloc, pass->framebuffers);
-    pass->framebuffers = NULL;
 
     if (graph->present && pass->present)
     {

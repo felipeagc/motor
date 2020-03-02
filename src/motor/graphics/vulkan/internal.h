@@ -343,11 +343,8 @@ typedef struct MtRenderGraph
     MtDevice *dev;
     MtSwapchain *swapchain;
     VkSemaphore image_available_semaphores[FRAMES_IN_FLIGHT];
-    void *user_data;
     bool present;
     bool recording;
-
-    MtRenderGraphBuilder graph_builder;
 
     uint32_t current_frame;
     uint32_t frame_count;

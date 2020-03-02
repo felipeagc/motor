@@ -967,9 +967,6 @@ static MtRenderer g_vulkan_renderer = {
     .graph_wait_all = graph_wait_all,
     .graph_on_resize = graph_on_resize,
 
-    .graph_set_user_data = graph_set_user_data,
-
-    .graph_set_builder = graph_set_builder,
     .graph_add_image = graph_add_image,
     .graph_add_buffer = graph_add_buffer,
     .graph_add_external_buffer = graph_add_external_buffer,

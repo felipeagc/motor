@@ -38,7 +38,6 @@ typedef union MtClearValue
     MtClearDepthStencilValue depth_stencil;
 } MtClearValue;
 
-typedef void (*MtRenderGraphBuilder)(MtRenderGraph *, void *user_data);
 typedef bool (*MtRenderGraphColorClearer)(uint32_t render_target_index, MtClearColorValue *);
 typedef bool (*MtRenderGraphDepthStencilClearer)(MtClearDepthStencilValue *);
 
@@ -377,9 +376,6 @@ typedef struct MtRenderer
     MtRenderGraph *(*create_graph)(MtDevice *, MtSwapchain *, bool present);
     void (*destroy_graph)(MtRenderGraph *);
 
-    void (*graph_set_user_data)(MtRenderGraph *, void *user_data);
-
-    void (*graph_set_builder)(MtRenderGraph *, MtRenderGraphBuilder);
     void (*graph_add_image)(MtRenderGraph *, const char *name, MtRenderGraphImage *info);
     void (*graph_add_buffer)(MtRenderGraph *, const char *name, MtBufferCreateInfo *info);
     void (*graph_add_external_buffer)(MtRenderGraph *, const char *name, MtBuffer *buffer);

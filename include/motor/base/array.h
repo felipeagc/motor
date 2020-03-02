@@ -54,7 +54,12 @@ MT_BASE_API void *mt_array_grow(MtAllocator *alloc, void *a, uint64_t item_size,
         mt_array_header(a)->size = (mt_array_size(a) + count);                                     \
     } while (0)
 
-#define mt_array_free(alloc, a) ((a) ? mt_free(alloc, mt_array_header(a)) : 0)
+#define mt_array_free(alloc, a)                                                                    \
+    do                                                                                             \
+    {                                                                                              \
+        if (a) mt_free(alloc, mt_array_header(a));                                                 \
+        a = NULL;                                                                                  \
+    } while (0)
 
 #ifdef __cplusplus
 }
