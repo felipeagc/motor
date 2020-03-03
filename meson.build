@@ -111,6 +111,7 @@ motor_engine_sources = [
   'src/motor/engine/camera.c',
   'src/motor/engine/environment.c',
   'src/motor/engine/entities.c',
+  'src/motor/engine/components.c',
   'src/motor/engine/systems.c',
   'src/motor/engine/inspector.c',
   'src/motor/engine/picker.c',

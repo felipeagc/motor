@@ -5,6 +5,7 @@
 #include <motor/engine/engine.h>
 #include <motor/engine/asset_manager.h>
 #include <motor/engine/entities.h>
+#include <motor/engine/components.h>
 #include <motor/engine/physics.h>
 
 void mt_scene_init(MtScene *scene, MtEngine *engine)
@@ -20,7 +21,7 @@ void mt_scene_init(MtScene *scene, MtEngine *engine)
 
     scene->physics_scene = mt_physics_scene_create(engine->physics);
     mt_asset_manager_init(scene->asset_manager, engine);
-    mt_entity_manager_init(scene->entity_manager, alloc);
+    mt_entity_manager_init(scene->entity_manager, alloc, &mt_default_entity_descriptor);
 
     mt_perspective_camera_init(&scene->cam);
     mt_environment_init(&scene->env, scene->engine);

@@ -12,11 +12,12 @@
 #include <motor/engine/environment.h>
 #include <motor/engine/asset_manager.h>
 #include <motor/engine/entities.h>
-#include <motor/engine/entity_archetypes.h>
+#include <motor/engine/components.h>
 #include <motor/engine/imgui_impl.h>
 #include <motor/engine/inspector.h>
 #include <motor/engine/picker.h>
 #include <motor/engine/systems.h>
+#include <motor/engine/physics.h>
 #include <motor/engine/assets/pipeline_asset.h>
 #include <time.h>
 #include <stdio.h>
@@ -26,19 +27,16 @@
 typedef struct Game
 {
     /*base*/ MtScene scene;
-
-    MtEntityArchetype *model_archetype;
-    MtEntityArchetype *light_archetype;
 } Game;
 
 // game_init {{{
-static void game_init(MtScene *inst)
+static void game_init(MtScene *scene)
 {
-    Game *g = (Game *)inst;
+    Game *g = (Game *)scene;
 
-    MtEngine *engine = inst->engine;
-    MtEntityManager *em = inst->entity_manager;
-    MtAssetManager *am = inst->asset_manager;
+    MtEngine *engine = scene->engine;
+    MtEntityManager *em = scene->entity_manager;
+    MtAssetManager *am = scene->asset_manager;
 
     MtImageAsset *skybox_asset = NULL;
     mt_asset_manager_queue_load(
@@ -63,40 +61,27 @@ static void game_init(MtScene *inst)
             .format = MT_FORMAT_D32_SFLOAT,
         };
 
-        mt_render.graph_add_image(inst->graph, "depth", &depth_info);
+        mt_render.graph_add_image(scene->graph, "depth", &depth_info);
 
         {
-            MtRenderGraphPass *color_pass =
-                mt_render.graph_add_pass(inst->graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
+            MtRenderGraphPass *color_pass = mt_render.graph_add_pass(
+                scene->graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
             mt_render.pass_write(color_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
         }
     }
 
     // Create entities
-    g->model_archetype = mt_entity_manager_register_archetype(
-        em,
-        mt_model_archetype_components,
-        MT_LENGTH(mt_model_archetype_components),
-        mt_model_archetype_init);
-
-    g->light_archetype = mt_entity_manager_register_archetype(
-        em,
-        mt_light_archetype_components,
-        MT_LENGTH(mt_light_archetype_components),
-        mt_point_light_archetype_init);
-
     {
         uint64_t e;
-        MtEntityArchetype *arch = g->model_archetype;
-        MtModelArchetype *comps = (MtModelArchetype *)arch->components;
+        MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
 
         MtPhysicsShape *sphere_shape = NULL;
 
-        MtComponentMask comp_mask = MT_COMP_BIT(MtModelArchetype, transform) |
-                                    MT_COMP_BIT(MtModelArchetype, model) |
-                                    MT_COMP_BIT(MtModelArchetype, actor);
+        MtComponentMask comp_mask = MT_COMP_BIT(MtDefaultComponents, transform) |
+                                    MT_COMP_BIT(MtDefaultComponents, model) |
+                                    MT_COMP_BIT(MtDefaultComponents, actor);
 
-        e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
+        e = mt_entity_manager_add_entity(em, comp_mask);
         comps->transform[e].pos = V3(-1.5, 10, 0);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
         comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_DYNAMIC);
@@ -104,7 +89,7 @@ static void game_init(MtScene *inst)
         mt_physics_shape_set_radius(sphere_shape, 1.0f);
         mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
 
-        e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
+        e = mt_entity_manager_add_entity(em, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
         comps->transform[e].scale = V3(100, 100, 100);
         comps->transform[e].pos = V3(1.5f, 5.f, 0.f);
@@ -113,7 +98,7 @@ static void game_init(MtScene *inst)
         mt_physics_shape_set_radius(sphere_shape, 1.0f);
         mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
 
-        e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
+        e = mt_entity_manager_add_entity(em, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/lantern_ktx.glb");
         comps->transform[e].scale = V3(0.2f, 0.2f, 0.2f);
         comps->transform[e].pos = V3(4.f, 5.f, 0.f);
@@ -125,7 +110,7 @@ static void game_init(MtScene *inst)
             &(MtPhysicsTransform){.pos = V3(0.0f, 1.1f, 0.0f), .rot = (Quat){0, 0, 0, 1}});
         mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
 
-        e = mt_entity_manager_add_entity(em, g->model_archetype, comp_mask);
+        e = mt_entity_manager_add_entity(em, comp_mask);
         comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
         comps->transform[e].pos = V3(0, 0, 0);
         comps->transform[e].scale = V3(3, 3, 3);
@@ -144,37 +129,35 @@ static void game_init(MtScene *inst)
     for (uint32_t i = 0; i < 8; ++i)
     {
         uint64_t e;
-        MtEntityArchetype *arch = g->light_archetype;
-        MtPointLightArchetype *comps = (MtPointLightArchetype *)arch->components;
-        MtComponentMask comp_mask =
-            MT_COMP_BIT(MtPointLightArchetype, pos) | MT_COMP_BIT(MtPointLightArchetype, color);
+        MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
+        MtComponentMask comp_mask = MT_COMP_BIT(MtDefaultComponents, transform) |
+                                    MT_COMP_BIT(MtDefaultComponents, point_light);
 
 #define LIGHT_POS_X mt_xor_shift_float(&xs, -15.0f, 15.0f)
 #define LIGHT_POS_Y mt_xor_shift_float(&xs, 0.0f, 2.0f)
 #define LIGHT_POS_Z mt_xor_shift_float(&xs, -10.0f, 10.0f)
 #define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
 
-        e = mt_entity_manager_add_entity(em, g->light_archetype, comp_mask);
-        comps->pos[e] = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
-        comps->color[e] = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
-        comps->color[e] = v3_muls(v3_normalize(comps->color[e]), 10.0f);
+        e = mt_entity_manager_add_entity(em, comp_mask);
+        comps->transform[e].pos = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
+        comps->point_light[e].color = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
     }
 }
 // }}}
 
 // game_destroy {{{
-static void game_destroy(MtScene *inst)
+static void game_destroy(MtScene *scene)
 {
-    Game *g = (Game *)inst;
+    Game *g = (Game *)scene;
     mt_scene_destroy(&g->scene);
 }
 // }}}
 
 // game_on_event {{{
-static void game_on_event(MtScene *inst, const MtEvent *event)
+static void game_on_event(MtScene *scene, const MtEvent *event)
 {
-    Game *g = (Game *)inst;
-    MtEngine *engine = inst->engine;
+    MtEngine *engine = scene->engine;
+    MtEntityManager *em = scene->entity_manager;
 
     switch (event->type)
     {
@@ -187,14 +170,9 @@ static void game_on_event(MtScene *inst, const MtEvent *event)
                     mt_window.get_cursor_pos(engine->window, &x, &y);
 
                     uint32_t value = mt_picker_pick(
-                        engine->picker,
-                        &inst->cam.uniform,
-                        x,
-                        y,
-                        mt_picking_system,
-                        g->model_archetype);
+                        engine->picker, &scene->cam.uniform, x, y, mt_picking_system, em);
 
-                    g->model_archetype->selected_entity = (MtEntity)value;
+                    em->selected_entity = (MtEntity)value;
                 }
             }
             break;
@@ -205,40 +183,41 @@ static void game_on_event(MtScene *inst, const MtEvent *event)
 // }}}
 
 // game_draw_ui {{{
-static void game_draw_ui(MtScene *inst)
+static void game_draw_ui(MtScene *scene)
 {
-    Game *g = (Game *)inst;
-    MtEngine *engine = inst->engine;
+    MtEngine *engine = scene->engine;
+    MtEntityManager *em = scene->entity_manager;
 
-    mt_inspect_archetype(engine, g->model_archetype);
+    mt_inspect_entities(engine, em);
 }
 // }}}
 
 // game_update {{{
-static void game_update(MtScene *inst, float delta)
+static void game_update(MtScene *scene, float delta)
 {
-    Game *g = (Game *)inst;
+    Game *g = (Game *)scene;
+    MtEntityManager *em = scene->entity_manager;
 
-    mt_light_system(g->light_archetype, inst, delta);
+    mt_light_system(em, scene, delta);
 
-    mt_pre_physics_sync_system(g->model_archetype);
-    mt_physics_scene_step(inst->physics_scene, delta);
-    mt_post_physics_sync_system(g->model_archetype);
+    mt_pre_physics_sync_system(em);
+    mt_physics_scene_step(scene->physics_scene, delta);
+    mt_post_physics_sync_system(em);
 
     {
-        MtCmdBuffer *cb = mt_render.pass_begin(inst->graph, "color_pass");
+        MtCmdBuffer *cb = mt_render.pass_begin(scene->graph, "color_pass");
 
         // Draw skybox
         mt_environment_draw_skybox(&g->scene.env, cb, &g->scene.cam.uniform);
 
         // Draw models
-        mt_model_system(g->model_archetype, &g->scene, cb);
-        mt_selected_model_system(g->model_archetype, &g->scene, cb);
+        mt_model_system(em, &g->scene, cb);
+        mt_selected_entity_system(em, &g->scene, cb);
 
         // Draw UI
         mt_imgui_render(g->scene.engine->imgui_ctx, cb);
 
-        mt_render.pass_end(inst->graph, "color_pass");
+        mt_render.pass_end(scene->graph, "color_pass");
     }
 }
 // }}}

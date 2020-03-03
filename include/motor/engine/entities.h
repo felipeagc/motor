@@ -10,14 +10,14 @@ typedef struct MtAllocator MtAllocator;
 typedef struct MtEntityManager MtEntityManager;
 
 #ifndef MT_COMP_BIT
-#define MT_COMP_BIT(archetype, component) (1 << (offsetof(archetype, component) / sizeof(void *)))
+#define MT_COMP_BIT(components, component) (1 << (offsetof(components, component) / sizeof(void *)))
 #endif
 
 #define MT_ENTITY_INVALID UINT32_MAX
 
 typedef uint32_t MtEntity;
 typedef uint32_t MtComponentMask;
-typedef void (*MtEntityInitializer)(void *data, MtEntity entity);
+typedef void (*MtEntityInitializer)(MtEntityManager *, MtEntity entity);
 
 typedef enum MtComponentType {
     MT_COMPONENT_TYPE_UNKNOWN = 0,
@@ -31,48 +31,40 @@ typedef enum MtComponentType {
 typedef struct MtComponentSpec
 {
     const char *name;
-    size_t size;
+    uint32_t size;
     MtComponentType type;
 } MtComponentSpec;
 
-typedef struct MtArchetypeSpec
+typedef struct MtEntityDescriptor
 {
-    MtComponentSpec *components;
-    uint32_t component_count;
-} MtArchetypeSpec;
-
-typedef struct MtEntityArchetype
-{
-    uint32_t entity_count;
-    uint32_t entity_cap;
     MtEntityInitializer entity_init;
-
-    MtEntity selected_entity;
-
-    MtComponentMask *masks;
-    void **components;
-    MtArchetypeSpec spec;
-} MtEntityArchetype;
+    const MtComponentSpec *component_specs;
+    uint32_t component_spec_count;
+} MtEntityDescriptor;
 
 typedef struct MtEntityManager
 {
     MtAllocator *alloc;
-    MtEntityArchetype archetypes[128];
-    uint32_t archetype_count;
+
+    MtComponentSpec *component_specs;
+    uint32_t component_spec_count;
+    MtEntityInitializer entity_init;
+
+    MtEntity selected_entity;
+
+    uint32_t entity_count;
+    uint32_t entity_cap;
+    MtComponentMask *masks;
+    void **components;
 } MtEntityManager;
 
-MT_ENGINE_API void mt_entity_manager_init(MtEntityManager *em, MtAllocator *alloc);
+MT_ENGINE_API void mt_entity_manager_init(
+    MtEntityManager *em, MtAllocator *alloc, const MtEntityDescriptor *descriptor);
 
 MT_ENGINE_API void mt_entity_manager_destroy(MtEntityManager *em);
 
-MT_ENGINE_API MtEntityArchetype *mt_entity_manager_register_archetype(
-    MtEntityManager *em,
-    MtComponentSpec *components,
-    uint32_t component_count,
-    MtEntityInitializer initializer);
-
-MT_ENGINE_API MtEntity mt_entity_manager_add_entity(
-    MtEntityManager *em, MtEntityArchetype *archetype, MtComponentMask component_mask);
+MT_ENGINE_API MtEntity
+mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask component_mask);
 
 #ifdef __cplusplus
 }

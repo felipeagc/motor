@@ -10,14 +10,14 @@
 #include <motor/engine/transform.h>
 #include <motor/engine/physics.h>
 
-void mt_inspect_archetype(MtEngine *engine, MtEntityArchetype *archetype)
+void mt_inspect_entities(MtEngine *engine, MtEntityManager *em)
 {
     MtWindow *window = engine->window;
 
     uint32_t width, height;
     mt_window.get_size(window, &width, &height);
 
-    igPushIDPtr(archetype);
+    igPushIDPtr(em);
 
     uint32_t win_width = 320;
     ImGuiWindowFlags window_flags =
@@ -28,21 +28,21 @@ void mt_inspect_archetype(MtEngine *engine, MtEntityArchetype *archetype)
 
     if (igBegin("Entities", NULL, window_flags))
     {
-        for (MtEntity e = 0; e < archetype->entity_count; ++e)
+        for (MtEntity e = 0; e < em->entity_count; ++e)
         {
             igPushIDInt(e);
 
             char buf[256];
             sprintf(buf, "Entity %u", e);
 
-            bool selected = archetype->selected_entity == e;
+            bool selected = em->selected_entity == e;
             if (igSelectableBoolPtr(buf, &selected, 0, (ImVec2){}))
             {
-                archetype->selected_entity = e;
+                em->selected_entity = e;
 
                 if (!selected)
                 {
-                    archetype->selected_entity = MT_ENTITY_INVALID;
+                    em->selected_entity = MT_ENTITY_INVALID;
                 }
             }
 
@@ -55,13 +55,18 @@ void mt_inspect_archetype(MtEngine *engine, MtEntityArchetype *archetype)
     igSetNextWindowPos((ImVec2){(float)(width - win_width), (float)height / 2.0f}, 0, (ImVec2){});
     if (igBegin("Components", NULL, window_flags))
     {
-        for (uint32_t c = 0; c < archetype->spec.component_count; ++c)
+        for (uint32_t c = 0; c < em->component_spec_count; ++c)
         {
-            MtComponentSpec *comp_spec = &archetype->spec.components[c];
+            MtComponentSpec *comp_spec = &em->component_specs[c];
 
-            if (archetype->selected_entity == MT_ENTITY_INVALID)
+            if (em->selected_entity == MT_ENTITY_INVALID)
             {
                 break;
+            }
+
+            if ((em->masks[em->selected_entity] & (1 << c)) != (1 << c))
+            {
+                continue;
             }
 
             igPushIDInt(c);
@@ -73,28 +78,28 @@ void mt_inspect_archetype(MtEngine *engine, MtEntityArchetype *archetype)
                 switch (comp_spec->type)
                 {
                     case MT_COMPONENT_TYPE_TRANSFORM: {
-                        MtTransform *transforms = (MtTransform *)archetype->components[c];
-                        MtTransform *transform = &transforms[archetype->selected_entity];
+                        MtTransform *transforms = (MtTransform *)em->components[c];
+                        MtTransform *transform = &transforms[em->selected_entity];
                         igDragFloat3("Position", transform->pos.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
                         igDragFloat4("Rotation", transform->rot.v, 0.1f, -1.0f, 1.0f, "%.3f", 1.0);
                         igDragFloat3("Scale", transform->scale.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
                         break;
                     }
                     case MT_COMPONENT_TYPE_VEC3: {
-                        Vec3 *vecs = (Vec3 *)archetype->components[c];
-                        Vec3 *vec = &vecs[archetype->selected_entity];
+                        Vec3 *vecs = (Vec3 *)em->components[c];
+                        Vec3 *vec = &vecs[em->selected_entity];
                         igDragFloat3("", vec->v, 1.0f, 0.0f, 0.0f, "%.3f", 1.0);
                         break;
                     }
                     case MT_COMPONENT_TYPE_QUAT: {
-                        Quat *quats = (Quat *)archetype->components[c];
-                        Quat *quat = &quats[archetype->selected_entity];
+                        Quat *quats = (Quat *)em->components[c];
+                        Quat *quat = &quats[em->selected_entity];
                         igDragFloat4("", quat->v, 1.0f, 0.0f, 0.0f, "%.3f", 1.0);
                         break;
                     }
                     case MT_COMPONENT_TYPE_RIGID_ACTOR: {
-                        MtRigidActor **actors = (MtRigidActor **)archetype->components[c];
-                        MtRigidActor *actor = actors[archetype->selected_entity];
+                        MtRigidActor **actors = (MtRigidActor **)em->components[c];
+                        MtRigidActor *actor = actors[em->selected_entity];
 
                         uint32_t shape_count = mt_rigid_actor_get_shape_count(actor);
                         MtPhysicsShape *shapes[32];
