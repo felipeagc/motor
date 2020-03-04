@@ -38,6 +38,7 @@ motor_base_sources = [
   'src/motor/base/log.c',
   'src/motor/base/rand.c',
   'src/motor/base/filesystem.c',
+  'src/motor/base/buffer_writer.c',
 
   'src/motor/base/xxhash.c',
 ]

@@ -75,3 +75,8 @@ MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask compo
 
     return entity_index;
 }
+
+void mt_entity_manager_serialize(MtEntityManager *em, MtBufferWriter *bw)
+{
+    em->entity_serialize(em, bw);
+}

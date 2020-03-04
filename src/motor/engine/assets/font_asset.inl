@@ -16,6 +16,7 @@ typedef struct FontAtlas
 
 struct MtFontAsset
 {
+    MtAsset asset;
     MtAssetManager *asset_manager;
     MtSampler *sampler;
 

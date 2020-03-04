@@ -6,9 +6,11 @@
 #include <motor/graphics/window.h>
 #include <motor/engine/engine.h>
 #include <motor/engine/entities.h>
+#include <motor/engine/components.h>
 #include <motor/engine/imgui_impl.h>
 #include <motor/engine/transform.h>
 #include <motor/engine/physics.h>
+#include <motor/engine/asset_manager.h>
 
 void mt_inspect_entities(MtEngine *engine, MtEntityManager *em)
 {
@@ -83,18 +85,6 @@ void mt_inspect_entities(MtEngine *engine, MtEntityManager *em)
                         igDragFloat3("Position", transform->pos.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
                         igDragFloat4("Rotation", transform->rot.v, 0.1f, -1.0f, 1.0f, "%.3f", 1.0);
                         igDragFloat3("Scale", transform->scale.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
-                        break;
-                    }
-                    case MT_COMPONENT_TYPE_VEC3: {
-                        Vec3 *vecs = (Vec3 *)em->components[c];
-                        Vec3 *vec = &vecs[em->selected_entity];
-                        igDragFloat3("", vec->v, 1.0f, 0.0f, 0.0f, "%.3f", 1.0);
-                        break;
-                    }
-                    case MT_COMPONENT_TYPE_QUAT: {
-                        Quat *quats = (Quat *)em->components[c];
-                        Quat *quat = &quats[em->selected_entity];
-                        igDragFloat4("", quat->v, 1.0f, 0.0f, 0.0f, "%.3f", 1.0);
                         break;
                     }
                     case MT_COMPONENT_TYPE_RIGID_ACTOR: {
@@ -177,6 +167,11 @@ void mt_inspect_entities(MtEngine *engine, MtEntityManager *em)
                         break;
                     }
                     case MT_COMPONENT_TYPE_GLTF_MODEL: {
+                        MtGltfAsset **gltf_assets = (MtGltfAsset **)em->components[c];
+                        MtGltfAsset *gltf_asset = gltf_assets[em->selected_entity];
+
+                        MtAsset *asset = (MtAsset *)gltf_asset;
+                        igText(asset->path);
                         break;
                     }
                     case MT_COMPONENT_TYPE_UNKNOWN: {

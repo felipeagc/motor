@@ -75,6 +75,7 @@ typedef struct GltfNode
 
 struct MtGltfAsset
 {
+    MtAsset asset;
     MtAssetManager *asset_manager;
 
     /*array*/ GltfNode **nodes;
@@ -136,9 +137,9 @@ static void node_update(GltfNode *node)
 static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const char *path)
 {
     MtGltfAsset *asset = (MtGltfAsset *)asset_;
-    memset(asset, 0, sizeof(*asset));
     asset->asset_manager = asset_manager;
 
+    MtEngine *engine = asset_manager->engine;
     MtAllocator *alloc = asset_manager->alloc;
 
     FILE *f = fopen(path, "rb");
@@ -209,7 +210,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             default: break;
         }
 
-        asset->samplers[i] = mt_render.create_sampler(asset_manager->engine->device, &ci);
+        asset->samplers[i] = mt_render.create_sampler(engine->device, &ci);
     }
 
     // Load images
@@ -231,7 +232,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             assert(image_data);
 
             asset->images[i] = mt_render.create_image(
-                asset_manager->engine->device,
+                engine->device,
                 &(MtImageCreateInfo){
                     .width = (uint32_t)width,
                     .height = (uint32_t)height,
@@ -239,7 +240,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                 });
 
             mt_render.transfer_to_image(
-                asset_manager->engine->device,
+                engine->device,
                 &(MtImageCopyView){.image = asset->images[i]},
                 (uint32_t)(4 * width * height),
                 image_data);
@@ -290,7 +291,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             }
 
             asset->images[i] = mt_render.create_image(
-                asset_manager->engine->device,
+                engine->device,
                 &(MtImageCreateInfo){
                     .width = data.pixel_width,
                     .height = data.pixel_height,
@@ -313,7 +314,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
                             &data.mip_levels[li].array_elements[0].faces[fi].slices[si];
 
                         mt_render.transfer_to_image(
-                            asset_manager->engine->device,
+                            engine->device,
                             &(MtImageCopyView){
                                 .image = asset->images[i],
                                 .mip_level = li,
@@ -365,13 +366,13 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             }
             else
             {
-                mat->albedo_sampler = asset->asset_manager->engine->default_sampler;
+                mat->albedo_sampler = engine->default_sampler;
             }
         }
         else
         {
-            mat->albedo_image = asset->asset_manager->engine->white_image;
-            mat->albedo_sampler = asset->asset_manager->engine->default_sampler;
+            mat->albedo_image = engine->white_image;
+            mat->albedo_sampler = engine->default_sampler;
         }
 
         if (material->normal_texture.texture != NULL)
@@ -386,13 +387,13 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             }
             else
             {
-                mat->normal_sampler = asset->asset_manager->engine->default_sampler;
+                mat->normal_sampler = engine->default_sampler;
             }
         }
         else
         {
-            mat->normal_image = asset->asset_manager->engine->white_image;
-            mat->normal_sampler = asset->asset_manager->engine->default_sampler;
+            mat->normal_image = engine->white_image;
+            mat->normal_sampler = engine->default_sampler;
         }
 
         if (material->pbr_metallic_roughness.metallic_roughness_texture.texture != NULL)
@@ -411,13 +412,13 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             }
             else
             {
-                mat->metallic_roughness_sampler = asset->asset_manager->engine->default_sampler;
+                mat->metallic_roughness_sampler = engine->default_sampler;
             }
         }
         else
         {
-            mat->metallic_roughness_image = asset->asset_manager->engine->white_image;
-            mat->metallic_roughness_sampler = asset->asset_manager->engine->default_sampler;
+            mat->metallic_roughness_image = engine->white_image;
+            mat->metallic_roughness_sampler = engine->default_sampler;
         }
 
         if (material->occlusion_texture.texture != NULL)
@@ -433,13 +434,13 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             }
             else
             {
-                mat->occlusion_sampler = asset->asset_manager->engine->default_sampler;
+                mat->occlusion_sampler = engine->default_sampler;
             }
         }
         else
         {
-            mat->occlusion_image = asset->asset_manager->engine->white_image;
-            mat->occlusion_sampler = asset->asset_manager->engine->default_sampler;
+            mat->occlusion_image = engine->white_image;
+            mat->occlusion_sampler = engine->default_sampler;
         }
 
         if (material->emissive_texture.texture != NULL)
@@ -455,13 +456,13 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
             }
             else
             {
-                mat->emissive_sampler = asset->asset_manager->engine->default_sampler;
+                mat->emissive_sampler = engine->default_sampler;
             }
         }
         else
         {
-            mat->emissive_image = asset->asset_manager->engine->black_image;
-            mat->emissive_sampler = asset->asset_manager->engine->default_sampler;
+            mat->emissive_image = engine->black_image;
+            mat->emissive_sampler = engine->default_sampler;
         }
     }
 
@@ -491,7 +492,7 @@ static bool asset_init(MtAssetManager *asset_manager, MtAsset *asset_, const cha
 
     assert(vertex_buffer_size > 0);
 
-    MtDevice *dev = asset->asset_manager->engine->device;
+    MtDevice *dev = engine->device;
 
     asset->vertex_buffer = mt_render.create_buffer(
         dev,

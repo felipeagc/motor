@@ -1,7 +1,6 @@
 #pragma once
 
 #include "api_types.h"
-#include "asset.h"
 #include <motor/base/hashmap.h>
 #include <motor/base/threads.h>
 
@@ -11,14 +10,37 @@ extern "C" {
 
 typedef struct MtEngine MtEngine;
 typedef struct MtAllocator MtAllocator;
+typedef struct MtAssetManager MtAssetManager;
+
+typedef struct MtAssetVT MtAssetVT;
+
+typedef struct MtAsset
+{
+    MtAssetVT *vt;
+    const char *path;
+} MtAsset;
+
+typedef struct MtAssetVT
+{
+    const char *name;
+
+    const char **extensions;
+    uint32_t extension_count;
+
+    uint32_t size;
+
+    bool (*init)(MtAssetManager *, MtAsset *, const char *path);
+    void (*destroy)(MtAsset *);
+} MtAssetVT;
 
 typedef struct MtAssetManager
 {
     MtEngine *engine;
     MtAllocator *alloc;
     /*array*/ MtAssetVT **asset_types;
+    MtHashMap asset_type_map;
 
-    /*array*/ MtIAsset *assets;
+    /*array*/ MtAsset **assets;
     MtHashMap asset_map;
 
     MtMutex mutex;

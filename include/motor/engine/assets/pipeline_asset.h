@@ -1,5 +1,7 @@
 #pragma once
 
+#include <motor/engine/asset_manager.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,6 +16,7 @@ extern MtAssetVT *mt_pipeline_asset_vt;
 
 typedef struct MtPipelineAsset
 {
+    MtAsset asset;
     MtAssetManager *asset_manager;
     MtPipeline *pipeline;
 } MtPipelineAsset;

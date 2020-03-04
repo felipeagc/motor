@@ -18,6 +18,15 @@
 #include <motor/engine/assets/font_asset.h>
 #include <motor/engine/assets/gltf_asset.h>
 
+static void register_asset_type(MtAssetManager *am, MtAssetVT *vt)
+{
+    mt_array_push(am->alloc, am->asset_types, vt);
+    for (uint32_t i = 0; i < vt->extension_count; ++i)
+    {
+        mt_hash_set_ptr(&am->asset_type_map, mt_hash_str(vt->extensions[i]), vt);
+    }
+}
+
 void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine)
 {
     memset(am, 0, sizeof(*am));
@@ -26,91 +35,85 @@ void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine)
 
     mt_mutex_init(&am->mutex);
 
+    mt_hash_init(&am->asset_type_map, 51, am->alloc);
     mt_hash_init(&am->asset_map, 51, am->alloc);
 
-    mt_array_push(am->alloc, am->asset_types, mt_image_asset_vt);
-    mt_array_push(am->alloc, am->asset_types, mt_pipeline_asset_vt);
-    mt_array_push(am->alloc, am->asset_types, mt_font_asset_vt);
-    mt_array_push(am->alloc, am->asset_types, mt_gltf_asset_vt);
+    register_asset_type(am, mt_image_asset_vt);
+    register_asset_type(am, mt_pipeline_asset_vt);
+    register_asset_type(am, mt_font_asset_vt);
+    register_asset_type(am, mt_gltf_asset_vt);
 }
 
 MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path)
 {
     mt_render.set_thread_id(mt_thread_pool_get_task_id());
 
-    for (uint32_t i = 0; i < mt_array_size(am->asset_types); i++)
+    const char *path_ext = mt_path_ext(path);
+
+    MtAssetVT *vt = mt_hash_get_ptr(&am->asset_type_map, mt_hash_str(path_ext));
+    if (!vt)
     {
-        MtAssetVT *vt = am->asset_types[i];
-
-        for (uint32_t j = 0; j < vt->extension_count; j++)
-        {
-            const char *ext = vt->extensions[j];
-            const char *path_ext = mt_path_ext(path);
-
-            if (strcmp(ext, path_ext) == 0)
-            {
-                mt_log_debug("Loading asset: %s", path);
-
-                MtAsset *temp_asset_ptr = mt_alloc(am->alloc, vt->size);
-
-                bool initialized = vt->init(am, temp_asset_ptr, path);
-                if (!initialized)
-                {
-                    mt_log_error("Failed to load asset: %s", path);
-                    mt_free(am->alloc, temp_asset_ptr);
-                    temp_asset_ptr = NULL;
-                }
-
-                uint64_t path_hash = mt_hash_str(path);
-
-                mt_mutex_lock(&am->mutex);
-                MtIAsset *existing = mt_hash_get_ptr(&am->asset_map, path_hash);
-                mt_mutex_unlock(&am->mutex);
-
-                if (existing)
-                {
-                    if (temp_asset_ptr)
-                    {
-                        mt_mutex_lock(&am->mutex);
-
-                        existing->vt->destroy(existing->inst);
-                        memcpy(existing->inst, temp_asset_ptr, vt->size);
-                        mt_free(am->alloc, temp_asset_ptr);
-
-                        mt_mutex_unlock(&am->mutex);
-                    }
-
-                    return existing->inst;
-                }
-                else
-                {
-                    if (temp_asset_ptr)
-                    {
-                        mt_mutex_lock(&am->mutex);
-
-                        MtIAsset iasset = {
-                            .vt = vt,
-                            .inst = temp_asset_ptr,
-                        };
-                        mt_array_push(am->alloc, am->assets, iasset);
-                        MtIAsset *iasset_ptr = mt_array_last(am->assets);
-                        mt_hash_set_ptr(&am->asset_map, path_hash, iasset_ptr);
-
-                        mt_mutex_unlock(&am->mutex);
-                        return iasset_ptr->inst;
-                    }
-
-                    mt_log_error("Failed to load asset: %s", path);
-                    return NULL;
-                }
-
-                mt_log_error("Failed to load asset: %s", path);
-                return NULL;
-            }
-        }
+        mt_log_error("No asset loader found for file: %s", path);
+        return NULL;
     }
 
-    mt_log_error("No asset loader found for file: %s", path);
+    mt_log_debug("Loading asset: %s", path);
+
+    MtAsset *temp_asset_ptr = mt_alloc(am->alloc, vt->size);
+    memset(temp_asset_ptr, 0, vt->size);
+    temp_asset_ptr->path = mt_strdup(am->alloc, path);
+    temp_asset_ptr->vt = vt;
+
+    bool initialized = vt->init(am, temp_asset_ptr, path);
+
+    temp_asset_ptr->path = mt_strdup(am->alloc, path);
+    temp_asset_ptr->vt = vt;
+
+    if (!initialized)
+    {
+        mt_log_error("Failed to load asset: %s", path);
+        mt_free(am->alloc, temp_asset_ptr);
+        temp_asset_ptr = NULL;
+    }
+
+    uint64_t path_hash = mt_hash_str(path);
+
+    mt_mutex_lock(&am->mutex);
+    MtAsset *existing = mt_hash_get_ptr(&am->asset_map, path_hash);
+    mt_mutex_unlock(&am->mutex);
+
+    if (existing)
+    {
+        if (temp_asset_ptr)
+        {
+            mt_mutex_lock(&am->mutex);
+
+            existing->vt->destroy(existing);
+            memcpy(existing, temp_asset_ptr, vt->size);
+            mt_free(am->alloc, temp_asset_ptr);
+
+            mt_mutex_unlock(&am->mutex);
+        }
+
+        return existing;
+    }
+    else
+    {
+        if (temp_asset_ptr)
+        {
+            mt_mutex_lock(&am->mutex);
+
+            mt_array_push(am->alloc, am->assets, temp_asset_ptr);
+            MtAsset *asset_ptr = *mt_array_last(am->assets);
+            mt_hash_set_ptr(&am->asset_map, path_hash, asset_ptr);
+
+            mt_mutex_unlock(&am->mutex);
+            return asset_ptr;
+        }
+
+        mt_log_error("Failed to load asset: %s", path);
+        return NULL;
+    }
 
     return NULL;
 }
@@ -153,9 +156,9 @@ MtAsset *mt_asset_manager_get(MtAssetManager *am, const char *path)
 {
     uint64_t path_hash = mt_hash_str(path);
     mt_mutex_lock(&am->mutex);
-    MtIAsset *iasset = mt_hash_get_ptr(&am->asset_map, path_hash);
+    MtAsset *asset = mt_hash_get_ptr(&am->asset_map, path_hash);
     mt_mutex_unlock(&am->mutex);
-    return iasset->inst;
+    return asset;
 }
 
 void mt_asset_manager_destroy(MtAssetManager *am)
@@ -163,12 +166,13 @@ void mt_asset_manager_destroy(MtAssetManager *am)
     mt_mutex_lock(&am->mutex);
 
     mt_hash_destroy(&am->asset_map);
+    mt_hash_destroy(&am->asset_type_map);
 
     for (uint32_t i = 0; i < mt_array_size(am->assets); i++)
     {
-        MtIAsset *asset = &am->assets[i];
-        asset->vt->destroy(asset->inst);
-        mt_free(am->alloc, asset->inst);
+        MtAsset *asset = am->assets[i];
+        asset->vt->destroy(asset);
+        mt_free(am->alloc, asset);
     }
     mt_array_free(am->alloc, am->assets);
     mt_array_free(am->alloc, am->asset_types);
