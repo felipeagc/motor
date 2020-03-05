@@ -254,7 +254,7 @@ void mt_engine_update(MtEngine *engine)
 
         if (engine->current_scene.vt->draw_ui)
         {
-            engine->current_scene.vt->draw_ui(scene);
+            engine->current_scene.vt->draw_ui(scene, delta_time);
         }
 
         igRender();

@@ -3,6 +3,8 @@
 #include <motor/base/allocator.h>
 #include <motor/base/math.h>
 #include <motor/base/rand.h>
+#include <motor/base/buffer_writer.h>
+#include <motor/base/buffer_reader.h>
 #include <motor/graphics/renderer.h>
 #include <motor/graphics/window.h>
 #include <motor/engine/file_watcher.h>
@@ -35,7 +37,6 @@ static void game_init(MtScene *scene)
     Game *g = (Game *)scene;
 
     MtEngine *engine = scene->engine;
-    MtEntityManager *em = scene->entity_manager;
     MtAssetManager *am = scene->asset_manager;
 
     MtImageAsset *skybox_asset = NULL;
@@ -68,79 +69,6 @@ static void game_init(MtScene *scene)
                 scene->graph, "color_pass", MT_PIPELINE_STAGE_ALL_GRAPHICS);
             mt_render.pass_write(color_pass, MT_PASS_WRITE_DEPTH_STENCIL_ATTACHMENT, "depth");
         }
-    }
-
-    // Create entities
-    {
-        uint64_t e;
-        MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
-
-        MtPhysicsShape *sphere_shape = NULL;
-
-        MtComponentMask comp_mask = MT_COMP_BIT(MtDefaultComponents, transform) |
-                                    MT_COMP_BIT(MtDefaultComponents, model) |
-                                    MT_COMP_BIT(MtDefaultComponents, actor);
-
-        e = mt_entity_manager_add_entity(em, comp_mask);
-        comps->transform[e].pos = V3(-1.5, 10, 0);
-        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/helmet_ktx.glb");
-        comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_DYNAMIC);
-        sphere_shape = mt_physics_shape_create(g->scene.engine->physics, MT_PHYSICS_SHAPE_SPHERE);
-        mt_physics_shape_set_radius(sphere_shape, 1.0f);
-        mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
-
-        e = mt_entity_manager_add_entity(em, comp_mask);
-        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/boombox_ktx.glb");
-        comps->transform[e].scale = V3(100, 100, 100);
-        comps->transform[e].pos = V3(1.5f, 5.f, 0.f);
-        comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_DYNAMIC);
-        sphere_shape = mt_physics_shape_create(g->scene.engine->physics, MT_PHYSICS_SHAPE_SPHERE);
-        mt_physics_shape_set_radius(sphere_shape, 1.0f);
-        mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
-
-        e = mt_entity_manager_add_entity(em, comp_mask);
-        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/lantern_ktx.glb");
-        comps->transform[e].scale = V3(0.2f, 0.2f, 0.2f);
-        comps->transform[e].pos = V3(4.f, 5.f, 0.f);
-        comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_DYNAMIC);
-        sphere_shape = mt_physics_shape_create(g->scene.engine->physics, MT_PHYSICS_SHAPE_SPHERE);
-        mt_physics_shape_set_radius(sphere_shape, 1.0f);
-        mt_physics_shape_set_local_transform(
-            sphere_shape,
-            &(MtPhysicsTransform){.pos = V3(0.0f, 1.1f, 0.0f), .rot = (Quat){0, 0, 0, 1}});
-        mt_rigid_actor_attach_shape(comps->actor[e], sphere_shape);
-
-        e = mt_entity_manager_add_entity(em, comp_mask);
-        comps->model[e] = (MtGltfAsset *)mt_asset_manager_get(am, "../assets/sponza_ktx.glb");
-        comps->transform[e].pos = V3(0, 0, 0);
-        comps->transform[e].scale = V3(3, 3, 3);
-        comps->actor[e] = mt_rigid_actor_create(g->scene.physics_scene, MT_RIGID_ACTOR_STATIC);
-        MtPhysicsShape *floor_shape =
-            mt_physics_shape_create(g->scene.engine->physics, MT_PHYSICS_SHAPE_PLANE);
-        mt_physics_shape_set_local_transform(
-            floor_shape,
-            &(MtPhysicsTransform){.rot = quat_from_axis_angle(V3(0, 0, 1), M_PI / 2.0f)});
-        mt_rigid_actor_attach_shape(comps->actor[e], floor_shape);
-    }
-
-    MtXorShift xs;
-    mt_xor_shift_init(&xs, (uint64_t)time(NULL));
-
-    for (uint32_t i = 0; i < 8; ++i)
-    {
-        uint64_t e;
-        MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
-        MtComponentMask comp_mask = MT_COMP_BIT(MtDefaultComponents, transform) |
-                                    MT_COMP_BIT(MtDefaultComponents, point_light);
-
-#define LIGHT_POS_X mt_xor_shift_float(&xs, -15.0f, 15.0f)
-#define LIGHT_POS_Y mt_xor_shift_float(&xs, 0.0f, 2.0f)
-#define LIGHT_POS_Z mt_xor_shift_float(&xs, -10.0f, 10.0f)
-#define LIGHT_COL mt_xor_shift_float(&xs, 0.0f, 1.0f)
-
-        e = mt_entity_manager_add_entity(em, comp_mask);
-        comps->transform[e].pos = V3(LIGHT_POS_X, LIGHT_POS_Y, LIGHT_POS_Z);
-        comps->point_light[e].color = V3(LIGHT_COL, LIGHT_COL, LIGHT_COL);
     }
 }
 // }}}
@@ -183,12 +111,60 @@ static void game_on_event(MtScene *scene, const MtEvent *event)
 // }}}
 
 // game_draw_ui {{{
-static void game_draw_ui(MtScene *scene)
+static void game_draw_ui(MtScene *scene, float delta)
 {
     MtEngine *engine = scene->engine;
     MtEntityManager *em = scene->entity_manager;
 
     mt_inspect_entities(engine, em);
+
+    if (igBegin("Info", NULL, 0))
+    {
+        igText("Delta: %.4f ms", delta);
+        igText("FPS  : %.0f", 1.0f / delta);
+
+        if (igButton("Save", (ImVec2){}))
+        {
+            MtBufferWriter bw;
+            mt_buffer_writer_init(&bw, engine->alloc);
+
+            mt_entity_manager_serialize(em, &bw);
+
+            size_t size = 0;
+            uint8_t *buf = mt_buffer_writer_build(&bw, &size);
+
+            FILE *f = fopen("../assets/scene.bin", "wb");
+            if (f)
+            {
+                fwrite(buf, 1, size, f);
+                fclose(f);
+            }
+
+            mt_buffer_writer_destroy(&bw);
+        }
+
+        if (igButton("Load", (ImVec2){}))
+        {
+            FILE *f = fopen("../assets/scene.bin", "rb");
+            size_t size = 0;
+            uint8_t *buf = NULL;
+            if (f)
+            {
+                fseek(f, 0, SEEK_END);
+                size = ftell(f);
+                fseek(f, 0, SEEK_SET);
+                buf = mt_alloc(NULL, size);
+                fread(buf, 1, size, f);
+                fclose(f);
+
+                MtBufferReader br;
+                mt_buffer_reader_init(&br, buf, size);
+
+                mt_entity_manager_deserialize(em, scene, &br);
+            }
+        }
+    }
+    igEnd();
 }
 // }}}
 

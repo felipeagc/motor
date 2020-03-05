@@ -14,15 +14,17 @@ typedef struct MtPhysicsScene MtPhysicsScene;
 typedef struct MtRigidActor MtRigidActor;
 typedef struct MtPhysicsShape MtPhysicsShape;
 
-typedef enum MtRigidActorType {
+typedef uint32_t MtRigidActorType;
+enum {
     MT_RIGID_ACTOR_STATIC,
     MT_RIGID_ACTOR_DYNAMIC,
-} MtRigidActorType;
+};
 
-typedef enum MtPhysicsShapeType {
+typedef uint32_t MtPhysicsShapeType;
+enum {
     MT_PHYSICS_SHAPE_SPHERE,
     MT_PHYSICS_SHAPE_PLANE,
-} MtPhysicsShapeType;
+};
 
 typedef struct MtPhysicsTransform
 {
@@ -79,6 +81,9 @@ float mt_physics_shape_get_radius(MtPhysicsShape *shape);
 
 MT_ENGINE_API
 MtRigidActor *mt_rigid_actor_create(MtPhysicsScene *scene, MtRigidActorType type);
+
+MT_ENGINE_API
+MtRigidActorType mt_rigid_actor_get_type(MtRigidActor *actor);
 
 MT_ENGINE_API
 void mt_rigid_actor_attach_shape(MtRigidActor *actor, MtPhysicsShape *shape);

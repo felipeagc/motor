@@ -8,7 +8,9 @@ extern "C" {
 
 typedef struct MtAllocator MtAllocator;
 typedef struct MtEntityManager MtEntityManager;
+typedef struct MtScene MtScene;
 typedef struct MtBufferWriter MtBufferWriter;
+typedef struct MtBufferReader MtBufferReader;
 
 #ifndef MT_COMP_BIT
 #define MT_COMP_BIT(components, component) (1 << (offsetof(components, component) / sizeof(void *)))
@@ -22,6 +24,7 @@ typedef uint32_t MtComponentType;
 
 typedef void (*MtEntityInitializer)(MtEntityManager *, MtEntity entity);
 typedef void (*MtEntitySerializer)(MtEntityManager *, MtBufferWriter *);
+typedef void (*MtEntityDeserializer)(MtEntityManager *, MtScene *, MtBufferReader *);
 
 typedef struct MtComponentSpec
 {
@@ -34,6 +37,7 @@ typedef struct MtEntityDescriptor
 {
     MtEntityInitializer entity_init;
     MtEntitySerializer entity_serialize;
+    MtEntityDeserializer entity_deserialize;
     const MtComponentSpec *component_specs;
     uint32_t component_spec_count;
 } MtEntityDescriptor;
@@ -46,6 +50,7 @@ typedef struct MtEntityManager
     uint32_t component_spec_count;
     MtEntityInitializer entity_init;
     MtEntitySerializer entity_serialize;
+    MtEntityDeserializer entity_deserialize;
 
     MtEntity selected_entity;
 
@@ -61,6 +66,9 @@ MT_ENGINE_API void mt_entity_manager_init(
 MT_ENGINE_API void mt_entity_manager_destroy(MtEntityManager *em);
 
 MT_ENGINE_API void mt_entity_manager_serialize(MtEntityManager *em, MtBufferWriter *bw);
+
+MT_ENGINE_API void
+mt_entity_manager_deserialize(MtEntityManager *em, MtScene *scene, MtBufferReader *br);
 
 MT_ENGINE_API MtEntity
 mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask component_mask);

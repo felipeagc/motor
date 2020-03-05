@@ -20,7 +20,7 @@ typedef struct MtSceneVT
 {
     void (*init)(MtScene *inst);
     void (*update)(MtScene *inst, float delta);
-    void (*draw_ui)(MtScene *inst);
+    void (*draw_ui)(MtScene *inst, float delta);
     void (*on_event)(MtScene *inst, const MtEvent *event);
     void (*destroy)(MtScene *inst);
 } MtSceneVT;

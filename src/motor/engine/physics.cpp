@@ -215,6 +215,20 @@ extern "C" MtRigidActor *mt_rigid_actor_create(MtPhysicsScene *scene, MtRigidAct
     return (MtRigidActor *)actor;
 }
 
+extern "C" MtRigidActorType mt_rigid_actor_get_type(MtRigidActor *actor_)
+{
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    switch (actor->getConcreteType())
+    {
+        case PxConcreteType::eRIGID_DYNAMIC: return MT_RIGID_ACTOR_DYNAMIC;
+        case PxConcreteType::eRIGID_STATIC: return MT_RIGID_ACTOR_STATIC;
+        default: break;
+    }
+
+    assert(0);
+    return 0;
+}
+
 extern "C" void mt_rigid_actor_attach_shape(MtRigidActor *actor_, MtPhysicsShape *shape_)
 {
     PxRigidActor *actor = (PxRigidActor *)actor_;

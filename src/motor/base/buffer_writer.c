@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <assert.h>
+#include <motor/base/log.h>
 #include <motor/base/allocator.h>
 
 void mt_buffer_writer_init(MtBufferWriter *bw, MtAllocator *alloc)
@@ -20,7 +21,7 @@ void mt_buffer_writer_reset(MtBufferWriter *bw)
 
 void mt_buffer_writer_append(MtBufferWriter *bw, const void *data, size_t size)
 {
-    if (bw->length + size < bw->capacity)
+    if (bw->length + size > bw->capacity)
     {
         size_t increase = MT_MAX(bw->capacity, size);
         bw->capacity += increase;

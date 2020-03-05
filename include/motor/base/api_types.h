@@ -39,3 +39,6 @@
 #define MT_MIN(a, b) ((a < b) ? a : b)
 
 #define MT_INLINE static inline
+
+#define MT_STRINGIFY(x) MT_STRINGIFY_(x)
+#define MT_STRINGIFY_(x) #x

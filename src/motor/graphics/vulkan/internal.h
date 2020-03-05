@@ -17,7 +17,7 @@ enum { FRAMES_IN_FLIGHT = 2 };
         VkResult result = exp;                                                                     \
         if (result != VK_SUCCESS)                                                                  \
         {                                                                                          \
-            mt_log_error("Vulkan result: %u\n", result);                                           \
+            mt_log_error("Vulkan result: %u", result);                                             \
         }                                                                                          \
         assert(result == VK_SUCCESS);                                                              \
     } while (0)

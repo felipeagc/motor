@@ -23,6 +23,8 @@ void mt_entity_manager_init(
     memset(em->components, 0, sizeof(void *) * descriptor->component_spec_count);
 
     em->entity_init = descriptor->entity_init;
+    em->entity_serialize = descriptor->entity_serialize;
+    em->entity_deserialize = descriptor->entity_deserialize;
 
     em->selected_entity = MT_ENTITY_INVALID;
 }
@@ -79,4 +81,9 @@ MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask compo
 void mt_entity_manager_serialize(MtEntityManager *em, MtBufferWriter *bw)
 {
     em->entity_serialize(em, bw);
+}
+
+void mt_entity_manager_deserialize(MtEntityManager *em, MtScene *scene, MtBufferReader *br)
+{
+    em->entity_deserialize(em, scene, br);
 }
