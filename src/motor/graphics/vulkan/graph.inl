@@ -467,7 +467,7 @@ static MtCmdBuffer *pass_begin(MtRenderGraph *graph, const char *name)
         }
     }
 
-    uintptr_t pass_index = mt_hash_get_uint(&graph->pass_indices, mt_hash_str(name));
+    uint64_t pass_index = mt_hash_get_uint(&graph->pass_indices, mt_hash_str(name));
     assert(pass_index != MT_HASH_NOT_FOUND);
     MtRenderGraphPass *pass = &graph->passes[pass_index];
     ExecutionGroup *group = pass->group;
@@ -585,7 +585,7 @@ static MtCmdBuffer *pass_begin(MtRenderGraph *graph, const char *name)
 
 static void pass_end(MtRenderGraph *graph, const char *name)
 {
-    uintptr_t pass_index = mt_hash_get_uint(&graph->pass_indices, mt_hash_str(name));
+    uint64_t pass_index = mt_hash_get_uint(&graph->pass_indices, mt_hash_str(name));
     assert(pass_index != MT_HASH_NOT_FOUND);
     MtRenderGraphPass *pass = &graph->passes[pass_index];
     ExecutionGroup *group = pass->group;
@@ -756,7 +756,7 @@ static void graph_execute(MtRenderGraph *graph)
 static uint32_t add_graph_resource(MtRenderGraph *graph, const char *name, GraphResourceType type)
 {
     mt_array_add(graph->dev->alloc, graph->resources, 1);
-    uintptr_t index = mt_array_last(graph->resources) - graph->resources;
+    uint64_t index = mt_array_last(graph->resources) - graph->resources;
     GraphResource *resource = &graph->resources[index];
     memset(resource, 0, sizeof(*resource));
 
@@ -790,7 +790,7 @@ static void graph_add_external_buffer(MtRenderGraph *graph, const char *name, Mt
 
 static MtImage *graph_get_image(MtRenderGraph *graph, const char *name)
 {
-    uintptr_t index = mt_hash_get_uint(&graph->resource_indices, mt_hash_str(name));
+    uint64_t index = mt_hash_get_uint(&graph->resource_indices, mt_hash_str(name));
     assert(index != MT_HASH_NOT_FOUND);
     assert(graph->resources[index].type == GRAPH_RESOURCE_IMAGE);
     return graph->resources[index].image;
@@ -798,7 +798,7 @@ static MtImage *graph_get_image(MtRenderGraph *graph, const char *name)
 
 static MtImage *graph_consume_image(MtRenderGraph *graph, const char *name)
 {
-    uintptr_t index = mt_hash_get_uint(&graph->resource_indices, mt_hash_str(name));
+    uint64_t index = mt_hash_get_uint(&graph->resource_indices, mt_hash_str(name));
     assert(index != MT_HASH_NOT_FOUND);
     assert(graph->resources[index].type == GRAPH_RESOURCE_IMAGE);
     MtImage *image = graph->resources[index].image;
@@ -808,7 +808,7 @@ static MtImage *graph_consume_image(MtRenderGraph *graph, const char *name)
 
 static MtBuffer *graph_get_buffer(MtRenderGraph *graph, const char *name)
 {
-    uintptr_t index = mt_hash_get_uint(&graph->resource_indices, mt_hash_str(name));
+    uint64_t index = mt_hash_get_uint(&graph->resource_indices, mt_hash_str(name));
     assert(index != MT_HASH_NOT_FOUND);
     assert(graph->resources[index].type == GRAPH_RESOURCE_BUFFER);
     return graph->resources[index].buffer;
@@ -877,7 +877,7 @@ pass_set_depth_stencil_clearer(MtRenderGraphPass *pass, MtRenderGraphDepthStenci
 
 static void pass_read(MtRenderGraphPass *pass, MtRenderGraphPassRead type, const char *name)
 {
-    uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
+    uint64_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
 
@@ -910,7 +910,7 @@ static void pass_read(MtRenderGraphPass *pass, MtRenderGraphPassRead type, const
 
 static void pass_write(MtRenderGraphPass *pass, MtRenderGraphPassWrite type, const char *name)
 {
-    uintptr_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
+    uint64_t index = mt_hash_get_uint(&pass->graph->resource_indices, mt_hash_str(name));
     assert(index != MT_HASH_NOT_FOUND);
     GraphResource *resource = &pass->graph->resources[index];
 

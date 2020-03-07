@@ -8,7 +8,7 @@ static void hash_grow(MtHashMap *map)
 {
     uint32_t old_size     = map->size;
     uint64_t *old_keys    = map->keys;
-    uintptr_t *old_values = map->values;
+    uint64_t *old_values = map->values;
 
     map->size   = old_size * 2;
     map->keys   = mt_alloc(map->alloc, sizeof(*map->keys) * map->size);
@@ -55,7 +55,7 @@ void mt_hash_clear(MtHashMap *map)
     memset(map->keys, 0xff, sizeof(*map->keys) * map->size);
 }
 
-uintptr_t mt_hash_set_uint(MtHashMap *map, uint64_t key, uintptr_t value)
+uint64_t mt_hash_set_uint(MtHashMap *map, uint64_t key, uint64_t value)
 {
     uint32_t i     = key % map->size;
     uint32_t iters = 0;
@@ -77,7 +77,7 @@ uintptr_t mt_hash_set_uint(MtHashMap *map, uint64_t key, uintptr_t value)
     return value;
 }
 
-uintptr_t mt_hash_get_uint(MtHashMap *map, uint64_t key)
+uint64_t mt_hash_get_uint(MtHashMap *map, uint64_t key)
 {
     uint32_t i     = key % map->size;
     uint32_t iters = 0;
@@ -96,12 +96,12 @@ uintptr_t mt_hash_get_uint(MtHashMap *map, uint64_t key)
 
 void *mt_hash_set_ptr(MtHashMap *map, uint64_t key, void *value)
 {
-    return (void *)mt_hash_set_uint(map, key, (uintptr_t)value);
+    return (void *)mt_hash_set_uint(map, key, (uint64_t)value);
 }
 
 void *mt_hash_get_ptr(MtHashMap *map, uint64_t key)
 {
-    uintptr_t result = mt_hash_get_uint(map, key);
+    uint64_t result = mt_hash_get_uint(map, key);
     if (result == MT_HASH_NOT_FOUND)
         return NULL;
     return (void *)result;

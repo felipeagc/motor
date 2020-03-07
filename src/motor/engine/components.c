@@ -41,6 +41,19 @@ static void default_entity_init(MtEntityManager *em, MtEntity e)
     comps->point_light[e].radius = 0.0f;
 }
 
+static void default_entity_uninit(MtEntityManager *em, MtEntity e)
+{
+    MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
+    MtPhysicsScene *physics_scene = em->scene->physics_scene;
+
+    if (comps->actor[e] && ((em->masks[e] & MT_COMP_BIT(MtDefaultComponents, actor)) ==
+                            MT_COMP_BIT(MtDefaultComponents, actor)))
+    {
+        mt_physics_scene_remove_actor(physics_scene, comps->actor[e]);
+        mt_rigid_actor_destroy(comps->actor[e]);
+    }
+}
+
 static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
 {
     MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
@@ -160,9 +173,9 @@ static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
     }
 }
 
-static void default_entity_deserialize(MtEntityManager *em, MtScene *scene, MtBufferReader *br)
+static void default_entity_deserialize(MtEntityManager *em, MtBufferReader *br)
 {
-    MtAssetManager *am = scene->asset_manager;
+    MtAssetManager *am = em->scene->asset_manager;
     MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
 
     MtSerializeValue array_value = {0};
@@ -300,7 +313,7 @@ static void default_entity_deserialize(MtEntityManager *em, MtScene *scene, MtBu
                                 CHECK(shape_type.type > 0);
 
                                 MtPhysicsShape *shape = mt_physics_shape_create(
-                                    scene->engine->physics, shape_type.uint32);
+                                    em->scene->engine->physics, shape_type.uint32);
 
                                 if (shape_radius.type > 0 &&
                                     shape_type.type == MT_PHYSICS_SHAPE_SPHERE)
@@ -329,7 +342,8 @@ static void default_entity_deserialize(MtEntityManager *em, MtScene *scene, MtBu
 
                     CHECK(actor_type.type > 0);
                     comps->actor[e] =
-                        mt_rigid_actor_create(scene->physics_scene, actor_type.uint32);
+                        mt_rigid_actor_create(em->scene->engine->physics, actor_type.uint32);
+                    mt_physics_scene_add_actor(em->scene->physics_scene, comps->actor[e]);
 
                     for (MtPhysicsShape **shape = shapes; shape != shapes + mt_array_size(shapes);
                          ++shape)
@@ -366,6 +380,7 @@ static void default_entity_deserialize(MtEntityManager *em, MtScene *scene, MtBu
 
 MT_ENGINE_API MtEntityDescriptor mt_default_entity_descriptor = {
     .entity_init = default_entity_init,
+    .entity_uninit = default_entity_uninit,
     .entity_serialize = default_entity_serialize,
     .entity_deserialize = default_entity_deserialize,
     .component_specs = default_component_specs,

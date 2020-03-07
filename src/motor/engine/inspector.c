@@ -12,6 +12,136 @@
 #include <motor/engine/physics.h>
 #include <motor/engine/asset_manager.h>
 
+static void inspect_components(MtEngine *engine, MtEntityManager *em)
+{
+    if (em->selected_entity == MT_ENTITY_INVALID)
+    {
+        return;
+    }
+
+    if (igButton("Remove entity", (ImVec2){}))
+    {
+        mt_entity_manager_remove_entity(em, em->selected_entity);
+        return;
+    }
+
+    for (uint32_t c = 0; c < em->component_spec_count; ++c)
+    {
+        MtComponentSpec *comp_spec = &em->component_specs[c];
+
+        if ((em->masks[em->selected_entity] & (1 << c)) != (1 << c))
+        {
+            continue;
+        }
+
+        igPushIDInt(c);
+
+        if (igCollapsingHeader(
+                comp_spec->name, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_FramePadding))
+        {
+            switch (comp_spec->type)
+            {
+                case MT_COMPONENT_TYPE_TRANSFORM: {
+                    MtTransform *transforms = (MtTransform *)em->components[c];
+                    MtTransform *transform = &transforms[em->selected_entity];
+                    igDragFloat3("Position", transform->pos.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
+                    igDragFloat4("Rotation", transform->rot.v, 0.1f, -1.0f, 1.0f, "%.3f", 1.0);
+                    igDragFloat3("Scale", transform->scale.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
+                    break;
+                }
+                case MT_COMPONENT_TYPE_RIGID_ACTOR: {
+                    MtRigidActor **actors = (MtRigidActor **)em->components[c];
+                    MtRigidActor *actor = actors[em->selected_entity];
+
+                    uint32_t shape_count = mt_rigid_actor_get_shape_count(actor);
+                    MtPhysicsShape *shapes[32];
+                    mt_rigid_actor_get_shapes(actor, shapes, shape_count, 0);
+
+                    for (uint32_t i = 0; i < shape_count; ++i)
+                    {
+                        igPushIDInt(i);
+
+                        MtPhysicsShape *shape = shapes[i];
+                        MtPhysicsShapeType shape_type = mt_physics_shape_get_type(shape);
+
+                        igBeginGroup();
+
+                        switch (shape_type)
+                        {
+                            case MT_PHYSICS_SHAPE_SPHERE: {
+                                igText("Sphere shape");
+                                float radius = mt_physics_shape_get_radius(shape);
+                                igDragFloat("Radius", &radius, 0.1f, 0.0f, 0.0f, "%.3f", 1.0f);
+                                mt_physics_shape_set_radius(shape, radius);
+                                break;
+                            }
+                            case MT_PHYSICS_SHAPE_PLANE: {
+                                igText("Plane shape");
+                                break;
+                            }
+                        }
+
+                        igSameLine(0.0f, -1.0f);
+
+                        if (igButton("Remove", (ImVec2){}))
+                        {
+                            mt_rigid_actor_detach_shape(actor, shape);
+                        }
+
+                        igEndGroup();
+
+                        MtPhysicsTransform transform = mt_physics_shape_get_local_transform(shape);
+                        igDragFloat3("Position", transform.pos.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
+                        igDragFloat4("Rotation", transform.rot.v, 0.1f, -1.0f, 1.0f, "%.3f", 1.0);
+                        mt_physics_shape_set_local_transform(shape, &transform);
+
+                        igSeparator();
+
+                        igPopID();
+                    }
+
+                    if (igButton("Add shape", (ImVec2){}))
+                    {
+                        igOpenPopup("add-shape");
+                    }
+
+                    if (igBeginPopup("add-shape", 0))
+                    {
+                        static MtPhysicsShapeType type = 0;
+                        if (igRadioButtonBool("Sphere shape", type == MT_PHYSICS_SHAPE_SPHERE))
+                            type = MT_PHYSICS_SHAPE_SPHERE;
+                        if (igRadioButtonBool("Plane shape", type == MT_PHYSICS_SHAPE_PLANE))
+                            type = MT_PHYSICS_SHAPE_PLANE;
+                        if (igButton("Add", (ImVec2){}))
+                        {
+                            MtPhysicsShape *shape = mt_physics_shape_create(engine->physics, type);
+                            mt_rigid_actor_attach_shape(actor, shape);
+                            type = 0;
+                            igCloseCurrentPopup();
+                        }
+                        igEndPopup();
+                    }
+
+                    break;
+                }
+                case MT_COMPONENT_TYPE_GLTF_MODEL: {
+                    MtGltfAsset **gltf_assets = (MtGltfAsset **)em->components[c];
+                    MtGltfAsset *gltf_asset = gltf_assets[em->selected_entity];
+
+                    MtAsset *asset = (MtAsset *)gltf_asset;
+                    igText(asset->path);
+                    break;
+                }
+                case MT_COMPONENT_TYPE_UNKNOWN: {
+                    break;
+                }
+            }
+        }
+
+        igPopID();
+    }
+}
+
 void mt_inspect_entities(MtEngine *engine, MtEntityManager *em)
 {
     MtWindow *window = engine->window;
@@ -57,131 +187,7 @@ void mt_inspect_entities(MtEngine *engine, MtEntityManager *em)
     igSetNextWindowPos((ImVec2){(float)(width - win_width), (float)height / 2.0f}, 0, (ImVec2){});
     if (igBegin("Components", NULL, window_flags))
     {
-        for (uint32_t c = 0; c < em->component_spec_count; ++c)
-        {
-            MtComponentSpec *comp_spec = &em->component_specs[c];
-
-            if (em->selected_entity == MT_ENTITY_INVALID)
-            {
-                break;
-            }
-
-            if ((em->masks[em->selected_entity] & (1 << c)) != (1 << c))
-            {
-                continue;
-            }
-
-            igPushIDInt(c);
-
-            if (igCollapsingHeader(
-                    comp_spec->name,
-                    ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_FramePadding))
-            {
-                switch (comp_spec->type)
-                {
-                    case MT_COMPONENT_TYPE_TRANSFORM: {
-                        MtTransform *transforms = (MtTransform *)em->components[c];
-                        MtTransform *transform = &transforms[em->selected_entity];
-                        igDragFloat3("Position", transform->pos.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
-                        igDragFloat4("Rotation", transform->rot.v, 0.1f, -1.0f, 1.0f, "%.3f", 1.0);
-                        igDragFloat3("Scale", transform->scale.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
-                        break;
-                    }
-                    case MT_COMPONENT_TYPE_RIGID_ACTOR: {
-                        MtRigidActor **actors = (MtRigidActor **)em->components[c];
-                        MtRigidActor *actor = actors[em->selected_entity];
-
-                        uint32_t shape_count = mt_rigid_actor_get_shape_count(actor);
-                        MtPhysicsShape *shapes[32];
-                        mt_rigid_actor_get_shapes(actor, shapes, shape_count, 0);
-
-                        for (uint32_t i = 0; i < shape_count; ++i)
-                        {
-                            igPushIDInt(i);
-
-                            MtPhysicsShape *shape = shapes[i];
-                            MtPhysicsShapeType shape_type = mt_physics_shape_get_type(shape);
-
-                            igBeginGroup();
-
-                            switch (shape_type)
-                            {
-                                case MT_PHYSICS_SHAPE_SPHERE: {
-                                    igText("Sphere shape");
-                                    float radius = mt_physics_shape_get_radius(shape);
-                                    igDragFloat("Radius", &radius, 0.1f, 0.0f, 0.0f, "%.3f", 1.0f);
-                                    mt_physics_shape_set_radius(shape, radius);
-                                    break;
-                                }
-                                case MT_PHYSICS_SHAPE_PLANE: {
-                                    igText("Plane shape");
-                                    break;
-                                }
-                            }
-
-                            igSameLine(0.0f, -1.0f);
-
-                            if (igButton("Remove", (ImVec2){}))
-                            {
-                                mt_rigid_actor_detach_shape(actor, shape);
-                            }
-
-                            igEndGroup();
-
-                            MtPhysicsTransform transform =
-                                mt_physics_shape_get_local_transform(shape);
-                            igDragFloat3(
-                                "Position", transform.pos.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
-                            igDragFloat4(
-                                "Rotation", transform.rot.v, 0.1f, -1.0f, 1.0f, "%.3f", 1.0);
-                            mt_physics_shape_set_local_transform(shape, &transform);
-
-                            igSeparator();
-
-                            igPopID();
-                        }
-
-                        if (igButton("Add shape", (ImVec2){}))
-                        {
-                            igOpenPopup("add-shape");
-                        }
-
-                        if (igBeginPopup("add-shape", 0))
-                        {
-                            static MtPhysicsShapeType type = 0;
-                            if (igRadioButtonBool("Sphere shape", type == MT_PHYSICS_SHAPE_SPHERE))
-                                type = MT_PHYSICS_SHAPE_SPHERE;
-                            if (igRadioButtonBool("Plane shape", type == MT_PHYSICS_SHAPE_PLANE))
-                                type = MT_PHYSICS_SHAPE_PLANE;
-                            if (igButton("Add", (ImVec2){}))
-                            {
-                                MtPhysicsShape *shape =
-                                    mt_physics_shape_create(engine->physics, type);
-                                mt_rigid_actor_attach_shape(actor, shape);
-                                type = 0;
-                                igCloseCurrentPopup();
-                            }
-                            igEndPopup();
-                        }
-
-                        break;
-                    }
-                    case MT_COMPONENT_TYPE_GLTF_MODEL: {
-                        MtGltfAsset **gltf_assets = (MtGltfAsset **)em->components[c];
-                        MtGltfAsset *gltf_asset = gltf_assets[em->selected_entity];
-
-                        MtAsset *asset = (MtAsset *)gltf_asset;
-                        igText(asset->path);
-                        break;
-                    }
-                    case MT_COMPONENT_TYPE_UNKNOWN: {
-                        break;
-                    }
-                }
-            }
-
-            igPopID();
-        }
+        inspect_components(engine, em);
     }
     igEnd();
 

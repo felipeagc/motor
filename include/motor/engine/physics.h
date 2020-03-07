@@ -48,6 +48,10 @@ MT_ENGINE_API MtPhysicsScene *mt_physics_scene_create(MtPhysics *physics);
 
 MT_ENGINE_API void mt_physics_scene_destroy(MtPhysicsScene *scene);
 
+MT_ENGINE_API void mt_physics_scene_add_actor(MtPhysicsScene *scene, MtRigidActor *actor);
+
+MT_ENGINE_API void mt_physics_scene_remove_actor(MtPhysicsScene *scene, MtRigidActor *actor);
+
 MT_ENGINE_API void mt_physics_scene_step(MtPhysicsScene *scene, float dt);
 
 //
@@ -80,7 +84,9 @@ float mt_physics_shape_get_radius(MtPhysicsShape *shape);
 //
 
 MT_ENGINE_API
-MtRigidActor *mt_rigid_actor_create(MtPhysicsScene *scene, MtRigidActorType type);
+MtRigidActor *mt_rigid_actor_create(MtPhysics *physics, MtRigidActorType type);
+
+MT_ENGINE_API void mt_rigid_actor_destroy(MtRigidActor *actor);
 
 MT_ENGINE_API
 MtRigidActorType mt_rigid_actor_get_type(MtRigidActor *actor);

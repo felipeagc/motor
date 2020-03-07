@@ -92,6 +92,18 @@ extern "C" void mt_physics_scene_destroy(MtPhysicsScene *scene)
     mt_free(alloc, scene);
 }
 
+extern "C" void mt_physics_scene_add_actor(MtPhysicsScene *scene, MtRigidActor *actor_)
+{
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    scene->scene->addActor(*actor);
+}
+
+extern "C" void mt_physics_scene_remove_actor(MtPhysicsScene *scene, MtRigidActor *actor_)
+{
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    scene->scene->removeActor(*actor);
+}
+
 extern "C" void mt_physics_scene_step(MtPhysicsScene *scene, float dt)
 {
     scene->accumulator += dt;
@@ -190,10 +202,8 @@ extern "C" float mt_physics_shape_get_radius(MtPhysicsShape *shape_)
 // RigidActor
 //
 
-extern "C" MtRigidActor *mt_rigid_actor_create(MtPhysicsScene *scene, MtRigidActorType type)
+extern "C" MtRigidActor *mt_rigid_actor_create(MtPhysics *physics, MtRigidActorType type)
 {
-    MtPhysics *physics = scene->physics;
-
     PxRigidActor *actor = NULL;
 
     switch (type)
@@ -210,9 +220,13 @@ extern "C" MtRigidActor *mt_rigid_actor_create(MtPhysicsScene *scene, MtRigidAct
 
     assert(actor);
 
-    scene->scene->addActor(*actor);
-
     return (MtRigidActor *)actor;
+}
+
+extern "C" void mt_rigid_actor_destroy(MtRigidActor *actor_)
+{
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    actor->release();
 }
 
 extern "C" MtRigidActorType mt_rigid_actor_get_type(MtRigidActor *actor_)

@@ -160,7 +160,7 @@ static void game_draw_ui(MtScene *scene, float delta)
                 MtBufferReader br;
                 mt_buffer_reader_init(&br, buf, size);
 
-                mt_entity_manager_deserialize(em, scene, &br);
+                mt_entity_manager_deserialize(em, &br);
             }
         }
     }

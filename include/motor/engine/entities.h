@@ -23,8 +23,9 @@ typedef uint32_t MtComponentMask;
 typedef uint32_t MtComponentType;
 
 typedef void (*MtEntityInitializer)(MtEntityManager *, MtEntity entity);
+typedef void (*MtEntityUninitializer)(MtEntityManager *, MtEntity entity);
 typedef void (*MtEntitySerializer)(MtEntityManager *, MtBufferWriter *);
-typedef void (*MtEntityDeserializer)(MtEntityManager *, MtScene *, MtBufferReader *);
+typedef void (*MtEntityDeserializer)(MtEntityManager *, MtBufferReader *);
 
 typedef struct MtComponentSpec
 {
@@ -36,6 +37,7 @@ typedef struct MtComponentSpec
 typedef struct MtEntityDescriptor
 {
     MtEntityInitializer entity_init;
+    MtEntityUninitializer entity_uninit;
     MtEntitySerializer entity_serialize;
     MtEntityDeserializer entity_deserialize;
     const MtComponentSpec *component_specs;
@@ -46,9 +48,12 @@ typedef struct MtEntityManager
 {
     MtAllocator *alloc;
 
+    MtScene *scene;
+
     MtComponentSpec *component_specs;
     uint32_t component_spec_count;
     MtEntityInitializer entity_init;
+    MtEntityUninitializer entity_uninit;
     MtEntitySerializer entity_serialize;
     MtEntityDeserializer entity_deserialize;
 
@@ -61,17 +66,18 @@ typedef struct MtEntityManager
 } MtEntityManager;
 
 MT_ENGINE_API void mt_entity_manager_init(
-    MtEntityManager *em, MtAllocator *alloc, const MtEntityDescriptor *descriptor);
+    MtEntityManager *em, MtAllocator *alloc, MtScene *scene, const MtEntityDescriptor *descriptor);
 
 MT_ENGINE_API void mt_entity_manager_destroy(MtEntityManager *em);
 
 MT_ENGINE_API void mt_entity_manager_serialize(MtEntityManager *em, MtBufferWriter *bw);
 
-MT_ENGINE_API void
-mt_entity_manager_deserialize(MtEntityManager *em, MtScene *scene, MtBufferReader *br);
+MT_ENGINE_API void mt_entity_manager_deserialize(MtEntityManager *em, MtBufferReader *br);
 
 MT_ENGINE_API MtEntity
 mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask component_mask);
+
+MT_ENGINE_API void mt_entity_manager_remove_entity(MtEntityManager *em, MtEntity entity);
 
 #ifdef __cplusplus
 }

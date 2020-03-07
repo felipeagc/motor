@@ -6,10 +6,11 @@
 #include <assert.h>
 
 void mt_entity_manager_init(
-    MtEntityManager *em, MtAllocator *alloc, const MtEntityDescriptor *descriptor)
+    MtEntityManager *em, MtAllocator *alloc, MtScene *scene, const MtEntityDescriptor *descriptor)
 {
     memset(em, 0, sizeof(*em));
     em->alloc = alloc;
+    em->scene = scene;
 
     em->component_spec_count = descriptor->component_spec_count;
     em->component_specs =
@@ -23,6 +24,7 @@ void mt_entity_manager_init(
     memset(em->components, 0, sizeof(void *) * descriptor->component_spec_count);
 
     em->entity_init = descriptor->entity_init;
+    em->entity_uninit = descriptor->entity_uninit;
     em->entity_serialize = descriptor->entity_serialize;
     em->entity_deserialize = descriptor->entity_deserialize;
 
@@ -71,11 +73,34 @@ MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask compo
     {
         for (uint32_t c = 0; c < em->component_spec_count; ++c)
         {
-            memset(&em->components[c], 0, em->component_specs[c].size);
+            uint8_t *comp_data = em->components[c];
+            memset(
+                comp_data + (em->component_specs[c].size * entity_index),
+                0,
+                em->component_specs[c].size);
         }
     }
 
     return entity_index;
+}
+
+void mt_entity_manager_remove_entity(MtEntityManager *em, MtEntity entity)
+{
+    if (em->entity_uninit)
+    {
+        em->entity_uninit(em, entity);
+    }
+    for (uint32_t c = 0; c < em->component_spec_count; ++c)
+    {
+        uint8_t *comp_data = em->components[c];
+        memcpy(
+            comp_data + (em->component_specs[c].size * entity),
+            comp_data + (em->component_specs[c].size * (em->entity_count - 1)),
+            em->component_specs[c].size);
+        em->masks[entity] = em->masks[em->entity_count - 1];
+    }
+    em->entity_count--;
+    em->selected_entity = MT_ENTITY_INVALID;
 }
 
 void mt_entity_manager_serialize(MtEntityManager *em, MtBufferWriter *bw)
@@ -83,7 +108,7 @@ void mt_entity_manager_serialize(MtEntityManager *em, MtBufferWriter *bw)
     em->entity_serialize(em, bw);
 }
 
-void mt_entity_manager_deserialize(MtEntityManager *em, MtScene *scene, MtBufferReader *br)
+void mt_entity_manager_deserialize(MtEntityManager *em, MtBufferReader *br)
 {
-    em->entity_deserialize(em, scene, br);
+    em->entity_deserialize(em, br);
 }
