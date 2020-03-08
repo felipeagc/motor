@@ -22,37 +22,63 @@
         }                                                                                          \
     } while (0)
 
-static MtComponentSpec default_component_specs[] = {
-    {"Transform", sizeof(MtTransform), MT_COMPONENT_TYPE_TRANSFORM},
-    {"GLTF Model", sizeof(MtGltfAsset *), MT_COMPONENT_TYPE_GLTF_MODEL},
-    {"Rigid actor", sizeof(MtRigidActor *), MT_COMPONENT_TYPE_RIGID_ACTOR},
-    {"Point light", sizeof(MtPointLightComponent), MT_COMPONENT_TYPE_POINT_LIGHT},
-};
-
-static void default_entity_init(MtEntityManager *em, MtEntity e)
+static void transform_init(MtEntityManager *em, void *comp)
 {
-    MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
-    comps->transform[e].pos = V3(0.f, 0.f, 0.f);
-    comps->transform[e].scale = V3(1.f, 1.f, 1.f);
-    comps->transform[e].rot = (Quat){0, 0, 0, 1};
-    comps->model[e] = NULL;
-    comps->actor[e] = NULL;
-    comps->point_light[e].color = V3(1, 1, 1);
-    comps->point_light[e].radius = 0.0f;
-}
+    MtTransform *transform = comp;
 
-static void default_entity_uninit(MtEntityManager *em, MtEntity e)
-{
-    MtDefaultComponents *comps = (MtDefaultComponents *)em->components;
-    MtPhysicsScene *physics_scene = em->scene->physics_scene;
+    MtTransform zero_transform = {0};
 
-    if (comps->actor[e] && ((em->masks[e] & MT_COMP_BIT(MtDefaultComponents, actor)) ==
-                            MT_COMP_BIT(MtDefaultComponents, actor)))
+    if (memcmp(transform, &zero_transform, sizeof(*transform)) == 0)
     {
-        mt_physics_scene_remove_actor(physics_scene, comps->actor[e]);
-        mt_rigid_actor_destroy(comps->actor[e]);
+        transform->pos = V3(0.f, 0.f, 0.f);
+        transform->scale = V3(1.f, 1.f, 1.f);
+        transform->rot = (Quat){0, 0, 0, 1};
     }
 }
+
+static void point_light_init(MtEntityManager *em, void *comp)
+{
+    MtPointLightComponent *point_light = comp;
+    point_light->color = V3(1, 1, 1);
+    point_light->radius = 0.0f;
+}
+
+static void rigid_actor_init(MtEntityManager *em, void *comp)
+{
+    MtRigidActor **actor = comp;
+    if (*actor == NULL)
+    {
+        *actor = mt_rigid_actor_create(em->scene->engine->physics, MT_RIGID_ACTOR_DYNAMIC);
+    }
+    mt_physics_scene_add_actor(em->scene->physics_scene, *actor);
+}
+
+static void rigid_actor_uninit(MtEntityManager *em, void *comp)
+{
+    MtRigidActor **actor = comp;
+
+    mt_rigid_actor_destroy(*actor);
+}
+
+static void rigid_actor_unregister(MtEntityManager *em, void *comp)
+{
+    MtPhysicsScene *physics_scene = em->scene->physics_scene;
+    MtRigidActor **actor = comp;
+
+    mt_physics_scene_remove_actor(physics_scene, *actor);
+}
+
+static MtComponentSpec default_component_specs[] = {
+    {"Transform", sizeof(MtTransform), MT_COMPONENT_TYPE_TRANSFORM, transform_init},
+    {"GLTF Model", sizeof(MtGltfAsset *), MT_COMPONENT_TYPE_GLTF_MODEL},
+    {"Rigid actor",
+     sizeof(MtRigidActor *),
+     MT_COMPONENT_TYPE_RIGID_ACTOR,
+     rigid_actor_init,
+     rigid_actor_uninit,
+     rigid_actor_unregister},
+    {"Point light", sizeof(MtPointLightComponent), MT_COMPONENT_TYPE_POINT_LIGHT, point_light_init},
+};
 
 static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
 {
@@ -379,8 +405,6 @@ static void default_entity_deserialize(MtEntityManager *em, MtBufferReader *br)
 }
 
 MT_ENGINE_API MtEntityDescriptor mt_default_entity_descriptor = {
-    .entity_init = default_entity_init,
-    .entity_uninit = default_entity_uninit,
     .entity_serialize = default_entity_serialize,
     .entity_deserialize = default_entity_deserialize,
     .component_specs = default_component_specs,

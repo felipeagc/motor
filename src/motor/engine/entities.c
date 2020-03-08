@@ -23,8 +23,6 @@ void mt_entity_manager_init(
     em->components = mt_alloc(em->alloc, sizeof(void *) * descriptor->component_spec_count);
     memset(em->components, 0, sizeof(void *) * descriptor->component_spec_count);
 
-    em->entity_init = descriptor->entity_init;
-    em->entity_uninit = descriptor->entity_uninit;
     em->entity_serialize = descriptor->entity_serialize;
     em->entity_deserialize = descriptor->entity_deserialize;
 
@@ -65,19 +63,15 @@ MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask compo
     MtEntity entity_index = em->entity_count++;
     em->masks[entity_index] = component_mask;
 
-    if (em->entity_init)
+    for (uint32_t c = 0; c < em->component_spec_count; ++c)
     {
-        em->entity_init(em, entity_index);
-    }
-    else
-    {
-        for (uint32_t c = 0; c < em->component_spec_count; ++c)
+        MtComponentSpec *comp_spec = &em->component_specs[c];
+        uint8_t *comp_data = em->components[c] + (em->component_specs[c].size * entity_index);
+        memset(comp_data, 0, em->component_specs[c].size);
+
+        if (comp_spec->init)
         {
-            uint8_t *comp_data = em->components[c];
-            memset(
-                comp_data + (em->component_specs[c].size * entity_index),
-                0,
-                em->component_specs[c].size);
+            comp_spec->init(em, comp_data);
         }
     }
 
@@ -86,13 +80,21 @@ MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask compo
 
 void mt_entity_manager_remove_entity(MtEntityManager *em, MtEntity entity)
 {
-    if (em->entity_uninit)
-    {
-        em->entity_uninit(em, entity);
-    }
     for (uint32_t c = 0; c < em->component_spec_count; ++c)
     {
+        MtComponentSpec *comp_spec = &em->component_specs[c];
         uint8_t *comp_data = em->components[c];
+
+        if (comp_spec->unregister)
+        {
+            comp_spec->unregister(em, comp_data + (em->component_specs[c].size * entity));
+        }
+
+        if (comp_spec->uninit)
+        {
+            comp_spec->uninit(em, comp_data + (em->component_specs[c].size * entity));
+        }
+
         memcpy(
             comp_data + (em->component_specs[c].size * entity),
             comp_data + (em->component_specs[c].size * (em->entity_count - 1)),

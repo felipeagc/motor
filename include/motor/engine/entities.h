@@ -22,8 +22,9 @@ typedef uint32_t MtEntity;
 typedef uint32_t MtComponentMask;
 typedef uint32_t MtComponentType;
 
-typedef void (*MtEntityInitializer)(MtEntityManager *, MtEntity entity);
-typedef void (*MtEntityUninitializer)(MtEntityManager *, MtEntity entity);
+typedef void (*MtComponentInitializer)(MtEntityManager *, void *comp);
+typedef void (*MtComponentUninitializer)(MtEntityManager *, void *comp);
+typedef void (*MtComponentUnregisterer)(MtEntityManager *, void *comp);
 typedef void (*MtEntitySerializer)(MtEntityManager *, MtBufferWriter *);
 typedef void (*MtEntityDeserializer)(MtEntityManager *, MtBufferReader *);
 
@@ -32,12 +33,14 @@ typedef struct MtComponentSpec
     const char *name;
     uint32_t size;
     MtComponentType type;
+    MtComponentInitializer init;
+    MtComponentUninitializer uninit;
+    MtComponentUnregisterer unregister; // Example usage: removing physics object from scene without
+                                        // deleting the physics object itself
 } MtComponentSpec;
 
 typedef struct MtEntityDescriptor
 {
-    MtEntityInitializer entity_init;
-    MtEntityUninitializer entity_uninit;
     MtEntitySerializer entity_serialize;
     MtEntityDeserializer entity_deserialize;
     const MtComponentSpec *component_specs;
@@ -52,8 +55,6 @@ typedef struct MtEntityManager
 
     MtComponentSpec *component_specs;
     uint32_t component_spec_count;
-    MtEntityInitializer entity_init;
-    MtEntityUninitializer entity_uninit;
     MtEntitySerializer entity_serialize;
     MtEntityDeserializer entity_deserialize;
 

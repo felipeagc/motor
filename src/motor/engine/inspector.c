@@ -25,6 +25,37 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
         return;
     }
 
+    if (igCollapsingHeader(
+            "Component masks", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_FramePadding))
+    {
+        for (uint32_t c = 0; c < em->component_spec_count; ++c)
+        {
+            uint32_t comp_bit = 1 << c;
+            MtComponentMask *mask = &em->masks[em->selected_entity];
+            MtComponentSpec *comp_spec = &em->component_specs[c];
+            uint8_t *comp_data = em->components[c] + (comp_spec->size * em->selected_entity);
+            if (igCheckboxFlags(comp_spec->name, mask, comp_bit))
+            {
+                if ((*mask & comp_bit) == comp_bit)
+                {
+                    // Added the component
+                    if (comp_spec->init)
+                    {
+                        comp_spec->init(em, comp_data);
+                    }
+                }
+                else
+                {
+                    // Removed the component
+                    if (comp_spec->unregister)
+                    {
+                        comp_spec->unregister(em, comp_data);
+                    }
+                }
+            }
+        }
+    }
+
     for (uint32_t c = 0; c < em->component_spec_count; ++c)
     {
         MtComponentSpec *comp_spec = &em->component_specs[c];
