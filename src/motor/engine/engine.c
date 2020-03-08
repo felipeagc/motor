@@ -129,6 +129,8 @@ void mt_engine_init(MtEngine *engine)
     mt_asset_manager_init(engine->asset_manager, engine);
 
     MtAssetManager *am = engine->asset_manager;
+    mt_asset_manager_queue_load(
+        am, "../assets/default_cube.glb", (MtAsset **)&engine->default_cube);
     mt_asset_manager_queue_load(am, "../shaders/pbr.hlsl", (MtAsset **)&engine->pbr_pipeline);
     mt_asset_manager_queue_load(am, "../shaders/gizmo.hlsl", (MtAsset **)&engine->gizmo_pipeline);
     mt_asset_manager_queue_load(

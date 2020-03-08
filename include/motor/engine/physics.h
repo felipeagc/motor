@@ -88,6 +88,8 @@ MtRigidActor *mt_rigid_actor_create(MtPhysics *physics, MtRigidActorType type);
 
 MT_ENGINE_API void mt_rigid_actor_destroy(MtRigidActor *actor);
 
+MT_ENGINE_API MtPhysicsScene* mt_rigid_actor_get_scene(MtRigidActor *actor);
+
 MT_ENGINE_API
 MtRigidActorType mt_rigid_actor_get_type(MtRigidActor *actor);
 

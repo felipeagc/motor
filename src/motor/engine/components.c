@@ -43,6 +43,12 @@ static void point_light_init(MtEntityManager *em, void *comp)
     point_light->radius = 0.0f;
 }
 
+static void gltf_model_init(MtEntityManager *em, void *comp)
+{
+    MtGltfAsset **model = comp;
+    *model = em->scene->engine->default_cube;
+}
+
 static void rigid_actor_init(MtEntityManager *em, void *comp)
 {
     MtRigidActor **actor = comp;
@@ -53,31 +59,32 @@ static void rigid_actor_init(MtEntityManager *em, void *comp)
     mt_physics_scene_add_actor(em->scene->physics_scene, *actor);
 }
 
-static void rigid_actor_uninit(MtEntityManager *em, void *comp)
+static void rigid_actor_uninit(MtEntityManager *em, void *comp, bool remove)
 {
     MtRigidActor **actor = comp;
+    if (*actor == NULL)
+    {
+        return;
+    }
 
-    mt_rigid_actor_destroy(*actor);
-}
+    MtPhysicsScene *physics_scene = mt_rigid_actor_get_scene(*actor);
 
-static void rigid_actor_unregister(MtEntityManager *em, void *comp)
-{
-    MtPhysicsScene *physics_scene = em->scene->physics_scene;
-    MtRigidActor **actor = comp;
+    if (physics_scene)
+    {
+        mt_physics_scene_remove_actor(physics_scene, *actor);
+    }
 
-    mt_physics_scene_remove_actor(physics_scene, *actor);
+    if (remove)
+    {
+        mt_rigid_actor_destroy(*actor);
+    }
 }
 
 static MtComponentSpec default_component_specs[] = {
-    {"Transform", sizeof(MtTransform), MT_COMPONENT_TYPE_TRANSFORM, transform_init},
-    {"GLTF Model", sizeof(MtGltfAsset *), MT_COMPONENT_TYPE_GLTF_MODEL},
-    {"Rigid actor",
-     sizeof(MtRigidActor *),
-     MT_COMPONENT_TYPE_RIGID_ACTOR,
-     rigid_actor_init,
-     rigid_actor_uninit,
-     rigid_actor_unregister},
-    {"Point light", sizeof(MtPointLightComponent), MT_COMPONENT_TYPE_POINT_LIGHT, point_light_init},
+    {"Transform", sizeof(MtTransform), transform_init},
+    {"GLTF Model", sizeof(MtGltfAsset *), gltf_model_init},
+    {"Rigid actor", sizeof(MtRigidActor *), rigid_actor_init, rigid_actor_uninit},
+    {"Point light", sizeof(MtPointLightComponent), point_light_init},
 };
 
 static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
@@ -97,12 +104,11 @@ static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
         {
             if ((em->masks[e] & (1 << c)) != (1 << c)) continue;
 
-            MtComponentType comp_type = em->component_specs[c].type;
-            mt_serialize_uint32(bw, comp_type); // key
+            mt_serialize_uint32(bw, (1 << c)); // key
 
-            switch (comp_type)
+            switch (1 << c)
             {
-                case MT_COMPONENT_TYPE_TRANSFORM: {
+                case MT_COMP_BIT(MtDefaultComponents, transform): {
                     MtTransform transform = comps->transform[e];
 
                     mt_serialize_map(bw, 3); // value
@@ -115,7 +121,7 @@ static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
                     mt_serialize_quat(bw, &transform.rot);
                     break;
                 }
-                case MT_COMPONENT_TYPE_GLTF_MODEL: {
+                case MT_COMP_BIT(MtDefaultComponents, model): {
                     MtAsset *asset = (MtAsset *)comps->model[e];
 
                     mt_serialize_map(bw, 1); // value
@@ -124,7 +130,7 @@ static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
                     mt_serialize_string(bw, asset->path);
                     break;
                 }
-                case MT_COMPONENT_TYPE_RIGID_ACTOR: {
+                case MT_COMP_BIT(MtDefaultComponents, actor): {
                     MtRigidActor *actor = comps->actor[e];
                     uint32_t shape_count = mt_rigid_actor_get_shape_count(actor);
                     MtPhysicsShape *shapes[32];
@@ -182,7 +188,7 @@ static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
 
                     break;
                 }
-                case MT_COMPONENT_TYPE_POINT_LIGHT: {
+                case MT_COMP_BIT(MtDefaultComponents, point_light): {
                     MtPointLightComponent point_light = comps->point_light[e];
 
                     mt_serialize_map(bw, 2); // value
@@ -227,7 +233,7 @@ static void default_entity_deserialize(MtEntityManager *em, MtBufferReader *br)
 
             switch (comp_key.uint32)
             {
-                case MT_COMPONENT_TYPE_TRANSFORM: {
+                case MT_COMP_BIT(MtDefaultComponents, transform): {
                     em->masks[e] |= MT_COMP_BIT(MtDefaultComponents, transform);
                     for (uint32_t k = 0; k < comp_value.map.pair_count; ++k)
                     {
@@ -250,7 +256,7 @@ static void default_entity_deserialize(MtEntityManager *em, MtBufferReader *br)
                     }
                     break;
                 }
-                case MT_COMPONENT_TYPE_GLTF_MODEL: {
+                case MT_COMP_BIT(MtDefaultComponents, model): {
                     em->masks[e] |= MT_COMP_BIT(MtDefaultComponents, model);
                     for (uint32_t k = 0; k < comp_value.map.pair_count; ++k)
                     {
@@ -264,7 +270,7 @@ static void default_entity_deserialize(MtEntityManager *em, MtBufferReader *br)
                     }
                     break;
                 }
-                case MT_COMPONENT_TYPE_RIGID_ACTOR: {
+                case MT_COMP_BIT(MtDefaultComponents, actor): {
                     em->masks[e] |= MT_COMP_BIT(MtDefaultComponents, actor);
 
                     MtSerializeValue actor_type = {0};
@@ -380,7 +386,7 @@ static void default_entity_deserialize(MtEntityManager *em, MtBufferReader *br)
                     mt_array_free(NULL, shapes);
                     break;
                 }
-                case MT_COMPONENT_TYPE_POINT_LIGHT: {
+                case MT_COMP_BIT(MtDefaultComponents, point_light): {
                     em->masks[e] |= MT_COMP_BIT(MtDefaultComponents, point_light);
                     for (uint32_t k = 0; k < comp_value.map.pair_count; ++k)
                     {

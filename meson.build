@@ -160,6 +160,7 @@ motor_engine_dep = declare_dependency(
   )
 
 executable('gltf_ktx', ['tools/gltf_ktx.c', 'tools/bc7enc16.c'], dependencies: [motor_base_dep])
+executable('img_to_ktx', ['tools/img_to_ktx.c', 'tools/bc7enc16.c'], dependencies: [motor_base_dep])
 
 gui_link_args = []
 

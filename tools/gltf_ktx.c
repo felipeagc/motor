@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <motor/base/api_types.h>
+#include <motor/base/buffer_writer.h>
 #include <motor/base/array.h>
 
 #define KTX_UNSIGNED_BYTE 0x1401
@@ -20,13 +21,6 @@
 #define KTX_COMPRESSED_SRGB_ALPHA_BPTC_UNORM 0x8E8D
 #define KTX_COMPRESSED_RGB_BPTC_SIGNED_FLOAT 0x8E8E
 #define KTX_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT 0x8E8F
-
-typedef struct ByteWriter
-{
-    uint8_t *buffer;
-    uint64_t capacity;
-    uint64_t count;
-} ByteWriter;
 
 typedef struct BC7Block
 {
@@ -38,45 +32,14 @@ typedef struct ColorQuadU8
     uint8_t vals[4];
 } ColorQuadU8;
 
-static void write_bytes(ByteWriter *bw, const void *bytes, uint64_t size)
-{
-    if (!bw->buffer)
-    {
-        bw->capacity = 1 << 14;
-        bw->capacity = bw->capacity < size ? size : bw->capacity;
-        bw->buffer = realloc(bw->buffer, bw->capacity);
-        bw->count = 0;
-    }
-    if (bw->capacity - bw->count < size)
-    {
-        bw->capacity *= 2;
-        bw->capacity += size;
-        bw->buffer = realloc(bw->buffer, bw->capacity);
-    }
-    memcpy(bw->buffer + bw->count, bytes, size);
-    bw->count += size;
-}
-
-static void byte_writer_pad(ByteWriter *bw)
+static void buffer_writer_pad(MtBufferWriter *bw)
 {
     uint64_t zero = 0;
-    write_bytes(bw, &zero, 4 - (bw->count % 4));
+    mt_buffer_writer_append(bw, &zero, 4 - (bw->length % 4));
 }
 
 const static uint8_t ktx_identifier[12] = {
-    0xAB,
-    0x4B,
-    0x54,
-    0x58,
-    0x20,
-    0x31,
-    0x31,
-    0xBB,
-    0x0D,
-    0x0A,
-    0x1A,
-    0x0A,
-};
+    0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A};
 
 typedef struct ktx_header_t
 {
@@ -126,7 +89,8 @@ int main(int argc, const char *argv[])
         exit(1);
     }
 
-    ByteWriter bw = {0};
+    MtBufferWriter bw = {0};
+    mt_buffer_writer_init(&bw, NULL);
 
     cgltf_buffer_view **visited_buffer_views = NULL;
 
@@ -163,8 +127,7 @@ int main(int argc, const char *argv[])
 
             bc7enc16_compress_block_params pack_params = {0};
             bc7enc16_compress_block_params_init(&pack_params);
-            if (!srgb)
-                bc7enc16_compress_block_params_init_linear_weights(&pack_params);
+            if (!srgb) bc7enc16_compress_block_params_init_linear_weights(&pack_params);
             pack_params.m_max_partitions_mode1 = BC7ENC16_MAX_PARTITIONS1;
             pack_params.m_uber_level = 0;
 
@@ -197,7 +160,7 @@ int main(int argc, const char *argv[])
                 }
             }
 
-            uint64_t offset = bw.count;
+            uint64_t offset = bw.length;
 
             ktx_header_t header = {0};
             memcpy(&header.identifier, ktx_identifier, sizeof(ktx_identifier));
@@ -226,19 +189,19 @@ int main(int argc, const char *argv[])
             header.number_of_mipmap_levels = 1;
             header.bytes_of_key_value_data = 0;
 
-            write_bytes(&bw, &header, sizeof(header));
+            mt_buffer_writer_append(&bw, &header, sizeof(header));
 
             uint32_t image_size = mt_array_size(packed_image) * sizeof(*packed_image);
-            write_bytes(&bw, &image_size, sizeof(image_size));
+            mt_buffer_writer_append(&bw, &image_size, sizeof(image_size));
 
-            write_bytes(&bw, packed_image, (uint64_t)image_size);
+            mt_buffer_writer_append(&bw, packed_image, (uint64_t)image_size);
 
-            byte_writer_pad(&bw);
+            buffer_writer_pad(&bw);
 
-            assert(bw.count % 4 == 0);
+            assert(bw.length % 4 == 0);
 
             buffer_view->offset = offset;
-            buffer_view->size = bw.count - offset;
+            buffer_view->size = bw.length - offset;
             mt_array_push(NULL, visited_buffer_views, buffer_view);
 
             image->mime_type = "image/ktx";
@@ -271,17 +234,17 @@ int main(int argc, const char *argv[])
         }
 
         uint8_t *buffer_data = (uint8_t *)buffer_view->buffer->data;
-        uint64_t offset = bw.count;
-        write_bytes(&bw, buffer_data + buffer_view->offset, buffer_view->size);
-        byte_writer_pad(&bw);
+        uint64_t offset = bw.length;
+        mt_buffer_writer_append(&bw, buffer_data + buffer_view->offset, buffer_view->size);
+        buffer_writer_pad(&bw);
         buffer_view->offset = offset;
     }
 
     data->buffers_count = 1;
     data->buffers = malloc(sizeof(cgltf_buffer));
     memset(data->buffers, 0, sizeof(*data->buffers));
-    data->buffers[0].size = bw.count;
-    data->buffers[0].data = bw.buffer;
+    data->buffers[0].size = bw.length;
+    data->buffers[0].data = bw.buf;
 
     for (uint32_t i = 0; i < data->buffer_views_count; i++)
     {
@@ -289,7 +252,8 @@ int main(int argc, const char *argv[])
         buffer_view->buffer = &data->buffers[0];
     }
 
-    ByteWriter fw = {0};
+    MtBufferWriter fw = {0};
+    mt_buffer_writer_init(&fw, NULL);
 
     typedef struct GltfChunkHeader
     {
@@ -309,25 +273,25 @@ int main(int argc, const char *argv[])
     gltf_header.magic = 0x46546C67;
     gltf_header.version = 2;
     gltf_header.length = sizeof(gltf_header) + sizeof(GltfChunkHeader) + json_size +
-                         sizeof(GltfChunkHeader) + bw.count;
+                         sizeof(GltfChunkHeader) + bw.length;
 
-    write_bytes(&fw, &gltf_header, sizeof(gltf_header));
+    mt_buffer_writer_append(&fw, &gltf_header, sizeof(gltf_header));
 
     char *json_bytes = malloc(json_size);
     cgltf_write(NULL, json_bytes, json_size, data);
     GltfChunkHeader json_header;
     json_header.chunk_length = json_size;
     json_header.chunk_type = 0x4E4F534A;
-    write_bytes(&fw, &json_header, sizeof(json_header));
-    write_bytes(&fw, json_bytes, json_size);
+    mt_buffer_writer_append(&fw, &json_header, sizeof(json_header));
+    mt_buffer_writer_append(&fw, json_bytes, json_size);
 
     GltfChunkHeader bin_header;
-    bin_header.chunk_length = bw.count;
+    bin_header.chunk_length = bw.length;
     bin_header.chunk_type = 0x004E4942;
-    write_bytes(&fw, &bin_header, sizeof(bin_header));
-    write_bytes(&fw, bw.buffer, bw.count);
+    mt_buffer_writer_append(&fw, &bin_header, sizeof(bin_header));
+    mt_buffer_writer_append(&fw, bw.buf, bw.length);
 
-    assert(fw.count == gltf_header.length);
+    assert(fw.length == gltf_header.length);
 
     FILE *f = fopen(out_path, "wb");
     if (!f)
@@ -336,7 +300,7 @@ int main(int argc, const char *argv[])
         exit(1);
     }
 
-    fwrite(fw.buffer, 1, fw.count, f);
+    fwrite(fw.buf, 1, fw.length, f);
 
     fclose(f);
 

@@ -20,9 +20,9 @@ struct MtPhysics
 
 struct MtPhysicsScene
 {
+    PxScene *scene;
     MtPhysics *physics;
     PxDefaultCpuDispatcher *dispatcher;
-    PxScene *scene;
 
     float accumulator;
     float step_size;
@@ -78,6 +78,7 @@ extern "C" MtPhysicsScene *mt_physics_scene_create(MtPhysics *physics)
     scene_desc.cpuDispatcher = scene->dispatcher;
     scene_desc.filterShader = PxDefaultSimulationFilterShader;
     scene->scene = physics->physics->createScene(scene_desc);
+    scene->scene->userData = scene;
 
     return scene;
 }
@@ -225,12 +226,29 @@ extern "C" MtRigidActor *mt_rigid_actor_create(MtPhysics *physics, MtRigidActorT
 
 extern "C" void mt_rigid_actor_destroy(MtRigidActor *actor_)
 {
+    assert(actor_);
+
     PxRigidActor *actor = (PxRigidActor *)actor_;
     actor->release();
 }
 
+extern "C" MtPhysicsScene *mt_rigid_actor_get_scene(MtRigidActor *actor_)
+{
+    assert(actor_);
+
+    PxRigidActor *actor = (PxRigidActor *)actor_;
+    PxScene *scene = actor->getScene();
+    if (scene)
+    {
+        return (MtPhysicsScene *)scene->userData;
+    }
+    return NULL;
+}
+
 extern "C" MtRigidActorType mt_rigid_actor_get_type(MtRigidActor *actor_)
 {
+    assert(actor_);
+
     PxRigidActor *actor = (PxRigidActor *)actor_;
     switch (actor->getConcreteType())
     {
@@ -245,6 +263,8 @@ extern "C" MtRigidActorType mt_rigid_actor_get_type(MtRigidActor *actor_)
 
 extern "C" void mt_rigid_actor_attach_shape(MtRigidActor *actor_, MtPhysicsShape *shape_)
 {
+    assert(actor_);
+
     PxRigidActor *actor = (PxRigidActor *)actor_;
     PxShape *shape = (PxShape *)shape_;
     actor->attachShape(*shape);
@@ -252,6 +272,8 @@ extern "C" void mt_rigid_actor_attach_shape(MtRigidActor *actor_, MtPhysicsShape
 
 extern "C" void mt_rigid_actor_detach_shape(MtRigidActor *actor_, MtPhysicsShape *shape_)
 {
+    assert(actor_);
+
     PxRigidActor *actor = (PxRigidActor *)actor_;
     PxShape *shape = (PxShape *)shape_;
     actor->detachShape(*shape);
@@ -259,6 +281,8 @@ extern "C" void mt_rigid_actor_detach_shape(MtRigidActor *actor_, MtPhysicsShape
 
 extern "C" uint32_t mt_rigid_actor_get_shape_count(MtRigidActor *actor_)
 {
+    assert(actor_);
+
     PxRigidActor *actor = (PxRigidActor *)actor_;
     return actor->getNbShapes();
 }
@@ -266,12 +290,16 @@ extern "C" uint32_t mt_rigid_actor_get_shape_count(MtRigidActor *actor_)
 extern "C" void mt_rigid_actor_get_shapes(
     MtRigidActor *actor_, MtPhysicsShape **out_shapes, uint32_t count, uint32_t start)
 {
+    assert(actor_);
+
     PxRigidActor *actor = (PxRigidActor *)actor_;
     actor->getShapes((PxShape **)out_shapes, count, start);
 }
 
 extern "C" MtPhysicsTransform mt_rigid_actor_get_transform(MtRigidActor *actor_)
 {
+    assert(actor_);
+
     PxRigidActor *actor = (PxRigidActor *)actor_;
     PxTransform px_transform = actor->getGlobalPose();
     MtPhysicsTransform transform;
@@ -291,6 +319,8 @@ extern "C" MtPhysicsTransform mt_rigid_actor_get_transform(MtRigidActor *actor_)
 extern "C" void
 mt_rigid_actor_set_transform(MtRigidActor *actor_, const MtPhysicsTransform *transform)
 {
+    assert(actor_);
+
     PxRigidActor *actor = (PxRigidActor *)actor_;
     actor->setGlobalPose(PxTransform{
         PxVec3{transform->pos.x, transform->pos.y, transform->pos.z},

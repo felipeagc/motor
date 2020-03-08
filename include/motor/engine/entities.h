@@ -20,11 +20,9 @@ typedef struct MtBufferReader MtBufferReader;
 
 typedef uint32_t MtEntity;
 typedef uint32_t MtComponentMask;
-typedef uint32_t MtComponentType;
 
 typedef void (*MtComponentInitializer)(MtEntityManager *, void *comp);
-typedef void (*MtComponentUninitializer)(MtEntityManager *, void *comp);
-typedef void (*MtComponentUnregisterer)(MtEntityManager *, void *comp);
+typedef void (*MtComponentUninitializer)(MtEntityManager *, void *comp, bool remove);
 typedef void (*MtEntitySerializer)(MtEntityManager *, MtBufferWriter *);
 typedef void (*MtEntityDeserializer)(MtEntityManager *, MtBufferReader *);
 
@@ -32,11 +30,8 @@ typedef struct MtComponentSpec
 {
     const char *name;
     uint32_t size;
-    MtComponentType type;
     MtComponentInitializer init;
     MtComponentUninitializer uninit;
-    MtComponentUnregisterer unregister; // Example usage: removing physics object from scene without
-                                        // deleting the physics object itself
 } MtComponentSpec;
 
 typedef struct MtEntityDescriptor

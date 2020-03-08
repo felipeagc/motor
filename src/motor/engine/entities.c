@@ -69,9 +69,12 @@ MtEntity mt_entity_manager_add_entity(MtEntityManager *em, MtComponentMask compo
         uint8_t *comp_data = em->components[c] + (em->component_specs[c].size * entity_index);
         memset(comp_data, 0, em->component_specs[c].size);
 
-        if (comp_spec->init)
+        if ((em->masks[entity_index] & (1 << c)) == (1 << c))
         {
-            comp_spec->init(em, comp_data);
+            if (comp_spec->init)
+            {
+                comp_spec->init(em, comp_data);
+            }
         }
     }
 
@@ -85,14 +88,9 @@ void mt_entity_manager_remove_entity(MtEntityManager *em, MtEntity entity)
         MtComponentSpec *comp_spec = &em->component_specs[c];
         uint8_t *comp_data = em->components[c];
 
-        if (comp_spec->unregister)
-        {
-            comp_spec->unregister(em, comp_data + (em->component_specs[c].size * entity));
-        }
-
         if (comp_spec->uninit)
         {
-            comp_spec->uninit(em, comp_data + (em->component_specs[c].size * entity));
+            comp_spec->uninit(em, comp_data + (em->component_specs[c].size * entity), true);
         }
 
         memcpy(

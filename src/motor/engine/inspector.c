@@ -47,9 +47,9 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
                 else
                 {
                     // Removed the component
-                    if (comp_spec->unregister)
+                    if (comp_spec->uninit)
                     {
-                        comp_spec->unregister(em, comp_data);
+                        comp_spec->uninit(em, comp_data, false);
                     }
                 }
             }
@@ -70,9 +70,9 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
         if (igCollapsingHeader(
                 comp_spec->name, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_FramePadding))
         {
-            switch (comp_spec->type)
+            switch (1 << c)
             {
-                case MT_COMPONENT_TYPE_TRANSFORM: {
+                case MT_COMP_BIT(MtDefaultComponents, transform): {
                     MtTransform *transforms = (MtTransform *)em->components[c];
                     MtTransform *transform = &transforms[em->selected_entity];
                     igDragFloat3("Position", transform->pos.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
@@ -80,7 +80,7 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
                     igDragFloat3("Scale", transform->scale.v, 0.1f, 0.0f, 0.0f, "%.3f", 1.0);
                     break;
                 }
-                case MT_COMPONENT_TYPE_RIGID_ACTOR: {
+                case MT_COMP_BIT(MtDefaultComponents, actor): {
                     MtRigidActor **actors = (MtRigidActor **)em->components[c];
                     MtRigidActor *actor = actors[em->selected_entity];
 
@@ -155,7 +155,7 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
 
                     break;
                 }
-                case MT_COMPONENT_TYPE_GLTF_MODEL: {
+                case MT_COMP_BIT(MtDefaultComponents, model): {
                     MtGltfAsset **gltf_assets = (MtGltfAsset **)em->components[c];
                     MtGltfAsset *gltf_asset = gltf_assets[em->selected_entity];
 
@@ -163,9 +163,7 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
                     igText(asset->path);
                     break;
                 }
-                case MT_COMPONENT_TYPE_UNKNOWN: {
-                    break;
-                }
+                default: break;
             }
         }
 
@@ -191,6 +189,10 @@ void mt_inspect_entities(MtEngine *engine, MtEntityManager *em)
 
     if (igBegin("Entities", NULL, window_flags))
     {
+        if (igButton("Add entity", (ImVec2){}))
+        {
+            mt_entity_manager_add_entity(em, 0);
+        }
         for (MtEntity e = 0; e < em->entity_count; ++e)
         {
             igPushIDInt(e);

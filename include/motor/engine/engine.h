@@ -23,6 +23,7 @@ typedef struct MtAssetManager MtAssetManager;
 typedef struct MtImguiContext MtImguiContext;
 typedef struct shaderc_compiler *shaderc_compiler_t;
 typedef struct MtPipelineAsset MtPipelineAsset;
+typedef struct MtGltfAsset MtGltfAsset;
 
 typedef struct MtEngine
 {
@@ -49,6 +50,8 @@ typedef struct MtEngine
     MtSampler *default_sampler;
 
     MtMesh sphere_mesh;
+
+    MtGltfAsset* default_cube;
 
     MtPipelineAsset *pbr_pipeline;
     MtPipelineAsset *wireframe_pipeline;

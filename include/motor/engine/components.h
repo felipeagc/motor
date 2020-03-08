@@ -13,14 +13,6 @@ extern "C" {
 typedef struct MtGltfAsset MtGltfAsset;
 typedef struct MtRigidActor MtRigidActor;
 
-enum {
-    MT_COMPONENT_TYPE_UNKNOWN = 0,
-    MT_COMPONENT_TYPE_TRANSFORM = 1,
-    MT_COMPONENT_TYPE_POINT_LIGHT = 2,
-    MT_COMPONENT_TYPE_RIGID_ACTOR = 3,
-    MT_COMPONENT_TYPE_GLTF_MODEL = 4,
-};
-
 typedef struct MtPointLightComponent
 {
     Vec3 color;
