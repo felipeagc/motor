@@ -126,7 +126,7 @@ void mt_engine_init(MtEngine *engine)
     engine->picker = mt_picker_create(engine);
 
     engine->asset_manager = mt_alloc(engine->alloc, sizeof(*engine->asset_manager));
-    mt_asset_manager_init(engine->asset_manager, engine);
+    mt_asset_manager_init(engine->asset_manager, NULL, engine);
 
     MtAssetManager *am = engine->asset_manager;
     mt_asset_manager_queue_load(

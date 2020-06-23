@@ -51,7 +51,7 @@ typedef struct MtEngine
 
     MtMesh sphere_mesh;
 
-    MtGltfAsset* default_cube;
+    MtGltfAsset *default_cube;
 
     MtPipelineAsset *pbr_pipeline;
     MtPipelineAsset *wireframe_pipeline;
@@ -63,6 +63,8 @@ typedef struct MtEngine
     MtPipelineAsset *imgui_pipeline;
     MtPipelineAsset *picking_pipeline;
     MtPipelineAsset *picking_transfer_pipeline;
+
+    bool playing;
 
     MtIScene current_scene;
 } MtEngine;

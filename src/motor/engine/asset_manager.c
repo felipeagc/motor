@@ -27,11 +27,12 @@ static void register_asset_type(MtAssetManager *am, MtAssetVT *vt)
     }
 }
 
-void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine)
+void mt_asset_manager_init(MtAssetManager *am, MtAssetManager *parent, MtEngine *engine)
 {
     memset(am, 0, sizeof(*am));
     am->engine = engine;
     am->alloc = engine->alloc;
+    am->parent = parent;
 
     mt_mutex_init(&am->mutex);
 
@@ -154,11 +155,53 @@ void mt_asset_manager_queue_load(MtAssetManager *am, const char *path, MtAsset *
 
 MtAsset *mt_asset_manager_get(MtAssetManager *am, const char *path)
 {
+    if (am->parent)
+    {
+        MtAsset *asset = mt_asset_manager_get(am->parent, path);
+        if (asset)
+        {
+            return asset;
+        }
+    }
+
     uint64_t path_hash = mt_hash_str(path);
     mt_mutex_lock(&am->mutex);
     MtAsset *asset = mt_hash_get_ptr(&am->asset_map, path_hash);
     mt_mutex_unlock(&am->mutex);
     return asset;
+}
+
+static void asset_manager_get_all_internal(
+    MtAssetManager *am, MtAssetVT *type, uint32_t *count, MtAsset **assets)
+{
+    if (am->parent)
+    {
+        mt_asset_manager_get_all(am->parent, type, count, assets);
+    }
+
+    mt_mutex_lock(&am->mutex);
+    for (MtAsset **asset = am->assets; asset != am->assets + mt_array_size(am->assets); ++asset)
+    {
+        if ((*asset)->vt == type)
+        {
+            if (assets)
+            {
+                assets[*count] = *asset;
+            }
+            if (count) *count += 1;
+        }
+    }
+    mt_mutex_unlock(&am->mutex);
+}
+
+MT_ENGINE_API void
+mt_asset_manager_get_all(MtAssetManager *am, MtAssetVT *type, uint32_t *count, MtAsset **assets)
+{
+    if (count)
+    {
+        *count = 0;
+    }
+    asset_manager_get_all_internal(am, type, count, assets);
 }
 
 void mt_asset_manager_destroy(MtAssetManager *am)

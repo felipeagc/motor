@@ -2,6 +2,7 @@
 
 #include <float.h>
 #include <stdio.h>
+#include <motor/base/allocator.h>
 #include <motor/base/math.h>
 #include <motor/graphics/window.h>
 #include <motor/engine/engine.h>
@@ -11,6 +12,7 @@
 #include <motor/engine/transform.h>
 #include <motor/engine/physics.h>
 #include <motor/engine/asset_manager.h>
+#include <motor/engine/assets/gltf_asset.h>
 
 static void inspect_components(MtEngine *engine, MtEntityManager *em)
 {
@@ -82,11 +84,35 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
                 }
                 case MT_COMP_BIT(MtDefaultComponents, actor): {
                     MtRigidActor **actors = (MtRigidActor **)em->components[c];
-                    MtRigidActor *actor = actors[em->selected_entity];
+                    MtRigidActor **actor = &actors[em->selected_entity];
 
-                    uint32_t shape_count = mt_rigid_actor_get_shape_count(actor);
+                    MtRigidActorType actor_type = mt_rigid_actor_get_type(*actor);
+
+                    if (igRadioButtonBool("Dynamic", actor_type == MT_RIGID_ACTOR_DYNAMIC))
+                    {
+                        if (actor_type != MT_RIGID_ACTOR_DYNAMIC)
+                        {
+                            comp_spec->uninit(em, actor, true);
+                            *actor = mt_rigid_actor_create(
+                                em->scene->engine->physics, MT_RIGID_ACTOR_DYNAMIC);
+                            comp_spec->init(em, actor);
+                        }
+                    }
+
+                    if (igRadioButtonBool("Static", actor_type == MT_RIGID_ACTOR_STATIC))
+                    {
+                        if (actor_type != MT_RIGID_ACTOR_STATIC)
+                        {
+                            comp_spec->uninit(em, actor, true);
+                            *actor = mt_rigid_actor_create(
+                                em->scene->engine->physics, MT_RIGID_ACTOR_STATIC);
+                            comp_spec->init(em, actor);
+                        }
+                    }
+
+                    uint32_t shape_count = mt_rigid_actor_get_shape_count(*actor);
                     MtPhysicsShape *shapes[32];
-                    mt_rigid_actor_get_shapes(actor, shapes, shape_count, 0);
+                    mt_rigid_actor_get_shapes(*actor, shapes, shape_count, 0);
 
                     for (uint32_t i = 0; i < shape_count; ++i)
                     {
@@ -116,7 +142,7 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
 
                         if (igButton("Remove", (ImVec2){}))
                         {
-                            mt_rigid_actor_detach_shape(actor, shape);
+                            mt_rigid_actor_detach_shape(*actor, shape);
                         }
 
                         igEndGroup();
@@ -146,7 +172,7 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
                         if (igButton("Add", (ImVec2){}))
                         {
                             MtPhysicsShape *shape = mt_physics_shape_create(engine->physics, type);
-                            mt_rigid_actor_attach_shape(actor, shape);
+                            mt_rigid_actor_attach_shape(*actor, shape);
                             type = 0;
                             igCloseCurrentPopup();
                         }
@@ -157,10 +183,32 @@ static void inspect_components(MtEngine *engine, MtEntityManager *em)
                 }
                 case MT_COMP_BIT(MtDefaultComponents, model): {
                     MtGltfAsset **gltf_assets = (MtGltfAsset **)em->components[c];
-                    MtGltfAsset *gltf_asset = gltf_assets[em->selected_entity];
+                    MtAsset **current_asset = (MtAsset **)&gltf_assets[em->selected_entity];
 
-                    MtAsset *asset = (MtAsset *)gltf_asset;
-                    igText(asset->path);
+                    MtScene *scene = em->scene;
+                    MtAssetManager *am = scene->asset_manager;
+
+                    if (igBeginCombo("Asset", (*current_asset)->path, 0))
+                    {
+                        uint32_t asset_count = 0;
+                        mt_asset_manager_get_all(am, mt_gltf_asset_vt, &asset_count, NULL);
+                        MtAsset **assets = mt_alloc(em->alloc, sizeof(MtAsset *) * asset_count);
+                        mt_asset_manager_get_all(am, mt_gltf_asset_vt, &asset_count, assets);
+
+                        for (uint32_t i = 0; i < asset_count; ++i)
+                        {
+                            if (igSelectable(
+                                    assets[i]->path, (*current_asset) == assets[i], 0, (ImVec2){0}))
+                            {
+                                *current_asset = assets[i];
+                            }
+                        }
+
+                        mt_free(em->alloc, assets);
+
+                        igEndCombo();
+                    }
+
                     break;
                 }
                 default: break;

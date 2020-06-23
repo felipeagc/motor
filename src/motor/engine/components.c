@@ -77,6 +77,7 @@ static void rigid_actor_uninit(MtEntityManager *em, void *comp, bool remove)
     if (remove)
     {
         mt_rigid_actor_destroy(*actor);
+        *actor = NULL;
     }
 }
 
@@ -157,23 +158,30 @@ static void default_entity_serialize(MtEntityManager *em, MtBufferWriter *bw)
                                 mt_serialize_map(bw, 4);
 
                                 mt_serialize_string(bw, "type");
-                                mt_serialize_uint32(bw, mt_physics_shape_get_type(shape));
+                                mt_serialize_uint32(bw, shape_type);
 
                                 mt_serialize_string(bw, "radius");
-                                mt_serialize_float32(bw, mt_physics_shape_get_type(shape));
+                                mt_serialize_float32(bw, mt_physics_shape_get_radius(shape));
 
                                 mt_serialize_string(bw, "pos");
                                 mt_serialize_vec3(bw, &shape_transform.pos);
 
                                 mt_serialize_string(bw, "rot");
+                                mt_log(
+                                    "Write quat %f %f %f %f",
+                                    shape_transform.rot.x,
+                                    shape_transform.rot.y,
+                                    shape_transform.rot.z,
+                                    shape_transform.rot.w);
                                 mt_serialize_quat(bw, &shape_transform.rot);
+
                                 break;
                             }
                             case MT_PHYSICS_SHAPE_PLANE: {
                                 mt_serialize_map(bw, 3);
 
                                 mt_serialize_string(bw, "type");
-                                mt_serialize_uint32(bw, mt_physics_shape_get_type(shape));
+                                mt_serialize_uint32(bw, shape_type);
 
                                 mt_serialize_string(bw, "pos");
                                 mt_serialize_vec3(bw, &shape_transform.pos);
@@ -339,6 +347,12 @@ static void default_entity_deserialize(MtEntityManager *em, MtBufferReader *br)
                                     {
                                         CHECK(mt_deserialize_value(
                                             br, MT_SERIALIZE_TYPE_QUAT, &shape_rot));
+                                        mt_log(
+                                            "Loading rot: %f %f %f %f",
+                                            shape_rot.quat.x,
+                                            shape_rot.quat.y,
+                                            shape_rot.quat.z,
+                                            shape_rot.quat.w);
                                     }
                                 }
 
@@ -347,20 +361,20 @@ static void default_entity_deserialize(MtEntityManager *em, MtBufferReader *br)
                                 MtPhysicsShape *shape = mt_physics_shape_create(
                                     em->scene->engine->physics, shape_type.uint32);
 
-                                if (shape_radius.type > 0 &&
-                                    shape_type.type == MT_PHYSICS_SHAPE_SPHERE)
+                                if (shape_radius.type == MT_SERIALIZE_TYPE_FLOAT32 &&
+                                    shape_type.uint32 == MT_PHYSICS_SHAPE_SPHERE)
                                 {
                                     mt_physics_shape_set_radius(shape, shape_radius.f32);
                                 }
 
                                 MtPhysicsTransform physics_transform = {0};
 
-                                if (shape_pos.type > 0)
+                                if (shape_pos.type == MT_SERIALIZE_TYPE_VEC3)
                                 {
                                     physics_transform.pos = shape_pos.vec3;
                                 }
 
-                                if (shape_rot.type > 0)
+                                if (shape_rot.type == MT_SERIALIZE_TYPE_QUAT)
                                 {
                                     physics_transform.rot = shape_rot.quat;
                                 }

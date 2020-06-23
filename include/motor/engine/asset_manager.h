@@ -37,6 +37,8 @@ typedef struct MtAssetManager
 {
     MtEngine *engine;
     MtAllocator *alloc;
+    MtAssetManager *parent;
+
     /*array*/ MtAssetVT **asset_types;
     MtHashMap asset_type_map;
 
@@ -46,7 +48,8 @@ typedef struct MtAssetManager
     MtMutex mutex;
 } MtAssetManager;
 
-MT_ENGINE_API void mt_asset_manager_init(MtAssetManager *am, MtEngine *engine);
+MT_ENGINE_API void
+mt_asset_manager_init(MtAssetManager *am, MtAssetManager *parent, MtEngine *engine);
 
 MT_ENGINE_API MtAsset *mt_asset_manager_load(MtAssetManager *am, const char *path);
 
@@ -56,6 +59,9 @@ MT_ENGINE_API void
 mt_asset_manager_queue_load(MtAssetManager *am, const char *path, MtAsset **out_asset);
 
 MT_ENGINE_API MtAsset *mt_asset_manager_get(MtAssetManager *am, const char *path);
+
+MT_ENGINE_API void
+mt_asset_manager_get_all(MtAssetManager *am, MtAssetVT *type, uint32_t *count, MtAsset **assets);
 
 MT_ENGINE_API void mt_asset_manager_destroy(MtAssetManager *am);
 

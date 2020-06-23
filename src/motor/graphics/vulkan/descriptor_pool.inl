@@ -87,9 +87,6 @@ descriptor_pool_init(MtDevice *dev, DescriptorPool *p, PipelineLayout *layout, u
             .pDescriptorUpdateEntries   = entries,
             .templateType               = VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET,
             .descriptorSetLayout        = p->set_layout,
-            .pipelineBindPoint          = layout->bind_point,
-            .pipelineLayout             = layout->layout,
-            .set                        = set_index,
         };
 
         vkCreateDescriptorUpdateTemplate(dev->device, &template_info, NULL, &p->update_template);

@@ -20,7 +20,7 @@ void mt_scene_init(MtScene *scene, MtEngine *engine)
     scene->entity_manager = mt_alloc(alloc, sizeof(*scene->entity_manager));
 
     scene->physics_scene = mt_physics_scene_create(engine->physics);
-    mt_asset_manager_init(scene->asset_manager, engine);
+    mt_asset_manager_init(scene->asset_manager, engine->asset_manager, engine);
     mt_entity_manager_init(scene->entity_manager, alloc, scene, &mt_default_entity_descriptor);
 
     mt_perspective_camera_init(&scene->cam);

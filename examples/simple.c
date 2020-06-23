@@ -123,6 +123,11 @@ static void game_draw_ui(MtScene *scene, float delta)
         igText("Delta: %.4f ms", delta);
         igText("FPS  : %.0f", 1.0f / delta);
 
+        if (igButton("Toggle playing", (ImVec2){}))
+        {
+            scene->engine->playing = !scene->engine->playing;
+        }
+
         if (igButton("Save", (ImVec2){}))
         {
             MtBufferWriter bw;
@@ -176,9 +181,12 @@ static void game_update(MtScene *scene, float delta)
 
     mt_light_system(em, scene, delta);
 
-    mt_pre_physics_sync_system(em);
-    mt_physics_scene_step(scene->physics_scene, delta);
-    mt_post_physics_sync_system(em);
+    if (scene->engine->playing)
+    {
+        mt_pre_physics_sync_system(em);
+        mt_physics_scene_step(scene->physics_scene, delta);
+        mt_post_physics_sync_system(em);
+    }
 
     {
         MtCmdBuffer *cb = mt_render.pass_begin(scene->graph, "color_pass");
